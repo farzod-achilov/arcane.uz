@@ -1,6 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
-     viewBox="100 80 824 860" role="img" aria-label="Arcane Coin">
-  <title>Arcane Coin</title>
-  <image href="logo_coin.png" x="0" y="0" width="1024" height="1536"
-         preserveAspectRatio="xMidYMid meet"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-label="Arcane Coin" role="img" viewBox="100 80 824 860"><title>Arcane Coin</title><image width="1024" height="1536" x="0" y="0" href="logo_coin.png" preserveAspectRatio="xMidYMid meet"/></svg>
