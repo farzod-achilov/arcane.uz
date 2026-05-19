@@ -1,0 +1,54 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <title>ARCANE.UZ</title>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B0764"/>
+      <stop offset="50%" stop-color="#7C3AED"/>
+      <stop offset="100%" stop-color="#06B6D4"/>
+    </linearGradient>
+    <filter id="pixelGlow">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background: dark arcade cabinet colour -->
+  <rect width="100" height="100" rx="8" fill="url(#bg)"/>
+  <!-- Subtle inner border like a CRT bezel -->
+  <rect x="3" y="3" width="94" height="94" rx="6" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1.5"/>
+
+  <!--
+    Pixel-art A — 7×7 grid, pixel=11, gap=1 (step=12), origin (8,8)
+    Grid:
+      Row 0 (y=8):  . . X X X . .   cols 2,3,4
+      Row 1 (y=20): . X . . . X .   cols 1,5
+      Row 2 (y=32): . X . . . X .   cols 1,5
+      Row 3 (y=44): . X X X X X .   cols 1–5 (crossbar)
+      Row 4 (y=56): X X . . . X X   cols 0,1 + 5,6
+      Row 5 (y=68): X . . . . . X   cols 0,6
+      Row 6 (y=80): X . . . . . X   cols 0,6
+  -->
+  <g fill="white" filter="url(#pixelGlow)">
+    <!-- Row 0 -->
+    <rect x="32" y="8"  width="11" height="11"/>
+    <rect x="44" y="8"  width="11" height="11"/>
+    <rect x="56" y="8"  width="11" height="11"/>
+    <!-- Row 1 -->
+    <rect x="20" y="20" width="11" height="11"/>
+    <rect x="68" y="20" width="11" height="11"/>
+    <!-- Row 2 -->
+    <rect x="20" y="32" width="11" height="11"/>
+    <rect x="68" y="32" width="11" height="11"/>
+    <!-- Row 3 crossbar (cols 1–5 continuous) -->
+    <rect x="20" y="44" width="59" height="11"/>
+    <!-- Row 4 (cols 0+1 and 5+6) -->
+    <rect x="8"  y="56" width="23" height="11"/>
+    <rect x="68" y="56" width="23" height="11"/>
+    <!-- Row 5 -->
+    <rect x="8"  y="68" width="11" height="11"/>
+    <rect x="80" y="68" width="11" height="11"/>
+    <!-- Row 6 -->
+    <rect x="8"  y="80" width="11" height="11"/>
+    <rect x="80" y="80" width="11" height="11"/>
+  </g>
+</svg>
