@@ -3,7 +3,7 @@
 import { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { Bell, ShoppingBag, Zap, Heart, Star, AlertCircle, Check, X } from 'lucide-react';
+import { Bell, ShoppingBag, Zap, Heart, Star, AlertCircle, Clock, Check, X } from 'lucide-react';
 import { useUser } from '@/lib/userContext';
 import type { NotifType } from '@/lib/mockUserData';
 
@@ -16,12 +16,13 @@ function relativeTime(ts: number) {
 }
 
 const NOTIF_ICONS: Record<NotifType, { icon: typeof Bell; color: string }> = {
-  order:   { icon: ShoppingBag, color: '#22C55E' },
-  coins:   { icon: Zap,         color: '#F59E0B' },
-  wishlist:{ icon: Heart,       color: '#EF4444' },
-  event:   { icon: Star,        color: '#9D60FA' },
-  level:   { icon: AlertCircle, color: '#06B6D4' },
-  system:  { icon: Bell,        color: '#6B7280' },
+  order:    { icon: ShoppingBag, color: '#22C55E' },
+  coins:    { icon: Zap,         color: '#F59E0B' },
+  wishlist: { icon: Heart,       color: '#EF4444' },
+  event:    { icon: Star,        color: '#9D60FA' },
+  level:    { icon: AlertCircle, color: '#06B6D4' },
+  system:   { icon: Bell,        color: '#6B7280' },
+  preorder: { icon: Clock,       color: '#F59E0B' },
 };
 
 interface Props {

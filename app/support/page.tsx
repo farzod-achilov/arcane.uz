@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import { Send, Clock, Shield, MessageCircle } from 'lucide-react';
 

@@ -15,6 +15,8 @@
  *   });
  */
 
+export const dynamic = 'force-dynamic';
+
 import { sendTelegramNotif } from '@/lib/telegramService';
 
 export async function POST(req: Request): Promise<Response> {

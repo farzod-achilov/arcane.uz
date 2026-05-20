@@ -4,6 +4,8 @@
  * Requests a linking token from the bot service and returns the link.
  */
 
+export const dynamic = 'force-dynamic';
+
 import { requestTelegramToken } from '@/lib/telegramService';
 
 export async function POST(req: Request): Promise<Response> {

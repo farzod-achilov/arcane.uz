@@ -1,10 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import { Space_Grotesk, Inter, Press_Start_2P } from 'next/font/google';
 import './globals.css';
-import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
 import InitialLoader from '@/components/ui/loaders/InitialLoader';
 import Providers from '@/app/providers';
+import ConditionalLayout from '@/app/ConditionalLayout';
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
@@ -50,9 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-[#0A0A0F] text-white font-body antialiased">
         <Providers>
           <InitialLoader />
-          <Navbar />
-          <main className="page-enter">{children}</main>
-          <Footer />
+          <ConditionalLayout>{children}</ConditionalLayout>
         </Providers>
       </body>
     </html>

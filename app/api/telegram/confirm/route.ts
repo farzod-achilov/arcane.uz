@@ -7,6 +7,8 @@
  * For the demo we just return 200 — the bot already has the mapping in memory.
  */
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request): Promise<Response> {
   const secret = req.headers.get('x-api-secret');
   if (secret !== (process.env.TELEGRAM_API_SECRET ?? 'dev-secret')) {
