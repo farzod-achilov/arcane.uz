@@ -1,15 +1,150 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import {
   Search, Clock, Check, RefreshCw, Truck,
-  TrendingDown, X, ChevronDown, Send,
+  TrendingDown, X, ChevronDown, Send, Key,
+  Package, AlertCircle,
 } from 'lucide-react';
 import { ADMIN_ORDERS } from '@/lib/admin/mockAdminData';
 import { formatPrice } from '@/lib/utils';
 import type { OrderStatus } from '@/lib/admin/adminTypes';
+import type { ArcaneOrder } from '@/lib/orders';
+
+/* ── Key Delivery Modal ──────────────────────────────── */
+function DeliverKeyModal({
+  order,
+  onClose,
+  onSent,
+}: {
+  order: ArcaneOrder;
+  onClose: () => void;
+  onSent: (orderId: string) => void;
+}) {
+  const [key, setKey]       = useState('');
+  const [sending, setSending] = useState(false);
+  const [result, setResult]   = useState<{ ok: boolean; method?: string } | null>(null);
+
+  const send = useCallback(async () => {
+    if (!key.trim()) return;
+    setSending(true);
+    try {
+      const res = await fetch(`/api/orders/${order.id}/deliver`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: key.trim() }),
+      });
+      const data = await res.json();
+      setResult(data);
+      if (data.ok) onSent(order.id);
+    } catch {
+      setResult({ ok: false });
+    } finally {
+      setSending(false);
+    }
+  }, [key, order.id, onSent]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ zIndex: 9999, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95, y: 12 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95 }}
+        onClick={e => e.stopPropagation()}
+        className="w-full max-w-md rounded-2xl overflow-hidden"
+        style={{ background: '#0E0E1A', border: '1px solid rgba(124,58,237,0.3)', boxShadow: '0 24px 80px rgba(0,0,0,0.7)' }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.25)' }}>
+              <Key style={{ width: '14px', height: '14px', color: '#7C3AED' }} />
+            </div>
+            <div>
+              <p className="font-heading font-bold text-white" style={{ fontSize: '14px' }}>Отправить ключ</p>
+              <p className="font-body text-[#4B5563]" style={{ fontSize: '11px' }}>{order.productTitle}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-[#374151] hover:text-white transition-colors">
+            <X style={{ width: '16px', height: '16px' }} />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Customer info */}
+          <div className="rounded-xl p-3.5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <p className="font-body text-[#6B7280] mb-2" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Покупатель</p>
+            <p className="font-body text-white" style={{ fontSize: '13px' }}>{order.customerName}</p>
+            <p className="font-body text-[#4B5563]" style={{ fontSize: '11px' }}>{order.customerEmail}</p>
+            {order.customerTelegram && (
+              <p className="font-body text-[#06B6D4]" style={{ fontSize: '11px' }}>{order.customerTelegram}</p>
+            )}
+          </div>
+
+          {/* Key input */}
+          {!result ? (
+            <>
+              <div>
+                <label className="font-body text-[#6B7280] mb-2 block" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Игровой ключ
+                </label>
+                <input
+                  value={key}
+                  onChange={e => setKey(e.target.value)}
+                  placeholder="XXXXX-XXXXX-XXXXX"
+                  className="w-full rounded-xl px-4 py-3 text-white font-pixel outline-none placeholder:text-[#1F2937] placeholder:font-body"
+                  style={{ background: '#09090E', border: '1px solid rgba(124,58,237,0.3)', fontSize: '13px', letterSpacing: '0.06em' }}
+                />
+              </div>
+              <button
+                onClick={send}
+                disabled={!key.trim() || sending}
+                className="w-full rounded-xl py-3 font-heading font-semibold text-white flex items-center justify-center gap-2 transition-all disabled:opacity-40"
+                style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', fontSize: '14px', boxShadow: '0 0 20px rgba(124,58,237,0.35)' }}
+              >
+                {sending ? <RefreshCw style={{ width: '14px', height: '14px', animation: 'spin 1s linear infinite' }} /> : <Send style={{ width: '14px', height: '14px' }} />}
+                {sending ? 'Отправляем...' : 'Отправить покупателю'}
+              </button>
+            </>
+          ) : (
+            <div className="text-center py-4">
+              {result.ok ? (
+                <>
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)' }}>
+                    <Check style={{ width: '20px', height: '20px', color: '#22C55E' }} />
+                  </div>
+                  <p className="font-heading font-bold text-white mb-1" style={{ fontSize: '15px' }}>Ключ отправлен!</p>
+                  <p className="font-body text-[#4B5563]" style={{ fontSize: '12px' }}>
+                    {result.method === 'telegram_admin_forward'
+                      ? 'Детали в Telegram — перешли покупателю'
+                      : 'Отправь ключ покупателю по email'}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <AlertCircle style={{ width: '32px', height: '32px', color: '#EF4444', margin: '0 auto 12px' }} />
+                  <p className="font-body text-[#EF4444]" style={{ fontSize: '13px' }}>Ошибка отправки</p>
+                </>
+              )}
+              <button onClick={onClose} className="mt-4 font-body text-[#7C3AED] hover:text-[#9D60FA] transition-colors" style={{ fontSize: '13px' }}>
+                Закрыть
+              </button>
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
 
 const STATUS_CFG: Record<OrderStatus, { label: string; color: string; bg: string; border: string; icon: React.ElementType }> = {
   pending:    { label: 'Ожидание',  color: '#F59E0B', bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.22)',  icon: Clock        },
@@ -23,9 +158,19 @@ const STATUS_CFG: Record<OrderStatus, { label: string; color: string; bg: string
 const ALL_STATUSES: OrderStatus[] = ['pending', 'paid', 'processing', 'delivered', 'completed', 'refunded'];
 
 export default function AdminOrdersPage() {
-  const [search, setSearch]   = useState('');
-  const [tab, setTab]         = useState<OrderStatus | 'all'>('all');
-  const [orders, setOrders]   = useState(ADMIN_ORDERS);
+  const [search, setSearch]       = useState('');
+  const [tab, setTab]             = useState<OrderStatus | 'all'>('all');
+  const [orders, setOrders]       = useState(ADMIN_ORDERS);
+  const [deliverOrder, setDeliver] = useState<ArcaneOrder | null>(null);
+  const [liveOrders, setLiveOrders] = useState<ArcaneOrder[]>([]);
+
+  // Fetch real orders from API (placed via checkout)
+  useEffect(() => {
+    fetch('/api/orders')
+      .then(r => r.json())
+      .then(d => setLiveOrders(d.orders ?? []))
+      .catch(() => {});
+  }, []);
 
   const filtered = useMemo(() => {
     let list = orders;
@@ -53,6 +198,76 @@ export default function AdminOrdersPage() {
 
   return (
     <div className="p-6">
+      {/* ── Live orders from checkout ── */}
+      <AnimatePresence>
+        {liveOrders.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-5 rounded-2xl overflow-hidden"
+            style={{ background: '#0D0D1A', border: '1px solid rgba(6,182,212,0.2)' }}
+          >
+            <div className="flex items-center gap-2 px-5 py-3.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+              <Package style={{ width: '14px', height: '14px', color: '#06B6D4' }} />
+              <span className="font-heading font-semibold text-white" style={{ fontSize: '13px' }}>
+                Новые заказы с сайта
+              </span>
+              <span className="font-pixel rounded-full px-2 py-0.5 ml-auto" style={{ fontSize: '7px', background: 'rgba(6,182,212,0.12)', color: '#06B6D4', border: '1px solid rgba(6,182,212,0.25)' }}>
+                {liveOrders.length} НОВЫХ
+              </span>
+            </div>
+            <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+              {liveOrders.map(lo => (
+                <div key={lo.id} className="flex items-center gap-4 px-5 py-3.5">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-body text-white" style={{ fontSize: '13px' }}>{lo.productTitle}</p>
+                    <p className="font-body text-[#4B5563]" style={{ fontSize: '11px' }}>
+                      {lo.customerName} · {lo.customerEmail}
+                      {lo.customerTelegram && ` · ${lo.customerTelegram}`}
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="font-heading font-bold text-[#22C55E]" style={{ fontSize: '14px' }}>
+                      {new Intl.NumberFormat('uz-UZ').format(lo.price)} сум
+                    </p>
+                    <p className="font-pixel text-[#374151]" style={{ fontSize: '7px' }}>{lo.id}</p>
+                  </div>
+                  {lo.status !== 'delivered' && (
+                    <button
+                      onClick={() => setDeliver(lo)}
+                      className="flex items-center gap-1.5 rounded-xl px-3.5 py-2 font-heading font-semibold text-white flex-shrink-0 transition-all hover:scale-105"
+                      style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', fontSize: '12px', boxShadow: '0 0 14px rgba(124,58,237,0.3)' }}
+                    >
+                      <Key style={{ width: '12px', height: '12px' }} />
+                      Отправить ключ
+                    </button>
+                  )}
+                  {lo.status === 'delivered' && (
+                    <span className="font-pixel rounded-lg px-2 py-1" style={{ fontSize: '7px', color: '#22C55E', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)' }}>
+                      ДОСТАВЛЕН
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Deliver Key Modal */}
+      <AnimatePresence>
+        {deliverOrder && (
+          <DeliverKeyModal
+            order={deliverOrder}
+            onClose={() => setDeliver(null)}
+            onSent={(id) => {
+              setLiveOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'delivered' } : o));
+              setTimeout(() => setDeliver(null), 2000);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
         <p className="font-pixel mb-1" style={{ fontSize: '8px', color: '#22C55E', letterSpacing: '0.14em' }}>УПРАВЛЕНИЕ</p>

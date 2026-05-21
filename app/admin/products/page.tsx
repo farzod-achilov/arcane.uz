@@ -1,15 +1,198 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import {
   Search, Plus, Star, Zap, Check, X, Eye, EyeOff,
-  ChevronDown, Filter, ToggleLeft, ToggleRight, Edit2,
+  ChevronDown, Filter, Edit2, RefreshCw, Wifi, WifiOff,
+  AlertCircle, CheckCircle2, Clock,
 } from 'lucide-react';
 import { ADMIN_PRODUCTS } from '@/lib/admin/mockAdminData';
 import { formatPrice } from '@/lib/utils';
 import type { AdminProduct } from '@/lib/admin/adminTypes';
+
+/* ── Digiseller Sync Panel ──────────────────────────────── */
+interface SyncState {
+  status: 'idle' | 'syncing' | 'success' | 'error' | 'disabled';
+  synced?: number;
+  durationMs?: number;
+  timestamp?: string;
+  error?: string;
+  enabled?: boolean;
+}
+
+function DigisellerSyncPanel() {
+  const [sync, setSync] = useState<SyncState>({ status: 'idle' });
+
+  const checkStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/digiseller/sync');
+      const data = await res.json();
+      if (!data.enabled) {
+        setSync({ status: 'disabled', enabled: false });
+        return;
+      }
+      if (data.lastSync) {
+        setSync({
+          status: 'success',
+          enabled: true,
+          synced: data.lastSync.synced,
+          durationMs: data.lastSync.durationMs,
+          timestamp: data.lastSync.timestamp,
+        });
+      } else {
+        setSync({ status: 'idle', enabled: true });
+      }
+    } catch {
+      setSync({ status: 'idle', enabled: false });
+    }
+  }, []);
+
+  const triggerSync = useCallback(async () => {
+    setSync(s => ({ ...s, status: 'syncing' }));
+    try {
+      const res = await fetch('/api/digiseller/sync', { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) {
+        setSync({
+          status: 'success',
+          enabled: true,
+          synced: data.result?.synced ?? 0,
+          durationMs: data.result?.durationMs ?? 0,
+          timestamp: data.result?.timestamp,
+        });
+      } else {
+        setSync({ status: 'error', error: data.error ?? 'Sync failed', enabled: true });
+      }
+    } catch (err) {
+      setSync({ status: 'error', error: 'Network error', enabled: true });
+    }
+  }, []);
+
+  // Load status on mount
+  useState(() => { checkStatus(); });
+
+  const isDisabled = sync.status === 'disabled' || sync.enabled === false;
+  const isSyncing  = sync.status === 'syncing';
+
+  const statusColor = {
+    idle:     '#6B7280',
+    syncing:  '#7C3AED',
+    success:  '#22C55E',
+    error:    '#EF4444',
+    disabled: '#1F2937',
+  }[sync.status];
+
+  const StatusIcon = {
+    idle:     Wifi,
+    syncing:  RefreshCw,
+    success:  CheckCircle2,
+    error:    AlertCircle,
+    disabled: WifiOff,
+  }[sync.status];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.15 }}
+      className="rounded-2xl p-4 mb-5"
+      style={{
+        background: '#0D0D1A',
+        border: `1px solid ${statusColor}20`,
+        boxShadow: isDisabled ? 'none' : `0 0 24px ${statusColor}08`,
+      }}
+    >
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        {/* Left: status */}
+        <div className="flex items-center gap-3">
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: `${statusColor}12`, border: `1px solid ${statusColor}22` }}
+          >
+            <StatusIcon
+              style={{
+                width: '16px',
+                height: '16px',
+                color: statusColor,
+                animation: isSyncing ? 'spin 1s linear infinite' : undefined,
+              }}
+            />
+          </div>
+          <div>
+            <p className="font-heading font-semibold text-white" style={{ fontSize: '13px' }}>
+              Digiseller Sync
+            </p>
+            <p className="font-body text-[#4B5563]" style={{ fontSize: '11px' }}>
+              {isDisabled && 'Не настроен — добавьте DIGISELLER_SELLER_ID в .env.local'}
+              {sync.status === 'idle' && sync.enabled && 'Готов к синхронизации'}
+              {sync.status === 'syncing' && 'Синхронизация продуктов…'}
+              {sync.status === 'success' && `Синхронизировано ${sync.synced} продуктов за ${sync.durationMs}ms`}
+              {sync.status === 'error' && `Ошибка: ${sync.error}`}
+            </p>
+          </div>
+        </div>
+
+        {/* Right: timestamp + button */}
+        <div className="flex items-center gap-3">
+          {sync.timestamp && (
+            <div className="flex items-center gap-1.5">
+              <Clock style={{ width: '11px', height: '11px', color: '#374151' }} />
+              <span className="font-body text-[#374151]" style={{ fontSize: '10.5px' }}>
+                {new Date(sync.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          )}
+          <button
+            onClick={triggerSync}
+            disabled={isSyncing || isDisabled}
+            className="flex items-center gap-2 rounded-xl px-4 py-2 font-heading font-semibold text-white transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{
+              background: isDisabled
+                ? 'rgba(255,255,255,0.04)'
+                : isSyncing
+                ? 'rgba(124,58,237,0.15)'
+                : 'linear-gradient(135deg, #7C3AED, #5B21B6)',
+              border: isDisabled ? '1px solid rgba(255,255,255,0.07)' : undefined,
+              fontSize: '12px',
+              boxShadow: isSyncing || isDisabled ? 'none' : '0 0 14px rgba(124,58,237,0.3)',
+            }}
+          >
+            <RefreshCw
+              style={{
+                width: '13px',
+                height: '13px',
+                animation: isSyncing ? 'spin 1s linear infinite' : undefined,
+              }}
+            />
+            {isSyncing ? 'Синхронизация…' : 'Синхронизировать'}
+          </button>
+        </div>
+      </div>
+
+      {/* Digiseller source badge */}
+      {!isDisabled && (
+        <div className="mt-3 pt-3 flex items-center gap-4" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          <div className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full" style={{ background: sync.enabled ? '#22C55E' : '#374151' }} />
+            <span className="font-body text-[#374151]" style={{ fontSize: '10px' }}>
+              Источник: {sync.enabled ? 'Digiseller API' : 'Mock Data'}
+            </span>
+          </div>
+          <span className="font-body text-[#1F2937]" style={{ fontSize: '10px' }}>·</span>
+          <span className="font-body text-[#1F2937]" style={{ fontSize: '10px' }}>
+            Кэш: 5 мин
+          </span>
+          <span className="font-body text-[#1F2937]" style={{ fontSize: '10px' }}>·</span>
+          <span className="font-body text-[#1F2937]" style={{ fontSize: '10px' }}>
+            Автосинк: по запросу
+          </span>
+        </div>
+      )}
+    </motion.div>
+  );
+}
 
 const DELIVERY_COLORS: Record<string, string> = {
   instant:            '#22C55E',
@@ -64,6 +247,9 @@ export default function AdminProductsPage() {
 
   return (
     <div className="p-6">
+      {/* Digiseller Sync Panel */}
+      <DigisellerSyncPanel />
+
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}

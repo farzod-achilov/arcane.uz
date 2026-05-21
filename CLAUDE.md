@@ -11,44 +11,107 @@ npm run start    # Serve production build
 npm run lint     # ESLint via next lint
 ```
 
-No test suite is configured. There is no separate type-check script — TypeScript errors surface during `npm run build`.
+No test suite is configured. TypeScript errors surface during `npm run build`.
 
 ## Architecture
 
-**Next.js 14 App Router** frontend-only store (no backend, no database). All data is static mock data — there is no API layer.
+**Next.js 14 App Router** store for the Uzbekistan market. The project has two layers:
 
-### Data flow
+- **Storefront**: product catalog, mystery cases, checkout
+- **Admin panel**: `/admin/*` routes for orders, products, analytics, and more
 
-All product/category/review data lives in [`lib/mockData.ts`](lib/mockData.ts) as exported arrays. Types are defined in [`lib/types.ts`](lib/types.ts). Pages import directly from `mockData` — there is no state management library or context. The catalog page performs all filtering/sorting client-side with `useMemo` over the full `products` array.
+### Data layer
+
+Static mock data lives in [`lib/mockData.ts`](lib/mockData.ts) (products, mystery cases, categories). Types are in [`lib/types.ts`](lib/types.ts). When Digiseller env vars are present, live product data is fetched from the Digiseller API and cached in-memory; otherwise all endpoints fall back to mock data transparently (`source: 'mock'` in responses).
+
+Orders are stored in an **in-memory `Map`** in [`lib/orders.ts`](lib/orders.ts) — this resets on every server restart and must be replaced with a database before production.
+
+### Digiseller integration
+
+All Digiseller logic is server-only under [`lib/digiseller/`](lib/digiseller/):
+
+| File | Role |
+|------|------|
+| `client.ts` | HTTP client (12s timeout, no-store cache) |
+| `auth.ts` | SHA256 token signing; tokens cached 11h |
+| `cache.ts` | In-memory TTL cache (products: 5 min, single product: 10 min) |
+| `digisellerService.ts` | Orchestrates fetch → cache → map → sync |
+| `productMapper.ts` | Normalises Digi response → `Product` shape |
+| `pricingMapper.ts` | USD → UZS conversion (configurable rate) |
+| `deliveryMapper.ts` | Keyword-based `DeliveryType` inference |
+
+Client-side access goes through React hooks in [`hooks/`](hooks/): `useDigisellerProducts` and `useDigisellerProduct`, which hit the Next.js API routes.
+
+### API routes
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/digiseller/products` | GET | Product list with q/category/platform/sort filters |
+| `/api/digiseller/product/[id]` | GET | Single product |
+| `/api/digiseller/sync` | GET/POST | Sync status / trigger re-sync from Digiseller |
+| `/api/digiseller/purchase/[id]` | GET | Generate Digiseller purchase URL |
+| `/api/orders` | GET/POST | List all orders / create order after payment |
+| `/api/orders/[id]/deliver` | POST | Admin delivers game key; triggers Telegram notification |
+| `/api/cases/[id]/open` | POST | Open a mystery case; returns weighted random reward |
+
+### Order flow
+
+`POST /api/orders` → in-memory store (`lib/orders.ts`) → Telegram admin notification via `lib/adminTelegram.ts` → admin manually buys & delivers key via `POST /api/orders/[id]/deliver` → key sent to customer (Telegram-first, email fallback).
+
+Status machine: `pending` → `paid` → `processing` → `delivered`.
 
 ### Page → component tree
 
 - `app/layout.tsx` — wraps every page with `<Navbar>` and `<Footer>`
-- `app/page.tsx` — homepage: composes 8 section components from `components/home/`
-- `app/catalog/page.tsx` — `'use client'`; owns filter/sort/search state, renders `CatalogSidebar` + product grid
-- `app/product/[id]/page.tsx` — `'use client'`; looks up product by `params.id` from the mock array, calls `notFound()` if missing
-- `app/checkout/page.tsx` — `'use client'`; 3-step local state machine (`'cart' | 'payment' | 'success'`), no real payment integration
+- `app/page.tsx` — homepage: 8 section components from `components/home/`
+- `app/catalog/page.tsx` — `'use client'`; filter/sort/search state, renders `CatalogSidebar` + product grid
+- `app/product/[id]/page.tsx` — `'use client'`; fetches via `useDigisellerProduct`, falls back to mock
+- `app/checkout/page.tsx` — `'use client'`; 3-step state machine (`'cart' | 'payment' | 'success'`)
+- `app/cases/[id]/page.tsx` — animated drum spin, calls `/api/cases/[id]/open`, three rarity tiers
 
-The shared product card (`components/ui/ProductCard.tsx`) is used by both the homepage trending section and the catalog grid. The catalog list view has its own inline `ListProductCard` component defined at the bottom of `app/catalog/page.tsx`.
+Shared product card: `components/ui/ProductCard.tsx`. Catalog list view has its own inline `ListProductCard` at the bottom of `app/catalog/page.tsx`.
 
 ### Design system
 
-Custom Tailwind tokens (defined in `tailwind.config.ts`):
+Custom Tailwind tokens (`tailwind.config.ts`):
 - **Backgrounds**: `bg-base` (#0A0A0F), `bg-card` (#12121A), `bg-elevated` (#1A1A28), `bg-border` (#1E1E2E)
-- **Accents**: `accent-purple` (#7C3AED), `accent-cyan` (#06B6D4) and their light/dark variants
+- **Accents**: `accent-purple` (#7C3AED), `accent-cyan` (#06B6D4) with light/dark variants
 - **Shadows**: `shadow-glow-purple`, `shadow-glow-cyan`, `shadow-card`, `shadow-card-hover`
-- **Fonts**: `font-heading` (Space Grotesk) for titles, `font-body` (Inter) for body text — loaded via `next/font/google` in the root layout
+- **Fonts**: `font-heading` (Space Grotesk), `font-body` (Inter) — loaded via `next/font/google`
 
-All animations use Framer Motion. The `motion.div` pattern with `initial`/`whileInView`/`viewport={{ once: true }}` is used consistently for scroll-triggered entrance animations.
+All animations use Framer Motion with `initial`/`whileInView`/`viewport={{ once: true }}`.
 
 ### Prices
 
-All prices are in Uzbek soum (UZS) as plain integers (e.g. `249000`). Use `formatPrice()` from `lib/utils.ts` for display — it formats with `Intl.NumberFormat('uz-UZ')` and appends `' сум'`.
+Plain integers in UZS (e.g. `249000`). Always use `formatPrice()` from `lib/utils.ts` for display. Digiseller prices are USD → UZS via `pricingMapper.ts` using `USD_TO_UZS` env var (default `12700`), rounded to nearest 1000 сум.
 
 ### Images
 
-External images from `picsum.photos` are used for all product/user photos with deterministic seeds (e.g. `https://picsum.photos/seed/cyber2077/400/550`). The `next.config.js` allowlist includes `picsum.photos`, `via.placeholder.com`, and `placehold.co`. All `<Image>` usages require `unoptimized` prop since these are third-party seeded URLs.
+All product/user images use `picsum.photos` with deterministic seeds. `next.config.js` allowlist: `picsum.photos`, `via.placeholder.com`, `placehold.co`. All `<Image>` components require the `unoptimized` prop.
+
+### Environment variables
+
+Copy `.env.local.example` to `.env.local`. Without Digiseller vars, mock data is used everywhere.
+
+```
+# Digiseller (optional — omit to use mock data)
+DIGISELLER_SELLER_ID=
+DIGISELLER_API_KEY=
+DIGISELLER_BASE_URL=https://api.digiseller.com/api
+DIGISELLER_STORE_URL=https://digiseller.com
+DIGISELLER_PAGE_SIZE=50
+USD_TO_UZS=12700
+DIGI_CACHE_PRODUCTS_TTL=300   # seconds
+DIGI_CACHE_PRODUCT_TTL=600
+
+# Sync endpoint protection (optional)
+SYNC_SECRET=
+
+# Telegram notifications
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
+```
 
 ### Adding a new product
 
-Add an entry to the `products` array in `lib/mockData.ts`. The `id` must be a unique string — it becomes the URL segment at `/product/[id]`. `trendingProducts` and `dailyDeals` are derived slices of `products` (first 6, and filtered by `discount > 0`), so they update automatically.
+Add to the `products` array in `lib/mockData.ts`. The `id` must be unique — it becomes `/product/[id]`. `trendingProducts` and `dailyDeals` are derived slices (first 6, and `discount > 0`), so they update automatically. To expose Digiseller products, set `digiGoodId` on the product entry.
