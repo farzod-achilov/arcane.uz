@@ -1,0 +1,344 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Rarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+enum RewardType {
+  GAME
+  COINS
+  BOOST
+  DISCOUNT
+  JACKPOT
+}
+
+enum TransactionType {
+  DROP_OPEN
+  REWARD_SELL
+  JACKPOT_WIN
+  ADMIN_GRANT
+  REFERRAL_BONUS
+  STORE_PURCHASE
+}
+
+enum InventoryStatus {
+  PENDING
+  CLAIMED
+  SOLD
+}
+
+enum KeyStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+  USED
+  DISABLED
+}
+
+enum KeyType {
+  STORE
+  DROP
+  BOTH
+}
+
+enum KeyTransactionType {
+  IMPORT
+  PURCHASE
+  DROP_REWARD
+  MANUAL_ASSIGN
+  DISABLE
+  MOVE
+  BULK_IMPORT
+}
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+
+model User {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  username    String    @unique
+  password    String
+  avatar      String?
+  level       Int       @default(1)
+  xp          Int       @default(0)
+  arcCoins    Int       @default(500)
+  streak      Int       @default(0)
+  lastLoginAt DateTime?
+  isAdmin     Boolean   @default(false)
+  isBanned    Boolean   @default(false)
+  banReason   String?
+  totalDrops  Int       @default(0)
+  totalSpent  Int       @default(0)
+  totalWon    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  sessions        Session[]
+  inventory       Inventory[]
+  transactions    Transaction[]
+  dropHistory     DropHistory[]
+  jackpotWins     JackpotHistory[]
+  liveDrops       LiveDrop[]
+  purchasedKeys   GameKey[]       @relation("KeyBuyer")
+  keyTransactions KeyTransaction[] @relation("KeyTransactionUser")
+
+  @@index([username])
+  @@index([email])
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  refreshToken String   @unique
+  userAgent    String?
+  ipAddress    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// ─── Games ────────────────────────────────────────────────────────────────────
+
+model Game {
+  id          String    @id @default(cuid())
+  externalId  String?
+  source      String    @default("manual")
+  title       String
+  slug        String    @unique
+  cover       String?
+  screenshots String[]
+  description String?
+  genres      String[]
+  platforms   String[]
+  rating      Float?
+  priceUsd    Float?
+  priceUzs    Int?
+  releaseDate DateTime?
+  developer   String?
+  publisher   String?
+  isActive    Boolean   @default(true)
+  // Stock management
+  stockStore  Int       @default(0)
+  stockDrop   Int       @default(0)
+  lowStockThreshold Int @default(5)
+  syncedAt    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  dropRewards DropReward[]
+  keys        GameKey[]
+
+  @@unique([externalId, source])
+  @@index([slug])
+  @@map("games")
+}
+
+// ─── Steam Key Inventory ──────────────────────────────────────────────────────
+
+model GameKey {
+  id            String    @id @default(cuid())
+  gameId        String
+  // Encrypted storage (AES-256-GCM)
+  encryptedKey  String
+  keyIv         String
+  keyTag        String
+  // SHA-256 of normalized plaintext — for duplicate detection only
+  keyHash       String    @unique
+  status        KeyStatus @default(AVAILABLE)
+  type          KeyType   @default(BOTH)
+  // Reservation (prevents race conditions)
+  reservedFor   String?
+  reservedAt    DateTime?
+  reserveExpiry DateTime?
+  // Fulfillment
+  soldToUserId  String?
+  usedAt        DateTime?
+  deliveredAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  game         Game             @relation(fields: [gameId], references: [id])
+  soldToUser   User?            @relation("KeyBuyer", fields: [soldToUserId], references: [id])
+  transactions KeyTransaction[]
+
+  @@index([gameId, status])
+  @@index([gameId, type, status])
+  @@index([keyHash])
+  @@index([status])
+  @@index([reserveExpiry])
+  @@map("game_keys")
+}
+
+model KeyTransaction {
+  id        String             @id @default(cuid())
+  keyId     String
+  userId    String?
+  adminId   String?
+  type      KeyTransactionType
+  note      String?
+  metadata  Json?
+  createdAt DateTime           @default(now())
+
+  key  GameKey @relation(fields: [keyId], references: [id])
+  user User?   @relation("KeyTransactionUser", fields: [userId], references: [id])
+
+  @@index([keyId])
+  @@index([userId])
+  @@index([type])
+  @@map("key_transactions")
+}
+
+// ─── Drop Machines ────────────────────────────────────────────────────────────
+
+model DropMachine {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  theme         String
+  price         Int
+  description   String?
+  imageUrl      String?
+  animConfig    Json?
+  isActive      Boolean  @default(true)
+  totalOpened   Int      @default(0)
+  featuredOrder Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  rewards DropReward[]
+  history DropHistory[]
+
+  @@map("drop_machines")
+}
+
+model DropReward {
+  id           String     @id @default(cuid())
+  dropId       String
+  gameId       String?
+  name         String
+  type         RewardType
+  rarity       Rarity
+  dropChance   Float
+  sellValue    Int
+  metadata     Json?
+  imageUrl     String?
+  isActive     Boolean    @default(true)
+  timesDropped Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  drop      DropMachine @relation(fields: [dropId], references: [id], onDelete: Cascade)
+  game      Game?       @relation(fields: [gameId], references: [id])
+  inventory Inventory[]
+
+  @@index([dropId])
+  @@index([rarity])
+  @@map("drop_rewards")
+}
+
+model DropHistory {
+  id             String   @id @default(cuid())
+  userId         String
+  dropId         String
+  rewardId       String
+  coinsSpent     Int
+  jackpotContrib Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  user User        @relation(fields: [userId], references: [id])
+  drop DropMachine @relation(fields: [dropId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("drop_history")
+}
+
+model Inventory {
+  id        String          @id @default(cuid())
+  userId    String
+  rewardId  String
+  status    InventoryStatus @default(PENDING)
+  claimedAt DateTime?
+  soldAt    DateTime?
+  soldFor   Int?
+  createdAt DateTime        @default(now())
+
+  user   User       @relation(fields: [userId], references: [id])
+  reward DropReward @relation(fields: [rewardId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@map("inventory")
+}
+
+model Transaction {
+  id            String          @id @default(cuid())
+  userId        String
+  type          TransactionType
+  amount        Int
+  balanceBefore Int
+  balanceAfter  Int
+  description   String?
+  metadata      Json?
+  createdAt     DateTime        @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([type])
+  @@map("transactions")
+}
+
+model Jackpot {
+  id        String   @id @default(cuid())
+  total     Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@map("jackpot")
+}
+
+model JackpotHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  amount    Int
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@map("jackpot_history")
+}
+
+model LiveDrop {
+  id         String   @id @default(cuid())
+  userId     String
+  username   String
+  avatar     String?
+  rewardName String
+  rarity     Rarity
+  dropName   String
+  imageUrl   String?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@map("live_drops")
+}

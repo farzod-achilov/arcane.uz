@@ -1,0 +1,195 @@
+import { prisma } from '../../lib/prisma';
+import { cacheSet, cacheDel } from '../../lib/redis';
+import { logger } from '../../lib/logger';
+import { config } from '../../config';
+import { igdbService } from '../../services/igdb/igdb.service';
+import { rawgService } from '../../services/rawg/rawg.service';
+import { steamService } from '../../services/steam/steam.service';
+import { assignRarity, calculateSellValue, getDropChance } from './games.filter';
+import { usdToUzs } from './games.normalizer';
+import type { NormalizedGame } from './games.normalizer';
+
+// ── Import result ─────────────────────────────────────────────────────────────
+
+export interface ImportResult {
+  source: string;
+  total: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: number;
+  durationMs: number;
+}
+
+// ── Upsert single game into DB ────────────────────────────────────────────────
+
+async function upsertGame(game: NormalizedGame): Promise<'created' | 'updated' | 'skipped'> {
+  if (!game.title || !game.slug) return 'skipped';
+
+  const priceUzs = game.priceUsd != null ? usdToUzs(game.priceUsd) : null;
+
+  const data = {
+    title: game.title,
+    slug: game.slug,
+    cover: game.cover ?? null,
+    screenshots: game.screenshots,
+    description: game.description ?? null,
+    genres: game.genres,
+    platforms: game.platforms,
+    rating: game.rating ?? null,
+    priceUsd: game.priceUsd ?? null,
+    priceUzs,
+    releaseDate: game.releaseDate ?? null,
+    developer: game.developer ?? null,
+    publisher: game.publisher ?? null,
+    source: game.source,
+    syncedAt: new Date(),
+    isActive: true,
+  };
+
+  const existing = await prisma.game.findUnique({
+    where: { externalId_source: { externalId: game.externalId, source: game.source } },
+  });
+
+  if (existing) {
+    await prisma.game.update({ where: { id: existing.id }, data });
+    return 'updated';
+  }
+
+  await prisma.game.create({ data: { ...data, externalId: game.externalId } });
+  return 'created';
+}
+
+// ── Import from source ────────────────────────────────────────────────────────
+
+async function importGames(
+  source: string,
+  fetcher: () => Promise<NormalizedGame[]>
+): Promise<ImportResult> {
+  const start = Date.now();
+  const result: ImportResult = {
+    source,
+    total: 0,
+    created: 0,
+    updated: 0,
+    skipped: 0,
+    errors: 0,
+    durationMs: 0,
+  };
+
+  logger.info(`[GameImport] Starting import from ${source}`);
+
+  let games: NormalizedGame[] = [];
+  try {
+    games = await fetcher();
+  } catch (err) {
+    logger.error(`[GameImport] Failed to fetch from ${source}`, err);
+    result.errors++;
+    result.durationMs = Date.now() - start;
+    return result;
+  }
+
+  result.total = games.length;
+  logger.info(`[GameImport] Fetched ${games.length} games from ${source}`);
+
+  for (const game of games) {
+    try {
+      const outcome = await upsertGame(game);
+      result[outcome]++;
+    } catch (err) {
+      logger.error(`[GameImport] Error upserting game "${game.title}"`, err);
+      result.errors++;
+    }
+  }
+
+  result.durationMs = Date.now() - start;
+  logger.info(`[GameImport] ${source} done`, result);
+
+  // Bust hot-games cache
+  await cacheDel('cache:games:hot');
+
+  return result;
+}
+
+// ── Public import functions ───────────────────────────────────────────────────
+
+export async function importFromIgdb(): Promise<ImportResult> {
+  return importGames('igdb', () => igdbService.getTopRatedGames(100));
+}
+
+export async function importFromRawg(): Promise<ImportResult> {
+  return importGames('rawg', async () => {
+    const [topRated, newReleases] = await Promise.all([
+      rawgService.getTopRatedGames(1, 40),
+      rawgService.getNewReleases(1, 40),
+    ]);
+    // Deduplicate by externalId
+    const seen = new Set<string>();
+    return [...topRated, ...newReleases].filter((g) => {
+      if (seen.has(g.externalId)) return false;
+      seen.add(g.externalId);
+      return true;
+    });
+  });
+}
+
+export async function importFromSteam(appIds: number[]): Promise<ImportResult> {
+  return importGames('steam', () => steamService.getMultipleGames(appIds));
+}
+
+// ── Full sync ─────────────────────────────────────────────────────────────────
+
+export async function runFullSync(): Promise<ImportResult[]> {
+  logger.info('[GameImport] Running full sync from all sources');
+  const results = await Promise.allSettled([importFromRawg(), importFromIgdb()]);
+
+  return results.map((r) =>
+    r.status === 'fulfilled'
+      ? r.value
+      : { source: 'unknown', total: 0, created: 0, updated: 0, skipped: 0, errors: 1, durationMs: 0 }
+  );
+}
+
+// ── Price refresh ─────────────────────────────────────────────────────────────
+
+export async function refreshPrices(): Promise<number> {
+  const steamGames = await prisma.game.findMany({
+    where: { source: 'steam', isActive: true },
+    select: { id: true, externalId: true },
+  });
+
+  let updated = 0;
+  const USD_RATE = parseInt(process.env.USD_TO_UZS || '12700', 10);
+
+  for (const g of steamGames) {
+    try {
+      const details = await steamService.getGameDetails(parseInt(g.externalId!, 10));
+      if (!details || details.priceUsd == null) continue;
+
+      const priceUzs = Math.round((details.priceUsd * USD_RATE) / 1000) * 1000;
+      await prisma.game.update({
+        where: { id: g.id },
+        data: { priceUsd: details.priceUsd, priceUzs, syncedAt: new Date() },
+      });
+      updated++;
+    } catch {
+      // Non-fatal: skip and continue
+    }
+  }
+
+  logger.info(`[PriceRefresh] Updated prices for ${updated} Steam games`);
+  return updated;
+}
+
+// ── Cache hot games ───────────────────────────────────────────────────────────
+
+export async function cacheHotGames(): Promise<void> {
+  const hotGames = await prisma.game.findMany({
+    where: { isActive: true, rating: { gte: 75 } },
+    orderBy: [{ rating: 'desc' }],
+    take: 20,
+  });
+
+  await cacheSet('cache:games:hot', hotGames, config.redis_ttl.hotGames);
+  logger.info('[Cache] Hot games cached');
+}

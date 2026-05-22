@@ -7,14 +7,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Package, ShoppingBag, Users, Tag,
   Zap, Gift, MessageSquare, BarChart2, Settings,
-  ChevronLeft, ChevronRight, Shield, LogOut,
+  ChevronLeft, ChevronRight, Shield, LogOut, KeyRound,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
   { href: '/admin',           label: 'Дашборд',    icon: LayoutDashboard, color: '#7C3AED' },
   { href: '/admin/products',  label: 'Продукты',   icon: Package,         color: '#06B6D4' },
-  { href: '/admin/orders',    label: 'Заказы',     icon: ShoppingBag,     color: '#22C55E' },
-  { href: '/admin/users',     label: 'Пользователи',icon: Users,          color: '#F59E0B' },
+  { href: '/admin/keys',      label: 'Ключи',      icon: KeyRound,        color: '#22C55E' },
+  { href: '/admin/orders',    label: 'Заказы',     icon: ShoppingBag,     color: '#F59E0B' },
+  { href: '/admin/users',     label: 'Пользователи',icon: Users,          color: '#06B6D4' },
   { href: '/admin/discounts', label: 'Скидки',     icon: Tag,             color: '#EF4444' },
   { href: '/admin/coins',     label: 'Монеты',     icon: Zap,             color: '#F59E0B' },
   { href: '/admin/cases',     label: 'Кейсы',      icon: Gift,            color: '#9D60FA' },

@@ -1,16 +1,18 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, LayoutGrid, List, SlidersHorizontal, X, ChevronDown } from 'lucide-react';
 import ProductCard from '@/components/ui/ProductCard';
 import CatalogSidebar, { Filters, defaultFilters } from '@/components/catalog/CatalogSidebar';
-import { products, PRICE_MIN, PRICE_MAX } from '@/lib/mockData';
+import { products as mockProducts, PRICE_MIN, PRICE_MAX } from '@/lib/mockData';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Star, ShoppingCart, Zap } from 'lucide-react';
 import { Product } from '@/lib/types';
 import { formatPrice } from '@/lib/utils';
+import { arcaneGamesToProducts } from '@/lib/arcaneMapper';
+import type { ArcaneGameListResponse } from '@/lib/arcaneApi';
 
 const sortOptions = [
   { value: 'trending',  label: 'По популярности' },
@@ -22,11 +24,32 @@ const sortOptions = [
 ];
 
 export default function CatalogPage() {
-  const [filters, setFilters] = useState<Filters>(defaultFilters);
-  const [sort, setSort] = useState('trending');
-  const [search, setSearch] = useState('');
-  const [view, setView] = useState<'grid' | 'list'>('grid');
+  const [filters, setFilters]       = useState<Filters>(defaultFilters);
+  const [sort, setSort]             = useState('trending');
+  const [search, setSearch]         = useState('');
+  const [view, setView]             = useState<'grid' | 'list'>('grid');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [arcaneProducts, setArcaneProducts] = useState<Product[]>([]);
+
+  // Fetch games from arcane-api and merge with mockData
+  useEffect(() => {
+    fetch('/api/arcane/games?limit=200')
+      .then(r => r.json())
+      .then((res: ArcaneGameListResponse & { mockProducts?: Product[] }) => {
+        if (res.success && res.data?.length) {
+          setArcaneProducts(arcaneGamesToProducts(res.data));
+        }
+        // If backend returned mockProducts fallback, ignore — we already have mockProducts below
+      })
+      .catch(() => {/* arcane-api offline — fall through to mockData only */});
+  }, []);
+
+  // Merge: arcane-api games first, then mockData (dedup by id)
+  const products = useMemo(() => {
+    const arcaneIds = new Set(arcaneProducts.map(p => p.id));
+    const deduped   = mockProducts.filter(p => !arcaneIds.has(p.id));
+    return [...arcaneProducts, ...deduped];
+  }, [arcaneProducts]);
 
   const filtered = useMemo(() => {
     let result = [...products];
