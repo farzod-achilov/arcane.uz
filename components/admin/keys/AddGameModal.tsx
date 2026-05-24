@@ -195,10 +195,30 @@ export default function AddGameModal({ onClose, onSuccess }: Props) {
       const json = await res.json();
       if (!json.success) throw new Error(json.error ?? 'Ошибка Steam');
       const d = json.data;
+
+      let trailerUrl: string | null = d.trailer ?? null;
+
+      // Steam sometimes doesn't expose movies — fallback to RAWG
+      if (!trailerUrl && d.title) {
+        try {
+          const cleanTitle = d.title
+            .replace(/\b(Enhanced|Definitive|Remastered|Complete|Ultimate|Gold|Deluxe|Platinum|Edition|Redux|Anniversary)\b/gi, '')
+            .replace(/\s+/g, ' ').trim();
+          const srRes  = await fetch(`/api/rawg/search?q=${encodeURIComponent(cleanTitle)}&limit=1&precise=false`);
+          const srJson = await srRes.json();
+          const rawgId = srJson.data?.[0]?.rawgId;
+          if (rawgId) {
+            const dtRes  = await fetch(`/api/rawg/game/${rawgId}`);
+            const dtJson = await dtRes.json();
+            if (dtJson.success && dtJson.data?.trailer) trailerUrl = dtJson.data.trailer;
+          }
+        } catch { /* non-fatal */ }
+      }
+
       const r: SearchResult = {
         id: `steam-${d.appId}`, source: 'Steam',
         title:    d.title, cover: d.cover ?? null,
-        screenshots: d.screenshots ?? [], trailer: d.trailer ?? null,
+        screenshots: d.screenshots ?? [], trailer: trailerUrl,
         rating: d.rating ?? null, priceUsd: d.priceUsd ?? null,
         genres: d.genres ?? [], platforms: d.platforms ?? [],
         developer: d.developer ?? null, publisher: d.publisher ?? null,

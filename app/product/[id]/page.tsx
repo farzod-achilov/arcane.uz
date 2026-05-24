@@ -11,7 +11,7 @@ import {
   MessageCircle, Clock, ExternalLink,
   ChevronLeft, ChevronRight as ChevronRightIcon,
   Calendar, Maximize2, Users, Gamepad, PlaySquare, Cpu,
-  Play, Award, Sparkles, TrendingUp,
+  Play, Pause, Volume2, VolumeX, Maximize, Award, Sparkles, TrendingUp,
 } from 'lucide-react';
 import { products } from '@/lib/mockData';
 import { formatPrice } from '@/lib/utils';
@@ -29,13 +29,91 @@ import ProductReviews     from '@/components/product/ProductReviews';
 import StickyPurchasePanel   from '@/components/product/StickyPurchasePanel';
 import FullscreenGallery     from '@/components/product/FullscreenGallery';
 
-function isVideoUrl(url: string): boolean {
+function isVideoUrl(url: string | undefined | null): boolean {
+  if (!url) return false;
   return /\.(mp4|webm|ogg)(\?|$)/i.test(url)
     || url.includes('video.cloudflare.steamstatic.com')
     || url.includes('youtube.com/embed');
 }
-function isYouTubeUrl(url: string): boolean {
+function isYouTubeUrl(url: string | undefined | null): boolean {
+  if (!url) return false;
   return url.includes('youtube.com/embed');
+}
+
+/* ── Inline video player ───────────────────────────────── */
+function VideoPlayer({ src }: { src: string }) {
+  const vidRef   = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [muted,   setMuted]   = useState(false);
+
+  const togglePlay = () => {
+    const v = vidRef.current;
+    if (!v) return;
+    if (v.paused) v.play(); else v.pause();
+  };
+
+  const toggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const v = vidRef.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setMuted(v.muted);
+  };
+
+  const openFullscreen = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    vidRef.current?.requestFullscreen?.();
+  };
+
+  return (
+    <div className="absolute inset-0 bg-black flex items-center justify-center" onClick={togglePlay}>
+      <video
+        ref={vidRef}
+        src={src}
+        playsInline
+        className="absolute inset-0 w-full h-full"
+        style={{ objectFit: 'contain' }}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+      />
+
+      {/* Dark overlay shown only when paused */}
+      <div className="absolute inset-0 transition-opacity duration-300 pointer-events-none"
+           style={{ background: 'rgba(0,0,0,0.45)', opacity: playing ? 0 : 1 }} />
+
+      {/* Big play button in center */}
+      {!playing && (
+        <div className="relative z-10 w-20 h-20 rounded-full flex items-center justify-center"
+             style={{ background: 'rgba(255,255,255,0.14)', backdropFilter: 'blur(10px)', border: '2px solid rgba(255,255,255,0.25)', boxShadow: '0 0 40px rgba(124,58,237,0.4)' }}>
+          <Play style={{ width: '30px', height: '30px', color: '#fff', marginLeft: '4px' }} />
+        </div>
+      )}
+
+      {/* Bottom controls bar */}
+      <div className="absolute bottom-0 left-0 right-0 z-20 flex items-center gap-3 px-4 py-3 opacity-0 hover:opacity-100 transition-opacity duration-200"
+           style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85), transparent)' }}
+           onClick={e => e.stopPropagation()}>
+        <button onClick={togglePlay}
+          className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-white/10">
+          {playing
+            ? <Pause style={{ width: '15px', height: '15px', color: '#fff' }} />
+            : <Play  style={{ width: '15px', height: '15px', color: '#fff', marginLeft: '1px' }} />}
+        </button>
+        <button onClick={toggleMute}
+          className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-white/10">
+          {muted
+            ? <VolumeX style={{ width: '15px', height: '15px', color: '#fff' }} />
+            : <Volume2 style={{ width: '15px', height: '15px', color: '#fff' }} />}
+        </button>
+        <div className="flex-1" />
+        <span className="font-body text-white/50" style={{ fontSize: '10px' }}>Трейлер</span>
+        <button onClick={openFullscreen}
+          className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-white/10">
+          <Maximize style={{ width: '15px', height: '15px', color: '#fff' }} />
+        </button>
+      </div>
+    </div>
+  );
 }
 
 const BADGE_CFG: Record<string, { bg: string; label: string; glow: string }> = {
@@ -103,7 +181,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     product.image,
     ...(product.trailer ? [product.trailer] : []),
     ...(product.screenshots ?? []),
-  ] : [];
+  ].filter(Boolean) as string[] : [];
 
   const closeFullscreen = useCallback(() => setFullscreen(false), []);
   const openFullscreen  = useCallback(() => setFullscreen(true),  []);
@@ -141,8 +219,8 @@ export default function ProductPage({ params }: { params: { id: string } }) {
       <AnimatePresence>
         {fullscreen && (
           <FullscreenGallery
-            images={allScreenshots.filter(s => !isVideoUrl(s))}
-            startIndex={allScreenshots.slice(0, activeImg + 1).filter(s => !isVideoUrl(s)).length - 1}
+            media={allScreenshots}
+            startIndex={activeImg}
             onClose={closeFullscreen}
           />
         )}
@@ -152,7 +230,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
       {/* ═══════════════════════════════════════════
           PAGE SHELL
       ═══════════════════════════════════════════ */}
-      <div style={{ background: '#04040A', minHeight: '100vh', position: 'relative', paddingTop: '96px' }}>
+      <div style={{ background: '#04040A', minHeight: '100vh', position: 'relative', paddingTop: '16px' }}>
 
         {/* ── Ambient blurred artwork bg ── */}
         <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0, overflow: 'hidden' }}>
@@ -594,7 +672,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                 initial={{ opacity: 0, scale: 0.96, y: 16 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-                className="relative lg:sticky lg:top-24"
+                className="relative lg:sticky lg:top-[136px]"
               >
                 {/* Artwork glow halo */}
                 <div className="absolute inset-0 pointer-events-none" style={{
@@ -821,6 +899,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                     cursor: isVideoUrl(allScreenshots[activeImg]) ? 'default' : 'zoom-in',
                   }}
                   onClick={() => { if (!isVideoUrl(allScreenshots[activeImg])) openFullscreen(); }}
+
                 >
                   <AnimatePresence mode="wait">
                     {isYouTubeUrl(allScreenshots[activeImg]) ? (
@@ -833,13 +912,9 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                         style={{ border: 'none' }}
                       />
                     ) : isVideoUrl(allScreenshots[activeImg]) ? (
-                      <motion.video
-                        key={`v-${activeImg}`}
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        src={allScreenshots[activeImg]}
-                        autoPlay loop muted playsInline
-                        className="absolute inset-0 w-full h-full object-cover"
-                      />
+                      <motion.div key={`v-${activeImg}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0">
+                        <VideoPlayer src={allScreenshots[activeImg]!} />
+                      </motion.div>
                     ) : (
                       <motion.div
                         key={activeImg}
@@ -884,7 +959,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                     {activeImg + 1} / {allScreenshots.length}
                   </div>
 
-                  {/* Fullscreen btn */}
+                  {/* Fullscreen btn — only for images (videos have their own controls) */}
                   {!isVideoUrl(allScreenshots[activeImg]) && (
                     <div className="absolute bottom-4 right-4 w-10 h-10 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200" style={{
                       background: 'rgba(4,4,10,0.75)', backdropFilter: 'blur(8px)',
@@ -892,6 +967,16 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                     }}>
                       <Maximize2 style={{ width: '16px', height: '16px', color: '#fff' }} />
                     </div>
+                  )}
+                  {/* Open fullscreen gallery button for images — video has its own fullscreen */}
+                  {isVideoUrl(allScreenshots[activeImg]) && (
+                    <button
+                      onClick={e => { e.stopPropagation(); openFullscreen(); }}
+                      className="absolute top-4 right-4 w-10 h-10 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200"
+                      style={{ background: 'rgba(4,4,10,0.75)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    >
+                      <Maximize2 style={{ width: '16px', height: '16px', color: '#fff' }} />
+                    </button>
                   )}
 
                   {/* Arrows */}

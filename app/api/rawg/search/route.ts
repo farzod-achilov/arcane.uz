@@ -19,8 +19,9 @@ function normPlatform(name: string) {
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const q     = searchParams.get('q')?.trim();
-  const limit = Math.min(parseInt(searchParams.get('limit') ?? '10'), 20);
+  const q       = searchParams.get('q')?.trim();
+  const limit   = Math.min(parseInt(searchParams.get('limit') ?? '10'), 20);
+  const precise = searchParams.get('precise') !== 'false';
   const key   = process.env.RAWG_API_KEY;
 
   if (!key) {
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const url = `https://api.rawg.io/api/games?key=${key}&search=${encodeURIComponent(q)}&page_size=${limit}&search_precise=true`;
+    const url = `https://api.rawg.io/api/games?key=${key}&search=${encodeURIComponent(q)}&page_size=${limit}${precise ? '&search_precise=true' : ''}`;
     const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(7000) });
 
     if (!res.ok) throw new Error(`RAWG ${res.status}`);

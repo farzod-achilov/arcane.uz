@@ -20,6 +20,7 @@ export interface NormalizedGame {
   releaseDate?: Date;
   developer?: string;
   publisher?: string;
+  _steamAppId?: number; // used for RAWG trailer enrichment
 }
 
 // ── USD → UZS ─────────────────────────────────────────────────────────────────
@@ -59,7 +60,10 @@ export function normalizeIgdbGame(game: IgdbGame): NormalizedGame | null {
     title: game.name,
     slug: makeSlug(game.name, `igdb-${game.id}`),
     cover: igdbCoverUrl(game.cover?.url),
-    screenshots: (game.screenshots ?? []).map((s) => igdbScreenshotUrl(s.url)!).filter(Boolean),
+    screenshots: [
+      ...(game.videos?.[0]?.video_id ? [`youtube:${game.videos[0].video_id}`] : []),
+      ...(game.screenshots ?? []).map((s) => igdbScreenshotUrl(s.url)!).filter(Boolean),
+    ],
     description: game.summary,
     genres: (game.genres ?? []).map((g) => g.name),
     platforms: (game.platforms ?? []).map((p) => p.name),
@@ -82,6 +86,9 @@ export function normalizeRawgGame(game: RawgGame): NormalizedGame | null {
     game.metacritic ??
     (game.rating ? Math.round(game.rating * 20) : undefined);
 
+  const steamUrl = game.stores?.find((s) => s.store.slug === 'steam')?.url;
+  const steamAppId = steamUrl ? parseInt(steamUrl.match(/\/app\/(\d+)/)?.[1] ?? '', 10) || undefined : undefined;
+
   return {
     externalId: String(game.id),
     source: 'rawg',
@@ -93,10 +100,11 @@ export function normalizeRawgGame(game: RawgGame): NormalizedGame | null {
     genres: (game.genres ?? []).map((g) => g.name),
     platforms: (game.platforms ?? []).map((p) => p.platform.name),
     rating,
-    priceUsd: undefined, // RAWG free tier does not include prices
+    priceUsd: undefined,
     releaseDate: game.released ? new Date(game.released) : undefined,
     developer: game.developers?.[0]?.name,
     publisher: game.publishers?.[0]?.name,
+    _steamAppId: steamAppId,
   };
 }
 
@@ -128,7 +136,10 @@ export function normalizeSteamGame(data: SteamGameData): NormalizedGame | null {
     title: data.name,
     slug: makeSlug(data.name, `steam-${data.steam_appid}`),
     cover: data.header_image,
-    screenshots: (data.screenshots ?? []).map((s) => s.path_full),
+    screenshots: [
+      ...(data.movies?.[0]?.mp4?.max ? [`video:${data.movies[0].mp4.max}`] : []),
+      ...(data.screenshots ?? []).map((s) => s.path_full),
+    ],
     description: data.short_description,
     genres: (data.genres ?? []).map((g) => g.description),
     platforms,

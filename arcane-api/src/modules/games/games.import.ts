@@ -5,6 +5,7 @@ import { config } from '../../config';
 import { igdbService } from '../../services/igdb/igdb.service';
 import { rawgService } from '../../services/rawg/rawg.service';
 import { steamService } from '../../services/steam/steam.service';
+import { steamClient } from '../../services/steam/steam.client';
 import { assignRarity, calculateSellValue, getDropChance } from './games.filter';
 import { usdToUzs } from './games.normalizer';
 import type { NormalizedGame } from './games.normalizer';
@@ -123,13 +124,35 @@ export async function importFromRawg(): Promise<ImportResult> {
       rawgService.getTopRatedGames(1, 40),
       rawgService.getNewReleases(1, 40),
     ]);
+
     // Deduplicate by externalId
     const seen = new Set<string>();
-    return [...topRated, ...newReleases].filter((g) => {
+    const deduped = [...topRated, ...newReleases].filter((g) => {
       if (seen.has(g.externalId)) return false;
       seen.add(g.externalId);
       return true;
     });
+
+    // Enrich games that have a Steam App ID with trailer from Steam API
+    const enriched = await Promise.allSettled(
+      deduped.map(async (game) => {
+        if (!game._steamAppId || game.screenshots.some((s) => s.startsWith('video:'))) {
+          return game;
+        }
+        try {
+          const steam = await steamClient.fetchAppDetails(game._steamAppId);
+          const trailerUrl = steam?.movies?.[0]?.mp4?.max;
+          if (trailerUrl) {
+            return { ...game, screenshots: [`video:${trailerUrl}`, ...game.screenshots] };
+          }
+        } catch { /* non-fatal — skip trailer for this game */ }
+        return game;
+      })
+    );
+
+    return enriched
+      .filter((r) => r.status === 'fulfilled')
+      .map((r) => (r as PromiseFulfilledResult<typeof deduped[0]>).value);
   });
 }
 

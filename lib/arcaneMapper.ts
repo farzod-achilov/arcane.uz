@@ -16,7 +16,7 @@ export function arcaneGameToProduct(g: ArcaneGame): Product {
   const trailerUrl  = trailerRaw?.startsWith('video:')
     ? trailerRaw.slice(6)
     : trailerRaw?.startsWith('youtube:')
-      ? `https://www.youtube.com/embed/${trailerRaw.slice(8)}?autoplay=1&mute=1`
+      ? `https://www.youtube.com/embed/${trailerRaw.slice(8)}?enablejsapi=1`
       : undefined;
 
   return {
