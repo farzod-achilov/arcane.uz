@@ -101,7 +101,7 @@ export default function CatalogPage() {
     }
 
     return result;
-  }, [filters, sort, search]);
+  }, [filters, sort, search, products]);
 
   const activeFilterCount =
     filters.categories.length +
@@ -149,7 +149,7 @@ export default function CatalogPage() {
                 className="ml-3 font-heading text-lg font-normal"
                 style={{ color: '#374151' }}
               >
-                ({products.length})
+                ({filtered.length})
               </span>
             </h1>
 

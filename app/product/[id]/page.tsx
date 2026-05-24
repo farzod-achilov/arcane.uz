@@ -14,6 +14,9 @@ import {
 } from 'lucide-react';
 import { products } from '@/lib/mockData';
 import { formatPrice } from '@/lib/utils';
+import { arcaneGameToProduct } from '@/lib/arcaneMapper';
+import type { ArcaneGameResponse } from '@/lib/arcaneApi';
+import type { Product } from '@/lib/types';
 import ProductCard from '@/components/ui/ProductCard';
 import DeliveryInfoCard from '@/components/ui/DeliveryInfoCard';
 import TrustIndicators    from '@/components/product/TrustIndicators';
@@ -24,6 +27,16 @@ import ProductFAQ         from '@/components/product/ProductFAQ';
 import ProductReviews     from '@/components/product/ProductReviews';
 import StickyPurchasePanel   from '@/components/product/StickyPurchasePanel';
 import FullscreenGallery     from '@/components/product/FullscreenGallery';
+
+/* ── Video URL detection ───────────────────────────────── */
+function isVideoUrl(url: string): boolean {
+  return /\.(mp4|webm|ogg)(\?|$)/i.test(url)
+    || url.includes('video.cloudflare.steamstatic.com')
+    || url.includes('youtube.com/embed');
+}
+function isYouTubeUrl(url: string): boolean {
+  return url.includes('youtube.com/embed');
+}
 
 /* ── Badge config ──────────────────────────────────────── */
 const BADGE_CFG: Record<string, { bg: string; label: string; glow: string }> = {
@@ -91,20 +104,67 @@ function ProductMetaBar({ product }: { product: NonNullable<ReturnType<typeof pr
    MAIN PAGE
 ══════════════════════════════════════════ */
 export default function ProductPage({ params }: { params: { id: string } }) {
-  const product = products.find((p) => p.id === params.id);
-  if (!product) notFound();
+  const mockProduct = products.find((p) => p.id === params.id);
 
-  const allScreenshots = [product.image, ...(product.screenshots ?? [])];
+  const [product, setProduct]           = useState<Product | null>(mockProduct ?? null);
+  const [loading, setLoading]           = useState(!mockProduct);
+  const [notFoundErr, setNotFoundErr]   = useState(false);
   const [activeImg, setActiveImg]       = useState(0);
   const [fullscreen, setFullscreen]     = useState(false);
-  const [selectedPlatform, setPlatform] = useState(product.platform[0]);
+  const [selectedPlatform, setPlatform] = useState(mockProduct?.platform[0] ?? '');
   const [addedToCart, setAdded]         = useState(false);
   const [wishlisted, setWishlisted]     = useState(false);
   const buyButtonRef = useRef<HTMLDivElement>(null);
 
-  /* stable reference so FullscreenGallery's keyboard useEffect doesn't loop */
+  // Fetch from arcane-api / PostgreSQL when not in mock data
+  useEffect(() => {
+    if (mockProduct) return;
+    fetch(`/api/arcane/games/${params.id}`)
+      .then(r => r.json())
+      .then((res: ArcaneGameResponse) => {
+        if (res.success && res.data) {
+          const p = arcaneGameToProduct(res.data);
+          setProduct(p);
+          setPlatform(p.platform[0] ?? '');
+        } else {
+          setNotFoundErr(true);
+        }
+      })
+      .catch(() => setNotFoundErr(true))
+      .finally(() => setLoading(false));
+  }, [params.id, mockProduct]);
+
+  // All hooks must be called before any early returns (Rules of Hooks)
+  // Trailer (if any) is inserted after the cover, before screenshots
+  const allScreenshots = product ? [
+    product.image,
+    ...(product.trailer ? [product.trailer] : []),
+    ...(product.screenshots ?? []),
+  ] : [];
+
   const closeFullscreen = useCallback(() => setFullscreen(false), []);
   const openFullscreen  = useCallback(() => setFullscreen(true),  []);
+
+  useEffect(() => {
+    if (fullscreen || !product) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft')  setActiveImg(i => (i === 0 ? allScreenshots.length - 1 : i - 1));
+      if (e.key === 'ArrowRight') setActiveImg(i => (i === allScreenshots.length - 1 ? 0 : i + 1));
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [fullscreen, allScreenshots.length, product]);
+
+  if (notFoundErr) notFound();
+
+  if (loading || !product) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0A0F' }}>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '2px solid rgba(124,58,237,0.3)', borderTopColor: '#7C3AED', animation: 'spin 0.8s linear infinite' }} />
+      </div>
+    );
+  }
 
   const related = products
     .filter((p) => p.id !== product.id && p.category === product.category)
@@ -121,25 +181,14 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   const prevImg = () => setActiveImg(i => (i === 0 ? allScreenshots.length - 1 : i - 1));
   const nextImg = () => setActiveImg(i => (i === allScreenshots.length - 1 ? 0 : i + 1));
 
-  /* Arrow keys navigate thumbnail gallery when fullscreen is closed */
-  useEffect(() => {
-    if (fullscreen) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft')  setActiveImg(i => (i === 0 ? allScreenshots.length - 1 : i - 1));
-      if (e.key === 'ArrowRight') setActiveImg(i => (i === allScreenshots.length - 1 ? 0 : i + 1));
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [fullscreen, allScreenshots.length]);
-
   return (
     <>
-      {/* Fullscreen Gallery */}
+      {/* Fullscreen Gallery — images only, no video */}
       <AnimatePresence>
         {fullscreen && (
           <FullscreenGallery
-            images={allScreenshots}
-            startIndex={activeImg}
+            images={allScreenshots.filter(s => !isVideoUrl(s))}
+            startIndex={allScreenshots.slice(0, activeImg + 1).filter(s => !isVideoUrl(s)).length - 1}
             onClose={closeFullscreen}
           />
         )}
@@ -179,30 +228,68 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6 }}
             >
-              {/* Main image */}
+              {/* Main image / video */}
               <div
-                className="group relative aspect-[3/4] max-w-lg mx-auto lg:mx-0 rounded-3xl overflow-hidden cursor-zoom-in"
-                style={{ boxShadow: '0 0 60px rgba(124,58,237,0.2), 0 40px 80px rgba(0,0,0,0.6)' }}
-                onClick={openFullscreen}
+                className="group relative aspect-video max-w-lg mx-auto lg:mx-0 rounded-3xl overflow-hidden"
+                style={{
+                  boxShadow: '0 0 60px rgba(124,58,237,0.2), 0 40px 80px rgba(0,0,0,0.6)',
+                  background: '#070710',
+                  cursor: isVideoUrl(allScreenshots[activeImg]) ? 'default' : 'zoom-in',
+                }}
+                onClick={() => { if (!isVideoUrl(allScreenshots[activeImg])) openFullscreen(); }}
               >
                 <AnimatePresence mode="wait">
-                  <motion.div
-                    key={activeImg}
-                    initial={{ opacity: 0, scale: 1.04 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.97 }}
-                    transition={{ duration: 0.35 }}
-                    className="absolute inset-0"
-                  >
-                    <Image
-                      src={allScreenshots[activeImg]}
-                      alt={`${product.title} screenshot ${activeImg + 1}`}
-                      fill
-                      className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-                      priority={activeImg === 0}
-                      unoptimized
-                    />
-                  </motion.div>
+                  {isYouTubeUrl(allScreenshots[activeImg]) ? (
+                    <motion.div
+                      key={`yt-${activeImg}`}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="absolute inset-0"
+                    >
+                      <iframe
+                        src={allScreenshots[activeImg]}
+                        className="absolute inset-0 w-full h-full"
+                        allow="autoplay; fullscreen"
+                        allowFullScreen
+                        style={{ border: 'none' }}
+                      />
+                    </motion.div>
+                  ) : isVideoUrl(allScreenshots[activeImg]) ? (
+                    <motion.div
+                      key={`v-${activeImg}`}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="absolute inset-0"
+                    >
+                      <video
+                        src={allScreenshots[activeImg]}
+                        autoPlay loop muted playsInline
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key={activeImg}
+                      initial={{ opacity: 0, scale: 1.04 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.97 }}
+                      transition={{ duration: 0.35 }}
+                      className="absolute inset-0"
+                    >
+                      <Image
+                        src={allScreenshots[activeImg]}
+                        alt={`${product.title} screenshot ${activeImg + 1}`}
+                        fill
+                        className="object-contain transition-transform duration-500 group-hover:scale-[1.02]"
+                        priority={activeImg === 0}
+                        unoptimized
+                      />
+                    </motion.div>
+                  )}
                 </AnimatePresence>
 
                 {/* Overlay */}
@@ -211,8 +298,18 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                   style={{ background: 'linear-gradient(to top, rgba(10,10,15,0.6) 0%, transparent 50%)' }}
                 />
 
+                {/* TRAILER badge */}
+                {isVideoUrl(allScreenshots[activeImg]) && (
+                  <div
+                    className="absolute top-4 left-4 font-pixel text-white rounded-xl pointer-events-none flex items-center gap-1.5"
+                    style={{ fontSize: '9px', padding: '5px 10px', background: 'linear-gradient(135deg,#EF4444,#F97316)', letterSpacing: '0.06em', boxShadow: '0 0 16px rgba(239,68,68,0.5)' }}
+                  >
+                    ▶ TRAILER
+                  </div>
+                )}
+
                 {/* Badge */}
-                {product.badge && BADGE_CFG[product.badge] && (
+                {!isVideoUrl(allScreenshots[activeImg]) && product.badge && BADGE_CFG[product.badge] && (
                   <div
                     className="absolute top-4 left-4 font-pixel text-white rounded-xl pointer-events-none"
                     style={{
@@ -236,13 +333,15 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                   </div>
                 )}
 
-                {/* Fullscreen icon */}
-                <div
-                  className="absolute bottom-4 right-4 w-8 h-8 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.15)' }}
-                >
-                  <Maximize2 className="w-3.5 h-3.5 text-white" />
-                </div>
+                {/* Fullscreen icon — only for images */}
+                {!isVideoUrl(allScreenshots[activeImg]) && (
+                  <div
+                    className="absolute bottom-4 right-4 w-8 h-8 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.15)' }}
+                  >
+                    <Maximize2 className="w-3.5 h-3.5 text-white" />
+                  </div>
+                )}
 
                 {/* Arrows */}
                 {allScreenshots.length > 1 && (
@@ -294,17 +393,24 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                       onClick={() => setActiveImg(i)}
                       className="flex-shrink-0 relative w-20 h-14 rounded-xl overflow-hidden transition-all duration-200"
                       style={{
-                        border: `2px solid ${i === activeImg ? '#7C3AED' : 'rgba(255,255,255,0.07)'}`,
-                        boxShadow: i === activeImg ? '0 0 12px rgba(124,58,237,0.4)' : 'none',
+                        border: `2px solid ${i === activeImg ? (isVideoUrl(src) ? '#EF4444' : '#7C3AED') : 'rgba(255,255,255,0.07)'}`,
+                        boxShadow: i === activeImg ? (isVideoUrl(src) ? '0 0 12px rgba(239,68,68,0.4)' : '0 0 12px rgba(124,58,237,0.4)') : 'none',
                       }}
                     >
-                      <Image
-                        src={src}
-                        alt={`thumb-${i}`}
-                        fill unoptimized
-                        className="object-cover transition-opacity duration-200"
-                        style={{ opacity: i === activeImg ? 1 : 0.55 }}
-                      />
+                      {isVideoUrl(src) ? (
+                        <div className="absolute inset-0 flex items-center justify-center"
+                             style={{ background: 'linear-gradient(135deg,rgba(239,68,68,0.25),rgba(249,115,22,0.25))' }}>
+                          <span style={{ fontSize: '18px', opacity: i === activeImg ? 1 : 0.55 }}>▶</span>
+                        </div>
+                      ) : (
+                        <Image
+                          src={src}
+                          alt={`thumb-${i}`}
+                          fill unoptimized
+                          className="object-cover transition-opacity duration-200"
+                          style={{ opacity: i === activeImg ? 1 : 0.55 }}
+                        />
+                      )}
                     </button>
                   ))}
                 </div>

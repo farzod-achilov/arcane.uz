@@ -7,33 +7,38 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Package, ShoppingBag, Users, Tag,
   Zap, Gift, MessageSquare, BarChart2, Settings,
-  ChevronLeft, ChevronRight, Shield, LogOut, KeyRound,
+  ChevronLeft, ChevronRight, Shield, LogOut, KeyRound, TrendingUp, Gamepad2,
 } from 'lucide-react';
+import { useT } from '@/lib/i18n';
 
-const NAV_ITEMS = [
-  { href: '/admin',           label: 'Дашборд',    icon: LayoutDashboard, color: '#7C3AED' },
-  { href: '/admin/products',  label: 'Продукты',   icon: Package,         color: '#06B6D4' },
-  { href: '/admin/keys',      label: 'Ключи',      icon: KeyRound,        color: '#22C55E' },
-  { href: '/admin/orders',    label: 'Заказы',     icon: ShoppingBag,     color: '#F59E0B' },
-  { href: '/admin/users',     label: 'Пользователи',icon: Users,          color: '#06B6D4' },
-  { href: '/admin/discounts', label: 'Скидки',     icon: Tag,             color: '#EF4444' },
-  { href: '/admin/coins',     label: 'Монеты',     icon: Zap,             color: '#F59E0B' },
-  { href: '/admin/cases',     label: 'Кейсы',      icon: Gift,            color: '#9D60FA' },
-  { href: '/admin/support',   label: 'Поддержка',  icon: MessageSquare,   color: '#06B6D4' },
-  { href: '/admin/analytics', label: 'Аналитика',  icon: BarChart2,       color: '#7C3AED' },
-];
-
-interface Props {
+export default function AdminSidebar({
+  collapsed, onToggle,
+}: {
   collapsed: boolean;
-  onToggle: () => void;
-}
-
-export default function AdminSidebar({ collapsed, onToggle }: Props) {
+  onToggle:  () => void;
+}) {
   const pathname = usePathname();
+  const { t }    = useT();
+
+  const NAV_ITEMS = [
+    { href: '/admin',                     label: t.nav.dashboard,    icon: LayoutDashboard, color: '#7C3AED' },
+    { href: '/admin/products',            label: t.nav.products,     icon: Package,         color: '#06B6D4' },
+    { href: '/admin/keys',                label: t.nav.keys,         icon: KeyRound,        color: '#22C55E' },
+    { href: '/admin/orders',              label: t.nav.orders,       icon: ShoppingBag,     color: '#F59E0B' },
+    { href: '/admin/users',               label: t.nav.users,        icon: Users,           color: '#06B6D4' },
+    { href: '/admin/discounts',           label: t.nav.discounts,    icon: Tag,             color: '#EF4444' },
+    { href: '/admin/coins',               label: t.nav.coins,        icon: Zap,             color: '#F59E0B' },
+    { href: '/admin/cases',               label: t.nav.cases,        icon: Gift,            color: '#9D60FA' },
+    { href: '/admin/price-control',       label: t.nav.priceControl, icon: TrendingUp,      color: '#22C55E' },
+    { href: '/admin/smart-pricing',       label: t.nav.smartPricing, icon: BarChart2,       color: '#F59E0B' },
+    { href: '/admin/smart-pricing/games', label: t.nav.gamePricing,  icon: Gamepad2,        color: '#9D60FA' },
+    { href: '/admin/support',             label: t.nav.support,      icon: MessageSquare,   color: '#06B6D4' },
+    { href: '/admin/analytics',           label: t.nav.analytics,    icon: BarChart2,       color: '#7C3AED' },
+  ];
 
   const isActive = (href: string) => {
     if (href === '/admin') return pathname === '/admin';
-    return pathname.startsWith(href);
+    return pathname === href || pathname.startsWith(href + '/');
   };
 
   return (
@@ -47,45 +52,24 @@ export default function AdminSidebar({ collapsed, onToggle }: Props) {
       }}
     >
       {/* Top glow */}
-      <div
-        className="absolute top-0 left-0 right-0 h-px pointer-events-none"
-        style={{ background: 'linear-gradient(90deg, transparent, rgba(124,58,237,0.4), transparent)' }}
-      />
-      {/* Ambient glow */}
-      <div
-        className="absolute top-0 left-0 right-0 h-48 pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(124,58,237,0.06) 0%, transparent 70%)' }}
-      />
+      <div className="absolute top-0 left-0 right-0 h-px pointer-events-none"
+           style={{ background: 'linear-gradient(90deg, transparent, rgba(124,58,237,0.4), transparent)' }} />
+      <div className="absolute top-0 left-0 right-0 h-48 pointer-events-none"
+           style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(124,58,237,0.06) 0%, transparent 70%)' }} />
 
       {/* Logo */}
-      <div
-        className="flex items-center gap-3 px-4 h-16 flex-shrink-0"
-        style={{ borderBottom: '1px solid rgba(124,58,237,0.1)' }}
-      >
-        <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{
-            background: 'linear-gradient(135deg, #7C3AED, #5B21B6)',
-            boxShadow: '0 0 12px rgba(124,58,237,0.5)',
-          }}
-        >
+      <div className="flex items-center gap-3 px-4 h-16 flex-shrink-0"
+           style={{ borderBottom: '1px solid rgba(124,58,237,0.1)' }}>
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+             style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', boxShadow: '0 0 12px rgba(124,58,237,0.5)' }}>
           <Shield style={{ width: '14px', height: '14px', color: '#fff' }} />
         </div>
         <AnimatePresence>
           {!collapsed && (
-            <motion.div
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -8 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-hidden"
-            >
-              <p className="font-heading font-bold text-white" style={{ fontSize: '13px', whiteSpace: 'nowrap' }}>
-                ARCANE.UZ
-              </p>
-              <p className="font-pixel text-[#374151]" style={{ fontSize: '6px', letterSpacing: '0.12em', whiteSpace: 'nowrap' }}>
-                ADMIN PANEL
-              </p>
+            <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }}
+              transition={{ duration: 0.2 }} className="overflow-hidden">
+              <p className="font-heading font-bold text-white" style={{ fontSize: '13px', whiteSpace: 'nowrap' }}>ARCANE.UZ</p>
+              <p className="font-pixel text-[#374151]" style={{ fontSize: '6px', letterSpacing: '0.12em', whiteSpace: 'nowrap' }}>ADMIN PANEL</p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -101,54 +85,36 @@ export default function AdminSidebar({ collapsed, onToggle }: Props) {
               href={item.href}
               className="flex items-center gap-3 px-4 py-2.5 mx-2 my-0.5 rounded-xl transition-all duration-200 group relative overflow-hidden"
               style={{
-                background: active ? `${item.color}12` : 'transparent',
-                borderLeft: `2px solid ${active ? item.color : 'transparent'}`,
+                background:  active ? `${item.color}12` : 'transparent',
+                borderLeft:  `2px solid ${active ? item.color : 'transparent'}`,
               }}
               title={collapsed ? item.label : undefined}
             >
-              {/* Hover bg */}
-              <span
-                className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                style={{ background: `${item.color}08` }}
-              />
-              <item.icon
-                style={{
-                  width: '16px',
-                  height: '16px',
-                  color: active ? item.color : '#4B5563',
-                  flexShrink: 0,
-                  transition: 'color 0.2s',
-                  position: 'relative',
-                  zIndex: 1,
-                }}
-                className="group-hover:!text-[#9CA3AF]"
-              />
+              <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                    style={{ background: `${item.color}08` }} />
+              <item.icon style={{
+                width: '16px', height: '16px',
+                color: active ? item.color : '#4B5563',
+                flexShrink: 0, transition: 'color 0.2s', position: 'relative', zIndex: 1,
+              }} className="group-hover:!text-[#9CA3AF]" />
               <AnimatePresence>
                 {!collapsed && (
-                  <motion.span
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -8 }}
+                  <motion.span initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }}
                     transition={{ duration: 0.18 }}
                     className="font-body relative z-10 whitespace-nowrap"
-                    style={{ fontSize: '13px', color: active ? '#E2E8F0' : '#6B7280' }}
-                  >
+                    style={{ fontSize: '13px', color: active ? '#E2E8F0' : '#6B7280' }}>
                     {item.label}
                   </motion.span>
                 )}
               </AnimatePresence>
-
-              {/* Active dot */}
               {active && (
-                <motion.div
-                  layoutId="adminNavDot"
+                <motion.div layoutId="adminNavDot"
                   className="ml-auto flex-shrink-0 w-1.5 h-1.5 rounded-full relative z-10"
                   style={{
                     background: item.color,
                     boxShadow: `0 0 6px ${item.color}`,
                     display: collapsed ? 'none' : 'block',
-                  }}
-                />
+                  }} />
               )}
             </Link>
           );
@@ -156,42 +122,30 @@ export default function AdminSidebar({ collapsed, onToggle }: Props) {
       </nav>
 
       {/* Settings + profile */}
-      <div
-        className="flex-shrink-0 py-3"
-        style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
-      >
-        <Link
-          href="/admin/settings"
+      <div className="flex-shrink-0 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+        <Link href="/admin/settings"
           className="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-xl transition-all duration-200 group"
           style={{ color: '#4B5563' }}
-          title={collapsed ? 'Настройки' : undefined}
-        >
+          title={collapsed ? t.nav.settings : undefined}>
           <Settings style={{ width: '16px', height: '16px', flexShrink: 0 }} className="group-hover:text-[#9CA3AF] transition-colors" />
           <AnimatePresence>
             {!collapsed && (
-              <motion.span
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 className="font-body text-[#4B5563] group-hover:text-[#9CA3AF] transition-colors whitespace-nowrap"
-                style={{ fontSize: '13px' }}
-              >
-                Настройки
+                style={{ fontSize: '13px' }}>
+                {t.nav.settings}
               </motion.span>
             )}
           </AnimatePresence>
         </Link>
 
-        {/* Admin profile */}
         {!collapsed && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="mx-3 mt-2 p-3 rounded-xl"
-            style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.15)' }}
-          >
+            style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.15)' }}>
             <div className="flex items-center gap-2.5">
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 font-heading font-bold text-white"
-                style={{ background: 'linear-gradient(135deg, #7C3AED, #06B6D4)', fontSize: '11px' }}
-              >
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 font-heading font-bold text-white"
+                   style={{ background: 'linear-gradient(135deg, #7C3AED, #06B6D4)', fontSize: '11px' }}>
                 A
               </div>
               <div className="flex-1 min-w-0">
@@ -219,7 +173,7 @@ export default function AdminSidebar({ collapsed, onToggle }: Props) {
       >
         {collapsed
           ? <ChevronRight style={{ width: '13px', height: '13px' }} />
-          : <ChevronLeft style={{ width: '13px', height: '13px' }} />}
+          : <ChevronLeft  style={{ width: '13px', height: '13px' }} />}
       </button>
     </motion.aside>
   );

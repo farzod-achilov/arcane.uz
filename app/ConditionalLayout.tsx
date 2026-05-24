@@ -3,10 +3,12 @@
 import { usePathname } from 'next/navigation';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
+import { useOverlay } from '@/lib/overlayContext';
 
 export default function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdmin = pathname.startsWith('/admin');
+  const { isFullscreenOverlay } = useOverlay();
 
   if (isAdmin) {
     return <>{children}</>;
@@ -14,9 +16,11 @@ export default function ConditionalLayout({ children }: { children: React.ReactN
 
   return (
     <>
-      <Navbar />
-      <main className="page-enter">{children}</main>
-      <Footer />
+      {!isFullscreenOverlay && <Navbar />}
+      <main className={`page-enter ${isFullscreenOverlay ? '' : 'pt-[120px]'}`}>
+        {children}
+      </main>
+      {!isFullscreenOverlay && <Footer />}
     </>
   );
 }

@@ -39,6 +39,8 @@ export interface ArcaneGameResponse {
 export interface CreateGamePayload {
   title: string;
   cover?: string;
+  screenshots?: string[];
+  trailer?: string | null;
   description?: string;
   genres?: string[];
   platforms?: string[];

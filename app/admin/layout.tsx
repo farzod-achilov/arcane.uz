@@ -3,11 +3,13 @@
 import { useState } from 'react';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import AdminTopbar from '@/components/admin/AdminTopbar';
+import { LanguageProvider } from '@/lib/i18n';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
+    <LanguageProvider>
     <div
       className="flex h-screen overflow-hidden"
       style={{ background: '#030309' }}
@@ -40,5 +42,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </main>
       </div>
     </div>
+    </LanguageProvider>
   );
 }

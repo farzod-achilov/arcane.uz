@@ -7,29 +7,51 @@ import Link from 'next/link';
 import {
   Search, Bell, ExternalLink, ChevronRight,
   LayoutDashboard, Package, ShoppingBag, Users,
-  Tag, Zap, Gift, MessageSquare, BarChart2,
+  Tag, Zap, Gift, MessageSquare, BarChart2, TrendingUp, Gamepad2, KeyRound,
 } from 'lucide-react';
 import { ADMIN_STATS } from '@/lib/admin/mockAdminData';
+import { useT } from '@/lib/i18n';
 
-const BREADCRUMBS: Record<string, { label: string; icon: React.ElementType }> = {
-  '/admin':           { label: 'Дашборд',       icon: LayoutDashboard },
-  '/admin/products':  { label: 'Продукты',      icon: Package },
-  '/admin/orders':    { label: 'Заказы',        icon: ShoppingBag },
-  '/admin/users':     { label: 'Пользователи',  icon: Users },
-  '/admin/discounts': { label: 'Скидки',        icon: Tag },
-  '/admin/coins':     { label: 'Монеты',        icon: Zap },
-  '/admin/cases':     { label: 'Кейсы',         icon: Gift },
-  '/admin/support':   { label: 'Поддержка',     icon: MessageSquare },
-  '/admin/analytics': { label: 'Аналитика',     icon: BarChart2 },
+const BREADCRUMB_ICONS: Record<string, React.ElementType> = {
+  '/admin':                     LayoutDashboard,
+  '/admin/products':            Package,
+  '/admin/keys':                KeyRound,
+  '/admin/orders':              ShoppingBag,
+  '/admin/users':               Users,
+  '/admin/discounts':           Tag,
+  '/admin/coins':               Zap,
+  '/admin/cases':               Gift,
+  '/admin/price-control':       TrendingUp,
+  '/admin/smart-pricing':       BarChart2,
+  '/admin/smart-pricing/games': Gamepad2,
+  '/admin/support':             MessageSquare,
+  '/admin/analytics':           BarChart2,
 };
 
 export default function AdminTopbar() {
-  const pathname = usePathname();
+  const pathname              = usePathname();
+  const { t, lang, setLang } = useT();
   const [search, setSearch]   = useState('');
   const [notifOpen, setNotif] = useState(false);
 
-  const current = BREADCRUMBS[pathname] ?? { label: 'Admin', icon: LayoutDashboard };
-  const Icon = current.icon;
+  const BREADCRUMB_LABELS: Record<string, string> = {
+    '/admin':                     t.nav.dashboard,
+    '/admin/products':            t.nav.products,
+    '/admin/keys':                t.nav.keys,
+    '/admin/orders':              t.nav.orders,
+    '/admin/users':               t.nav.users,
+    '/admin/discounts':           t.nav.discounts,
+    '/admin/coins':               t.nav.coins,
+    '/admin/cases':               t.nav.cases,
+    '/admin/price-control':       t.nav.priceControl,
+    '/admin/smart-pricing':       t.nav.smartPricing,
+    '/admin/smart-pricing/games': t.nav.gamePricing,
+    '/admin/support':             t.nav.support,
+    '/admin/analytics':           t.nav.analytics,
+  };
+
+  const label = BREADCRUMB_LABELS[pathname] ?? 'Admin';
+  const Icon  = BREADCRUMB_ICONS[pathname]  ?? LayoutDashboard;
 
   return (
     <header
@@ -55,20 +77,40 @@ export default function AdminTopbar() {
         <div className="flex items-center gap-1.5">
           <Icon style={{ width: '13px', height: '13px', color: '#7C3AED', flexShrink: 0 }} />
           <span className="font-heading font-semibold text-white whitespace-nowrap" style={{ fontSize: '13px' }}>
-            {current.label}
+            {label}
           </span>
         </div>
       </div>
 
       {/* Right zone */}
       <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Language switcher */}
+        <div className="flex items-center rounded-xl overflow-hidden"
+             style={{ background: '#09090E', border: '1px solid rgba(255,255,255,0.07)' }}>
+          {(['ru', 'en'] as const).map(l => (
+            <button
+              key={l}
+              onClick={() => setLang(l)}
+              className="px-3 py-2 font-heading font-bold transition-all duration-200"
+              style={{
+                fontSize:   '11px',
+                color:      lang === l ? '#fff' : '#374151',
+                background: lang === l ? 'rgba(124,58,237,0.3)' : 'transparent',
+                letterSpacing: '0.05em',
+              }}
+            >
+              {l.toUpperCase()}
+            </button>
+          ))}
+        </div>
+
         {/* Search */}
-        <div className="hidden sm:flex items-center gap-2 rounded-xl px-3 py-2 w-52"
+        <div className="hidden sm:flex items-center gap-2 rounded-xl px-3 py-2 w-48"
              style={{ background: '#09090E', border: '1px solid rgba(255,255,255,0.06)' }}>
           <Search style={{ width: '13px', height: '13px', color: '#374151', flexShrink: 0 }} />
           <input
             type="text"
-            placeholder="Поиск..."
+            placeholder={t.topbar.search}
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="bg-transparent outline-none text-white placeholder:text-[#1F2937] w-full font-body"
@@ -87,7 +129,7 @@ export default function AdminTopbar() {
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#4B5563'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.06)'; }}
         >
           <ExternalLink style={{ width: '12px', height: '12px' }} />
-          <span className="font-body">Сайт</span>
+          <span className="font-body">{t.topbar.site}</span>
         </a>
 
         {/* Notifications */}
@@ -124,12 +166,12 @@ export default function AdminTopbar() {
                 style={{ background: '#0D0D1A', border: '1px solid rgba(124,58,237,0.2)', boxShadow: '0 16px 40px rgba(0,0,0,0.6)' }}
               >
                 <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                  <span className="font-heading font-semibold text-white" style={{ fontSize: '13px' }}>Уведомления</span>
+                  <span className="font-heading font-semibold text-white" style={{ fontSize: '13px' }}>{t.topbar.notifications}</span>
                   <span
                     className="font-pixel rounded-md px-1.5 py-0.5"
                     style={{ fontSize: '7px', color: '#EF4444', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}
                   >
-                    {ADMIN_STATS.openTickets} НОВЫХ
+                    {ADMIN_STATS.openTickets} {t.topbar.newBadge}
                   </span>
                 </div>
                 {[

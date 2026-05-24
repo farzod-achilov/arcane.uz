@@ -1,0 +1,413 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model drop_history {
+  id             String        @id
+  userId         String
+  dropId         String
+  rewardId       String
+  coinsSpent     Int
+  jackpotContrib Int           @default(0)
+  createdAt      DateTime      @default(now())
+  drop_machines  drop_machines @relation(fields: [dropId], references: [id])
+  users          users         @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([userId])
+}
+
+model drop_machines {
+  id            String         @id
+  name          String
+  slug          String         @unique
+  theme         String
+  price         Int
+  description   String?
+  imageUrl      String?
+  animConfig    Json?
+  isActive      Boolean        @default(true)
+  totalOpened   Int            @default(0)
+  featuredOrder Int?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime
+  drop_history  drop_history[]
+  drop_rewards  drop_rewards[]
+}
+
+model drop_rewards {
+  id            String        @id
+  dropId        String
+  gameId        String?
+  name          String
+  type          RewardType
+  rarity        Rarity
+  dropChance    Float
+  sellValue     Int
+  metadata      Json?
+  imageUrl      String?
+  isActive      Boolean       @default(true)
+  timesDropped  Int           @default(0)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime
+  drop_machines drop_machines @relation(fields: [dropId], references: [id], onDelete: Cascade)
+  games         games?        @relation(fields: [gameId], references: [id])
+  inventory     inventory[]
+
+  @@index([dropId])
+  @@index([rarity])
+}
+
+model game_keys {
+  id               String             @id
+  gameId           String
+  encryptedKey     String
+  keyIv            String
+  keyTag           String
+  keyHash          String             @unique
+  status           KeyStatus          @default(AVAILABLE)
+  type             KeyType            @default(BOTH)
+  reservedFor      String?
+  reservedAt       DateTime?
+  reserveExpiry    DateTime?
+  soldToUserId     String?
+  usedAt           DateTime?
+  deliveredAt      DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime
+  games            games              @relation(fields: [gameId], references: [id])
+  users            users?             @relation(fields: [soldToUserId], references: [id])
+  key_transactions key_transactions[]
+
+  @@index([gameId, status])
+  @@index([gameId, type, status])
+  @@index([keyHash])
+  @@index([reserveExpiry])
+  @@index([status])
+}
+
+model games {
+  id                String         @id
+  externalId        String?
+  source            String         @default("manual")
+  title             String
+  slug              String         @unique
+  cover             String?
+  screenshots       String[]
+  description       String?
+  genres            String[]
+  platforms         String[]
+  rating            Float?
+  priceUsd          Float?
+  priceUzs          Int?
+  releaseDate       DateTime?
+  developer         String?
+  publisher         String?
+  isActive          Boolean        @default(true)
+  stockStore        Int            @default(0)
+  stockDrop         Int            @default(0)
+  lowStockThreshold Int            @default(5)
+  syncedAt          DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime
+  drop_rewards      drop_rewards[]
+  game_keys         game_keys[]
+  game_pricing      game_pricing?
+
+  @@unique([externalId, source])
+  @@index([slug])
+}
+
+model inventory {
+  id           String          @id
+  userId       String
+  rewardId     String
+  status       InventoryStatus @default(PENDING)
+  claimedAt    DateTime?
+  soldAt       DateTime?
+  soldFor      Int?
+  createdAt    DateTime        @default(now())
+  drop_rewards drop_rewards    @relation(fields: [rewardId], references: [id])
+  users        users           @relation(fields: [userId], references: [id])
+
+  @@index([status])
+  @@index([userId])
+}
+
+model jackpot {
+  id        String   @id
+  total     Int      @default(0)
+  updatedAt DateTime
+}
+
+model jackpot_history {
+  id        String   @id
+  userId    String
+  amount    Int
+  createdAt DateTime @default(now())
+  users     users    @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+}
+
+model key_transactions {
+  id        String             @id
+  keyId     String
+  userId    String?
+  adminId   String?
+  type      KeyTransactionType
+  note      String?
+  metadata  Json?
+  createdAt DateTime           @default(now())
+  game_keys game_keys          @relation(fields: [keyId], references: [id])
+  users     users?             @relation(fields: [userId], references: [id])
+
+  @@index([keyId])
+  @@index([type])
+  @@index([userId])
+}
+
+model live_drops {
+  id         String   @id
+  userId     String
+  username   String
+  avatar     String?
+  rewardName String
+  rarity     Rarity
+  dropName   String
+  imageUrl   String?
+  createdAt  DateTime @default(now())
+  users      users    @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+}
+
+model sessions {
+  id           String   @id
+  userId       String
+  refreshToken String   @unique
+  userAgent    String?
+  ipAddress    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  users        users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model transactions {
+  id            String          @id
+  userId        String
+  type          TransactionType
+  amount        Int
+  balanceBefore Int
+  balanceAfter  Int
+  description   String?
+  metadata      Json?
+  createdAt     DateTime        @default(now())
+  users         users           @relation(fields: [userId], references: [id])
+
+  @@index([type])
+  @@index([userId])
+}
+
+model users {
+  id               String             @id
+  email            String             @unique
+  username         String             @unique
+  password         String
+  avatar           String?
+  level            Int                @default(1)
+  xp               Int                @default(0)
+  arcCoins         Int                @default(500)
+  streak           Int                @default(0)
+  lastLoginAt      DateTime?
+  isAdmin          Boolean            @default(false)
+  isBanned         Boolean            @default(false)
+  banReason        String?
+  totalDrops       Int                @default(0)
+  totalSpent       Int                @default(0)
+  totalWon         Int                @default(0)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime
+  drop_history     drop_history[]
+  game_keys        game_keys[]
+  inventory        inventory[]
+  jackpot_history  jackpot_history[]
+  key_transactions key_transactions[]
+  live_drops       live_drops[]
+  sessions         sessions[]
+  transactions     transactions[]
+
+  @@index([email])
+  @@index([username])
+}
+
+enum InventoryStatus {
+  PENDING
+  CLAIMED
+  SOLD
+}
+
+enum KeyStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+  USED
+  DISABLED
+}
+
+enum KeyTransactionType {
+  IMPORT
+  PURCHASE
+  DROP_REWARD
+  MANUAL_ASSIGN
+  DISABLE
+  MOVE
+  BULK_IMPORT
+}
+
+enum KeyType {
+  STORE
+  DROP
+  BOTH
+}
+
+enum Rarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+enum RewardType {
+  GAME
+  COINS
+  BOOST
+  DISCOUNT
+  JACKPOT
+}
+
+enum TransactionType {
+  DROP_OPEN
+  REWARD_SELL
+  JACKPOT_WIN
+  ADMIN_GRANT
+  REFERRAL_BONUS
+  STORE_PURCHASE
+}
+
+// ═══════════════════════════════════════════════════════
+//  SMART PRICING SYSTEM
+// ═══════════════════════════════════════════════════════
+
+enum PricingStrategy {
+  GLOBAL
+  AGGRESSIVE
+  COMPETITIVE
+  HIGH_PROFIT
+  MANUAL
+}
+
+enum UsdRoundType {
+  POINT_99
+  POINT_49
+  INTEGER
+}
+
+enum UzsRoundType {
+  NEAREST_1000
+  NEAREST_9000
+  NEAREST_99000
+}
+
+enum SmartMarkupType {
+  PERCENT
+  FIXED
+}
+
+model price_settings {
+  id                          String       @id @default(uuid())
+  globalMarkupPercent         Decimal      @db.Decimal(8, 4)  @default(5)
+  cheapGamesThreshold         Decimal      @db.Decimal(12, 4) @default(20)
+  cheapGamesFixedMarkup       Decimal      @db.Decimal(12, 4) @default(2)
+  expensiveGamesPercentMarkup Decimal      @db.Decimal(8, 4)  @default(10)
+  autoRoundUsd                Boolean      @default(true)
+  usdRoundType                UsdRoundType @default(POINT_99)
+  autoRoundUzs                Boolean      @default(true)
+  uzsRoundType                UzsRoundType @default(NEAREST_9000)
+  minimumProfitUsd            Decimal      @db.Decimal(12, 4) @default(1)
+  aggressiveMarkupPercent     Decimal         @db.Decimal(8, 4)  @default(3)
+  competitiveMarkupPercent    Decimal         @db.Decimal(8, 4)  @default(8)
+  highProfitMarkupPercent     Decimal         @db.Decimal(8, 4)  @default(20)
+  defaultStrategy             PricingStrategy @default(GLOBAL)
+  createdAt                   DateTime        @default(now())
+  updatedAt                   DateTime        @updatedAt
+}
+
+model currency_settings {
+  id             String   @id @default(uuid())
+  exchangeRate   Decimal  @db.Decimal(12, 4) @default(12700)
+  autoUpdateRate Boolean  @default(false)
+  lastUpdated    DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model game_pricing {
+  id                    String          @id @default(uuid())
+  gameId                String          @unique
+  supplierPriceUsd      Decimal?        @db.Decimal(12, 4)
+  steamPriceUsd         Decimal?        @db.Decimal(12, 4)
+  steamDiscountPriceUsd Decimal?        @db.Decimal(12, 4)
+  finalPriceUsd         Decimal?        @db.Decimal(12, 4)
+  finalPriceUzs         Decimal?        @db.Decimal(16, 0)
+  youSaveAmount         Decimal?        @db.Decimal(12, 4)
+  youSavePercent        Decimal?        @db.Decimal(8, 4)
+  marginPercent         Decimal?        @db.Decimal(8, 4)
+  customPricingEnabled  Boolean         @default(false)
+  customMarkupType      SmartMarkupType?
+  customMarkupValue     Decimal?        @db.Decimal(12, 4)
+  customFinalPrice      Decimal?        @db.Decimal(12, 4)
+  pricingStrategy       PricingStrategy @default(GLOBAL)
+  notes                 String?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  games                 games           @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  pricing_logs          pricing_logs[]
+
+  @@index([pricingStrategy])
+}
+
+model pricing_logs {
+  id              String       @id @default(uuid())
+  gamePricingId   String
+  event           String
+  previousUsd     Decimal?     @db.Decimal(12, 4)
+  newUsd          Decimal?     @db.Decimal(12, 4)
+  previousUzs     Decimal?     @db.Decimal(16, 0)
+  newUzs          Decimal?     @db.Decimal(16, 0)
+  appliedStrategy String?
+  appliedRules    Json?
+  triggeredBy     String       @default("system")
+  createdAt       DateTime     @default(now())
+  game_pricing    game_pricing @relation(fields: [gamePricingId], references: [id], onDelete: Cascade)
+
+  @@index([gamePricingId])
+  @@index([createdAt])
+}
+
+model exchange_rates {
+  id        String   @id @default(uuid())
+  currency  String   @default("UZS")
+  rate      Decimal  @db.Decimal(12, 4)
+  source    String   @default("manual")
+  createdAt DateTime @default(now())
+
+  @@index([currency])
+  @@index([createdAt])
+}

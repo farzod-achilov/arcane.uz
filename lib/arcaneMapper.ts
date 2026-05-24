@@ -11,6 +11,14 @@ export function arcaneGameToProduct(g: ArcaneGame): Product {
     g.priceUzs ??
     (g.priceUsd != null ? Math.round((g.priceUsd * USD_TO_UZS) / 1000) * 1000 : 299_000);
 
+  const trailerRaw  = g.screenshots.find(s => s.startsWith('video:') || s.startsWith('youtube:'));
+  const screenshots = g.screenshots.filter(s => !s.startsWith('video:') && !s.startsWith('youtube:'));
+  const trailerUrl  = trailerRaw?.startsWith('video:')
+    ? trailerRaw.slice(6)
+    : trailerRaw?.startsWith('youtube:')
+      ? `https://www.youtube.com/embed/${trailerRaw.slice(8)}?autoplay=1&mute=1`
+      : undefined;
+
   return {
     id:          g.id,
     title:       g.title,
@@ -22,7 +30,8 @@ export function arcaneGameToProduct(g: ArcaneGame): Product {
     rating:      g.rating ? Math.round(g.rating) / 10 : 7.5,   // normalize 0-100 → 0-10
     reviewCount: 0,
     image:       g.cover  ?? 'https://picsum.photos/seed/arcane/400/600',
-    screenshots: g.screenshots,
+    screenshots,
+    trailer:     trailerUrl,
     platform:    g.platforms.length > 0 ? g.platforms : ['PC'],
     category:    g.genres[0] ?? 'Action',
     tags:        g.genres,
@@ -35,6 +44,8 @@ export function arcaneGameToProduct(g: ArcaneGame): Product {
     releaseDate:  g.releaseDate ?? undefined,
     developer:    g.developer   ?? undefined,
     publisher:    g.publisher   ?? undefined,
+    reviews:      0,
+    features:     [],
     digiGoodId:   undefined,
     // arcane-specific fields preserved via metadata
     _arcane: {
@@ -43,7 +54,7 @@ export function arcaneGameToProduct(g: ArcaneGame): Product {
       source:     g.source,
       slug:       g.slug,
     },
-  } as Product & { _arcane: unknown };
+  } as unknown as Product & { _arcane: unknown };
 }
 
 export function arcaneGamesToProducts(games: ArcaneGame[]): Product[] {

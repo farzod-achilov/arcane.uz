@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Search, Bell, User, Menu, X, LogOut } from 'lucide-react';
+import { ShoppingCart, Search, Bell, User, Menu, X, LogOut, TrendingUp, TrendingDown } from 'lucide-react';
 import SearchOverlay from '@/components/ui/SearchOverlay';
 import NotificationDropdown from '@/components/user/NotificationDropdown';
 import { useUser } from '@/lib/userContext';
+import { useCoin, coinTimeAgo } from '@/lib/coinContext';
 
 const TICKER_ITEMS = [
   'ARCANE.UZ',
@@ -22,14 +23,29 @@ const TICKER_ITEMS = [
 ];
 
 export default function Navbar() {
-  const [isScrolled, setIsScrolled] = useState(false);
+  const [isScrolled,   setIsScrolled]   = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [isNotifOpen,  setIsNotifOpen]  = useState(false);
+  const [isCoinOpen,   setIsCoinOpen]   = useState(false);
   const [cartCount] = useState(2);
+  const coinRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
-  const router = useRouter();
+  const router   = useRouter();
   const { user, isLoggedIn, unreadCount, logout } = useUser();
+  const { balance, history } = useCoin();
+
+  // Close coin dropdown on outside click
+  useEffect(() => {
+    if (!isCoinOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (coinRef.current && !coinRef.current.contains(e.target as Node)) {
+        setIsCoinOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [isCoinOpen]);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -70,7 +86,7 @@ export default function Navbar() {
           TIER 1 — PREMIUM ARCADE TICKER
       ══════════════════════════════════════════════════════ */}
       <div
-        className="relative overflow-hidden flex items-center select-none"
+        className="fixed top-0 left-0 right-0 z-50 overflow-hidden flex items-center select-none"
         style={{
           height: '32px',
           background: 'linear-gradient(90deg, #05020C 0%, #0C041A 30%, #07101C 65%, #05020C 100%)',
@@ -330,115 +346,215 @@ export default function Navbar() {
             ════════════════════════════════ */}
             <div className="flex items-center gap-1.5">
 
-              {/* ── ARCANE COINS BLOCK ── */}
-              <motion.div
-                whileHover={{ scale: 1.03, y: -1 }}
-                whileTap={{ scale: 0.97 }}
-                role="status"
-                aria-label="Аркейн монеты: 1250"
-                className="hidden lg:flex items-center gap-0 relative cursor-pointer select-none"
-                style={{
-                  borderRadius: '16px',
-                  padding: '2px',
-                  background: 'linear-gradient(135deg, rgba(245,158,11,0.55) 0%, rgba(180,100,0,0.3) 50%, rgba(245,158,11,0.45) 100%)',
-                  boxShadow: '0 0 20px rgba(245,158,11,0.18), 0 4px 16px rgba(0,0,0,0.4)',
-                }}
-              >
-                {/* Inner pill */}
-                <div
-                  className="flex items-center gap-2.5 relative overflow-hidden"
+              {/* ── ARCANE COIN BLOCK ── */}
+              <div ref={coinRef} className="hidden lg:block relative">
+                <motion.button
+                  onClick={() => setIsCoinOpen(v => !v)}
+                  whileHover={{ scale: 1.03, y: -1 }}
+                  whileTap={{ scale: 0.97 }}
+                  aria-label="ARCANE COIN баланс"
+                  className="flex items-center gap-0 relative cursor-pointer select-none"
                   style={{
-                    background: 'linear-gradient(135deg, #0F0900 0%, #1A0E00 60%, #120A00 100%)',
-                    borderRadius: '14px',
-                    padding: '0 14px 0 4px',
-                    height: '44px',
+                    borderRadius: '16px',
+                    padding: '2px',
+                    background: isCoinOpen
+                      ? 'linear-gradient(135deg, rgba(245,158,11,0.75) 0%, rgba(180,100,0,0.5) 50%, rgba(245,158,11,0.65) 100%)'
+                      : 'linear-gradient(135deg, rgba(245,158,11,0.55) 0%, rgba(180,100,0,0.3) 50%, rgba(245,158,11,0.45) 100%)',
+                    boxShadow: isCoinOpen
+                      ? '0 0 35px rgba(245,158,11,0.45), 0 4px 20px rgba(0,0,0,0.5)'
+                      : '0 0 20px rgba(245,158,11,0.18), 0 4px 16px rgba(0,0,0,0.4)',
                   }}
                 >
-                  {/* Radial amber glow */}
+                  {/* Inner pill */}
                   <div
-                    className="absolute inset-0 pointer-events-none"
+                    className="flex items-center gap-2.5 relative overflow-hidden"
                     style={{
-                      background: 'radial-gradient(ellipse at 25% 50%, rgba(245,158,11,0.18) 0%, transparent 70%)',
+                      background: 'linear-gradient(135deg, #0F0900 0%, #1A0E00 60%, #120A00 100%)',
+                      borderRadius: '14px',
+                      padding: '0 14px 0 4px',
+                      height: '44px',
                     }}
-                  />
-                  {/* Top shimmer line */}
-                  <div
-                    className="absolute top-0 left-4 right-4 h-px pointer-events-none"
-                    style={{
-                      background: 'linear-gradient(90deg, transparent, rgba(252,211,77,0.5) 50%, transparent)',
-                    }}
-                  />
-                  {/* Periodic shine sweep */}
-                  <motion.div
-                    animate={{ x: ['-180%', '280%'] }}
-                    transition={{ duration: 0.9, repeat: Infinity, repeatDelay: 4, ease: 'easeInOut' }}
-                    className="absolute inset-0 pointer-events-none"
-                    style={{
-                      background: 'linear-gradient(90deg, transparent, rgba(255,220,100,0.07) 50%, transparent)',
-                      width: '60%',
-                    }}
-                  />
-
-                  {/* Coin with glow ring */}
-                  <div
-                    className="relative z-10 flex items-center justify-center flex-shrink-0"
-                    style={{ width: '38px', height: '38px' }}
                   >
-                    {/* Glow ring */}
+                    <div className="absolute inset-0 pointer-events-none"
+                      style={{ background: 'radial-gradient(ellipse at 25% 50%, rgba(245,158,11,0.18) 0%, transparent 70%)' }} />
+                    <div className="absolute top-0 left-4 right-4 h-px pointer-events-none"
+                      style={{ background: 'linear-gradient(90deg, transparent, rgba(252,211,77,0.5) 50%, transparent)' }} />
                     <motion.div
-                      className="absolute inset-0 rounded-full pointer-events-none"
-                      animate={{ opacity: [0.4, 0.9, 0.4], scale: [0.85, 1.05, 0.85] }}
-                      transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
-                      style={{
-                        background: 'radial-gradient(circle, rgba(245,158,11,0.35) 0%, transparent 70%)',
-                      }}
+                      animate={{ x: ['-180%', '280%'] }}
+                      transition={{ duration: 0.9, repeat: Infinity, repeatDelay: 4, ease: 'easeInOut' }}
+                      className="absolute inset-0 pointer-events-none"
+                      style={{ background: 'linear-gradient(90deg, transparent, rgba(255,220,100,0.07) 50%, transparent)', width: '60%' }}
                     />
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src="/coin_header.png"
-                      alt=""
-                      aria-hidden="true"
-                      style={{
-                        width: '38px',
-                        height: '38px',
-                        objectFit: 'cover',
-                        objectPosition: 'center 15%',
-                        filter: 'drop-shadow(0 0 6px rgba(245,158,11,1)) drop-shadow(0 0 14px rgba(245,158,11,0.6))',
-                        position: 'relative',
-                        zIndex: 1,
-                      }}
-                    />
-                  </div>
 
-                  {/* Text block */}
-                  <div className="relative z-10 flex flex-col items-start" style={{ gap: '2px' }}>
-                    {/* Amount */}
-                    <span
-                      className="font-heading font-bold block leading-none"
-                      style={{
-                        fontSize: '15px',
-                        color: '#FCD34D',
-                        letterSpacing: '-0.01em',
-                        textShadow: '0 0 12px rgba(252,211,77,0.7), 0 0 28px rgba(245,158,11,0.4)',
-                      }}
-                    >
-                      1,250
-                    </span>
-                    {/* Label */}
-                    <span
-                      className="font-pixel block"
-                      style={{
-                        fontSize: '6.5px',
-                        color: 'rgba(245,158,11,0.5)',
-                        letterSpacing: '0.14em',
-                        lineHeight: 1,
-                      }}
-                    >
-                      МОНЕТЫ
-                    </span>
+                    {/* Coin icon */}
+                    <div className="relative z-10 flex items-center justify-center flex-shrink-0" style={{ width: '38px', height: '38px' }}>
+                      <motion.div className="absolute inset-0 rounded-full pointer-events-none"
+                        animate={{ opacity: [0.4, 0.9, 0.4], scale: [0.85, 1.05, 0.85] }}
+                        transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+                        style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.35) 0%, transparent 70%)' }}
+                      />
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/coin_header.png" alt="" aria-hidden="true"
+                        style={{ width: '38px', height: '38px', objectFit: 'cover', objectPosition: 'center 15%',
+                          filter: 'drop-shadow(0 0 6px rgba(245,158,11,1)) drop-shadow(0 0 14px rgba(245,158,11,0.6))',
+                          position: 'relative', zIndex: 1 }}
+                      />
+                    </div>
+
+                    {/* Balance */}
+                    <div className="relative z-10 flex flex-col items-start" style={{ gap: '2px' }}>
+                      <motion.span key={balance} className="font-heading font-bold block leading-none tabular-nums"
+                        style={{ fontSize: '15px', color: '#FCD34D', letterSpacing: '-0.01em',
+                          textShadow: '0 0 12px rgba(252,211,77,0.7), 0 0 28px rgba(245,158,11,0.4)' }}
+                        initial={{ scale: 1.15, color: '#ffffff' }} animate={{ scale: 1, color: '#FCD34D' }}
+                        transition={{ duration: 0.35 }}>
+                        {balance.toLocaleString()}
+                      </motion.span>
+                      <span className="font-pixel block"
+                        style={{ fontSize: '6.5px', color: 'rgba(245,158,11,0.5)', letterSpacing: '0.14em', lineHeight: 1 }}>
+                        ARCANE COIN
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </motion.div>
+                </motion.button>
+
+                {/* ── COIN HISTORY DROPDOWN ── */}
+                <AnimatePresence>
+                  {isCoinOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 6, scale: 0.97 }}
+                      transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                      className="absolute right-0 top-[calc(100%+10px)] z-50"
+                      style={{ width: '320px' }}
+                    >
+                      {/* Outer glow */}
+                      <div className="absolute -inset-2 rounded-3xl pointer-events-none"
+                        style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(245,158,11,0.2), transparent 70%)', filter: 'blur(12px)' }} />
+
+                      <div className="relative rounded-2xl overflow-hidden"
+                        style={{ background: 'linear-gradient(160deg, rgba(15,9,0,0.98), rgba(10,6,0,0.99))',
+                          border: '1px solid rgba(245,158,11,0.28)',
+                          boxShadow: '0 20px 60px rgba(0,0,0,0.85), 0 0 0 1px rgba(245,158,11,0.1)' }}>
+
+                        {/* Top accent line */}
+                        <div className="h-[2px]"
+                          style={{ background: 'linear-gradient(90deg, transparent, #F59E0B, #FCD34D 50%, #F59E0B, transparent)' }} />
+
+                        {/* Balance header */}
+                        <div className="px-5 py-4 relative overflow-hidden"
+                          style={{ borderBottom: '1px solid rgba(245,158,11,0.1)' }}>
+                          <div className="absolute inset-0 pointer-events-none"
+                            style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(245,158,11,0.1), transparent 70%)' }} />
+                          <p className="font-pixel mb-2 relative z-10"
+                            style={{ fontSize: '7px', color: 'rgba(245,158,11,0.45)', letterSpacing: '0.18em' }}>
+                            ◆ ARCANE COIN БАЛАНС
+                          </p>
+                          <div className="flex items-end gap-2 relative z-10">
+                            <motion.span key={balance} className="font-heading font-black tabular-nums"
+                              style={{ fontSize: '32px', lineHeight: 1, color: '#FCD34D',
+                                textShadow: '0 0 20px rgba(252,211,77,0.7), 0 0 50px rgba(245,158,11,0.4)' }}
+                              initial={{ scale: 1.1 }} animate={{ scale: 1 }} transition={{ duration: 0.3 }}>
+                              {balance.toLocaleString()}
+                            </motion.span>
+                            <span className="font-pixel mb-1"
+                              style={{ fontSize: '9px', color: 'rgba(245,158,11,0.45)', letterSpacing: '0.12em' }}>
+                              ARCANE
+                            </span>
+                          </div>
+                          {/* Mini bar */}
+                          <div className="mt-2 h-1 rounded-full overflow-hidden relative z-10"
+                            style={{ background: 'rgba(245,158,11,0.08)' }}>
+                            <motion.div className="h-full rounded-full"
+                              style={{ background: 'linear-gradient(90deg, #F59E0B, #FCD34D)', width: `${Math.min(100, (balance / 10000) * 100)}%` }}
+                              initial={{ width: 0 }} animate={{ width: `${Math.min(100, (balance / 10000) * 100)}%` }}
+                              transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }} />
+                          </div>
+                          <p className="font-pixel mt-1 relative z-10"
+                            style={{ fontSize: '6.5px', color: 'rgba(245,158,11,0.28)', letterSpacing: '0.1em' }}>
+                            {Math.min(100, Math.round((balance / 10000) * 100))}% ДО ЗОЛОТОГО РАНГА
+                          </p>
+                        </div>
+
+                        {/* History list */}
+                        <div className="px-3 py-2"
+                          style={{ borderBottom: '1px solid rgba(245,158,11,0.08)' }}>
+                          <p className="font-pixel px-2 py-1.5"
+                            style={{ fontSize: '7px', color: 'rgba(255,255,255,0.2)', letterSpacing: '0.16em' }}>
+                            ◆ ИСТОРИЯ ТРАНЗАКЦИЙ
+                          </p>
+                        </div>
+
+                        <div className="overflow-y-auto" style={{ maxHeight: '260px' }}>
+                          {history.length === 0 ? (
+                            <div className="px-5 py-8 text-center">
+                              <p className="font-pixel" style={{ fontSize: '8px', color: 'rgba(255,255,255,0.2)', letterSpacing: '0.12em' }}>
+                                НЕТ ТРАНЗАКЦИЙ
+                              </p>
+                            </div>
+                          ) : history.map((tx, i) => (
+                            <motion.div key={tx.id}
+                              initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: i * 0.03 }}
+                              className="flex items-center gap-3 px-4 py-3 relative group"
+                              style={{ borderBottom: '1px solid rgba(255,255,255,0.035)' }}>
+                              {/* Hover bg */}
+                              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+                                style={{ background: 'rgba(245,158,11,0.04)' }} />
+
+                              {/* Icon */}
+                              <div className="relative z-10 flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center"
+                                style={{
+                                  background: tx.type === 'earn' ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
+                                  border: `1px solid ${tx.type === 'earn' ? 'rgba(34,197,94,0.25)' : 'rgba(239,68,68,0.25)'}`,
+                                }}>
+                                {tx.type === 'earn'
+                                  ? <TrendingUp className="w-3.5 h-3.5" style={{ color: '#22C55E' }} />
+                                  : <TrendingDown className="w-3.5 h-3.5" style={{ color: '#EF4444' }} />}
+                              </div>
+
+                              {/* Label + time */}
+                              <div className="relative z-10 flex-1 min-w-0">
+                                <p className="font-body text-white/70 truncate" style={{ fontSize: '12px' }}>
+                                  {tx.label}
+                                </p>
+                                <p className="font-pixel mt-0.5" style={{ fontSize: '7px', color: 'rgba(255,255,255,0.22)', letterSpacing: '0.08em' }}>
+                                  {coinTimeAgo(tx.timestamp)}
+                                </p>
+                              </div>
+
+                              {/* Amount */}
+                              <div className="relative z-10 flex-shrink-0 text-right">
+                                <span className="font-heading font-bold tabular-nums"
+                                  style={{ fontSize: '13px', color: tx.type === 'earn' ? '#22C55E' : '#EF4444' }}>
+                                  {tx.type === 'earn' ? '+' : '−'}{tx.amount.toLocaleString()}
+                                </span>
+                                <p className="font-pixel" style={{ fontSize: '6.5px', color: 'rgba(245,158,11,0.35)', letterSpacing: '0.08em' }}>
+                                  ARC
+                                </p>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-4 py-3"
+                          style={{ borderTop: '1px solid rgba(245,158,11,0.08)',
+                            background: 'linear-gradient(180deg, transparent, rgba(245,158,11,0.03))' }}>
+                          <p className="font-pixel text-center"
+                            style={{ fontSize: '7px', color: 'rgba(245,158,11,0.3)', letterSpacing: '0.14em' }}>
+                            ЗАРАБАТЫВАЙ ПРОДАВАЯ ДРОПЫ В КЕЙСАХ
+                          </p>
+                        </div>
+
+                        <div className="h-[1px]"
+                          style={{ background: 'linear-gradient(90deg, transparent, rgba(245,158,11,0.2), transparent)' }} />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
               {/* Divider */}
               <div
@@ -663,7 +779,7 @@ export default function Navbar() {
                     style={{ width: '30px', height: '30px', objectFit: 'cover', objectPosition: 'center top' }}
                   />
                   <span className="font-pixel text-[#FCD34D]" style={{ fontSize: '10px' }}>
-                    1,250
+                    {balance.toLocaleString()}
                   </span>
                 </div>
                 <button

@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+//  Enums
+// ─────────────────────────────────────────────
+
+enum MarkupType {
+  percent
+  fixed
+}
+
+enum Currency {
+  USD
+  UZS
+  EUR
+  RUB
+}
+
+// ─────────────────────────────────────────────
+//  Core tables
+// ─────────────────────────────────────────────
+
+model Offer {
+  id            String     @id @default(uuid())
+  gameId        String
+  supplierId    String
+
+  supplierPrice Decimal    @db.Decimal(12, 4)
+  markupType    MarkupType
+  markupValue   Decimal    @db.Decimal(12, 4)
+  finalPrice    Decimal    @db.Decimal(12, 4)  // always computed, never set manually
+  currency      Currency   @default(USD)
+
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  game          Game       @relation(fields: [gameId],     references: [id])
+  supplier      Supplier   @relation(fields: [supplierId], references: [id])
+
+  @@index([gameId])
+  @@index([supplierId])
+  @@map("offers")
+}
+
+model Game {
+  id     String  @id @default(uuid())
+  title  String
+  slug   String  @unique
+  offers Offer[]
+
+  @@map("games")
+}
+
+model Supplier {
+  id     String  @id @default(uuid())
+  name   String
+  slug   String  @unique
+  offers Offer[]
+
+  @@map("suppliers")
+}
+
+// ─────────────────────────────────────────────
+//  Pricing rules (range-based, priority-driven)
+// ─────────────────────────────────────────────
+
+model PricingRule {
+  id          String     @id @default(uuid())
+  name        String
+  description String?
+
+  // price range (null = no boundary)
+  minPrice    Decimal?   @db.Decimal(12, 4)
+  maxPrice    Decimal?   @db.Decimal(12, 4)
+
+  markupType  MarkupType
+  markupValue Decimal    @db.Decimal(12, 4)
+
+  // higher priority wins when rules overlap
+  priority    Int        @default(0)
+  isActive    Boolean    @default(true)
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@map("pricing_rules")
+}
+
+// ─────────────────────────────────────────────
+//  Global config (single-row table)
+// ─────────────────────────────────────────────
+
+model GlobalConfig {
+  id                  String   @id @default(uuid())
+  globalMarkupPercent Decimal  @db.Decimal(8, 4) @default(0)
+  updatedAt           DateTime @updatedAt
+
+  @@map("global_config")
+}

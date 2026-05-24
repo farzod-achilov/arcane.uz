@@ -66,6 +66,7 @@ export interface Product {
   discount?: number;
   image: string;
   screenshots?: string[];
+  trailer?: string;
   category: string;
   platform: string[];
   rating: number;
