@@ -31,7 +31,7 @@ export function registerStartCommand(
   /* /demo — link a demo account without the website */
   bot.command('demo', async (ctx) => {
     const from = ctx.from!;
-    const existing = getUserByTgId(from.id);
+    const existing = await getUserByTgId(from.id);
     if (existing) {
       await ctx.replyWithHTML(
         `✅ <b>Аккаунт уже привязан</b>\n\nВы вошли как <b>${existing.userName}</b>`,
@@ -40,7 +40,7 @@ export function registerStartCommand(
       return;
     }
     const demoUser = createDemoUser(from.id, from.first_name, from.username);
-    saveUser(demoUser);
+    await saveUser(demoUser);
     ctx.tgUser = demoUser;
     await ctx.replyWithHTML(
       `✅ <b>ДЕМО-АККАУНТ АКТИВИРОВАН</b>\n─────────────────────\n\nПривет, <b>${from.first_name}</b>!\n\n🪙 <b>Монеты:</b> <code>1 250</code>\n💎 <b>Уровень:</b> Elite\n🔥 <b>Серия наград:</b> 5 дней\n\nТеперь все команды доступны.\n─────────────────────\n<i>Это тестовый аккаунт. Для полной интеграции подключи arcane.uz</i>`,

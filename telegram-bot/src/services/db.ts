@@ -1,94 +1,136 @@
-/**
- * In-memory data store.
- * Replace with PostgreSQL / Redis in production using the same interface.
- *
- * Schema hint (PostgreSQL):
- *   TABLE telegram_users (
- *     telegram_id     BIGINT PRIMARY KEY,
- *     telegram_username VARCHAR(64),
- *     first_name      VARCHAR(128),
- *     user_id         VARCHAR(64) UNIQUE NOT NULL,
- *     user_name       VARCHAR(128),
- *     linked_at       TIMESTAMPTZ DEFAULT now(),
- *     reward_streak   INT DEFAULT 0,
- *     last_reward_claim TIMESTAMPTZ,
- *     referral_code   VARCHAR(32) UNIQUE,
- *     referred_by     VARCHAR(32),
- *     total_referrals INT DEFAULT 0,
- *     total_coins_earned INT DEFAULT 0,
- *     prefs_orders    BOOL DEFAULT true,
- *     prefs_coins     BOOL DEFAULT true,
- *     prefs_wishlist  BOOL DEFAULT true,
- *     prefs_deals     BOOL DEFAULT true,
- *     prefs_rewards   BOOL DEFAULT true,
- *     prefs_admin     BOOL DEFAULT false
- *   );
- *   TABLE pending_tokens (
- *     token      VARCHAR(64) PRIMARY KEY,
- *     user_id    VARCHAR(64),
- *     user_name  VARCHAR(128),
- *     expires_at TIMESTAMPTZ
- *   );
- */
-
 import type { TelegramUser, PendingToken } from '../types/index';
+import { prisma } from './prisma';
 
-/* ── Stores ───────────────────────────────────────────── */
+// ── Helpers: map DB row → TelegramUser ───────────────────
 
-/** telegram_id → TelegramUser */
-export const usersByTgId  = new Map<number, TelegramUser>();
-
-/** arcane user_id → TelegramUser */
-export const usersByUserId = new Map<string, TelegramUser>();
-
-/** token → PendingToken */
-export const pendingTokens = new Map<string, PendingToken>();
-
-/** referral_code → telegram_id */
-export const referralCodes = new Map<string, number>();
-
-/* ── Helpers ──────────────────────────────────────────── */
-
-export function saveUser(user: TelegramUser): void {
-  usersByTgId.set(user.telegramId, user);
-  usersByUserId.set(user.userId, user);
-  referralCodes.set(user.referralCode, user.telegramId);
+function rowToUser(row: {
+  telegramId: bigint; telegramUsername: string | null; firstName: string;
+  userId: string; userName: string; linkedAt: Date; rewardStreak: number;
+  lastRewardClaim: Date | null; referralCode: string; referredBy: string | null;
+  totalReferrals: number; totalCoinsEarned: number;
+  prefsOrders: boolean; prefsCoins: boolean; prefsWishlist: boolean;
+  prefsDeals: boolean; prefsRewards: boolean; prefsAdmin: boolean;
+}): TelegramUser {
+  return {
+    telegramId:       Number(row.telegramId),
+    telegramUsername: row.telegramUsername ?? undefined,
+    firstName:        row.firstName,
+    userId:           row.userId,
+    userName:         row.userName,
+    linkedAt:         row.linkedAt,
+    rewardStreak:     row.rewardStreak,
+    lastRewardClaim:  row.lastRewardClaim,
+    referralCode:     row.referralCode,
+    referredBy:       row.referredBy ?? undefined,
+    totalReferrals:   row.totalReferrals,
+    totalCoinsEarned: row.totalCoinsEarned,
+    prefs: {
+      orders:   row.prefsOrders,
+      coins:    row.prefsCoins,
+      wishlist: row.prefsWishlist,
+      deals:    row.prefsDeals,
+      rewards:  row.prefsRewards,
+      admin:    row.prefsAdmin,
+    },
+  };
 }
 
-export function getUserByTgId(tgId: number): TelegramUser | undefined {
-  return usersByTgId.get(tgId);
+// ── User operations ───────────────────────────────────────
+
+export async function saveUser(user: TelegramUser): Promise<void> {
+  await prisma.telegram_users.upsert({
+    where:  { telegramId: BigInt(user.telegramId) },
+    create: {
+      telegramId:       BigInt(user.telegramId),
+      telegramUsername: user.telegramUsername,
+      firstName:        user.firstName,
+      userId:           user.userId,
+      userName:         user.userName,
+      linkedAt:         user.linkedAt,
+      rewardStreak:     user.rewardStreak,
+      lastRewardClaim:  user.lastRewardClaim,
+      referralCode:     user.referralCode,
+      referredBy:       user.referredBy,
+      totalReferrals:   user.totalReferrals,
+      totalCoinsEarned: user.totalCoinsEarned,
+      prefsOrders:      user.prefs.orders,
+      prefsCoins:       user.prefs.coins,
+      prefsWishlist:    user.prefs.wishlist,
+      prefsDeals:       user.prefs.deals,
+      prefsRewards:     user.prefs.rewards,
+      prefsAdmin:       user.prefs.admin,
+    },
+    update: {
+      telegramUsername: user.telegramUsername,
+      firstName:        user.firstName,
+      userName:         user.userName,
+      rewardStreak:     user.rewardStreak,
+      lastRewardClaim:  user.lastRewardClaim,
+      totalReferrals:   user.totalReferrals,
+      totalCoinsEarned: user.totalCoinsEarned,
+      prefsOrders:      user.prefs.orders,
+      prefsCoins:       user.prefs.coins,
+      prefsWishlist:    user.prefs.wishlist,
+      prefsDeals:       user.prefs.deals,
+      prefsRewards:     user.prefs.rewards,
+      prefsAdmin:       user.prefs.admin,
+    },
+  });
 }
 
-export function getUserByUserId(userId: string): TelegramUser | undefined {
-  return usersByUserId.get(userId);
+export async function getUserByTgId(tgId: number): Promise<TelegramUser | undefined> {
+  const row = await prisma.telegram_users.findUnique({ where: { telegramId: BigInt(tgId) } });
+  return row ? rowToUser(row) : undefined;
 }
 
-export function getUserByReferralCode(code: string): TelegramUser | undefined {
-  const tgId = referralCodes.get(code);
-  return tgId ? usersByTgId.get(tgId) : undefined;
+export async function getUserByUserId(userId: string): Promise<TelegramUser | undefined> {
+  const row = await prisma.telegram_users.findUnique({ where: { userId } });
+  return row ? rowToUser(row) : undefined;
 }
 
-export function updateUser(tgId: number, patch: Partial<TelegramUser>): void {
-  const user = usersByTgId.get(tgId);
-  if (!user) return;
-  const updated = { ...user, ...patch };
-  usersByTgId.set(tgId, updated);
-  usersByUserId.set(updated.userId, updated);
+export async function getUserByReferralCode(code: string): Promise<TelegramUser | undefined> {
+  const row = await prisma.telegram_users.findUnique({ where: { referralCode: code } });
+  return row ? rowToUser(row) : undefined;
 }
 
-export function addPendingToken(token: string, entry: PendingToken): void {
-  pendingTokens.set(token, entry);
-  // Auto-cleanup expired tokens
-  setTimeout(() => pendingTokens.delete(token), 10 * 60 * 1000);
+export async function updateUser(tgId: number, patch: Partial<TelegramUser>): Promise<void> {
+  await prisma.telegram_users.update({
+    where: { telegramId: BigInt(tgId) },
+    data: {
+      ...(patch.telegramUsername !== undefined && { telegramUsername: patch.telegramUsername }),
+      ...(patch.firstName        !== undefined && { firstName:        patch.firstName }),
+      ...(patch.userName         !== undefined && { userName:         patch.userName }),
+      ...(patch.rewardStreak     !== undefined && { rewardStreak:     patch.rewardStreak }),
+      ...(patch.lastRewardClaim  !== undefined && { lastRewardClaim:  patch.lastRewardClaim }),
+      ...(patch.totalReferrals   !== undefined && { totalReferrals:   patch.totalReferrals }),
+      ...(patch.totalCoinsEarned !== undefined && { totalCoinsEarned: patch.totalCoinsEarned }),
+      ...(patch.prefs && {
+        prefsOrders:   patch.prefs.orders,
+        prefsCoins:    patch.prefs.coins,
+        prefsWishlist: patch.prefs.wishlist,
+        prefsDeals:    patch.prefs.deals,
+        prefsRewards:  patch.prefs.rewards,
+        prefsAdmin:    patch.prefs.admin,
+      }),
+    },
+  });
 }
 
-export function consumeToken(token: string): PendingToken | null {
-  const entry = pendingTokens.get(token);
-  if (!entry) return null;
-  if (new Date() > entry.expiresAt) {
-    pendingTokens.delete(token);
+// ── Token operations ──────────────────────────────────────
+
+export async function addPendingToken(token: string, entry: PendingToken): Promise<void> {
+  await prisma.pending_tokens.create({
+    data: { token, userId: entry.userId, userName: entry.userName, expiresAt: entry.expiresAt },
+  });
+}
+
+export async function consumeToken(token: string): Promise<PendingToken | null> {
+  const row = await prisma.pending_tokens.findUnique({ where: { token } });
+  if (!row) return null;
+  if (new Date() > row.expiresAt) {
+    await prisma.pending_tokens.delete({ where: { token } }).catch(() => {});
     return null;
   }
-  pendingTokens.delete(token);
-  return entry;
+  await prisma.pending_tokens.delete({ where: { token } });
+  return { userId: row.userId, userName: row.userName, expiresAt: row.expiresAt };
 }

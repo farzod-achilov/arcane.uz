@@ -10,7 +10,7 @@ import { getUserByTgId } from '../services/db';
 export async function authMiddleware(ctx: ArcaneContext, next: Next): Promise<void> {
   const tgId = ctx.from?.id;
   if (tgId) {
-    const user = getUserByTgId(tgId);
+    const user = await getUserByTgId(tgId);
     if (user) ctx.tgUser = user;
   }
   return next();

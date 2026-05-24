@@ -128,13 +128,13 @@ app.use('/api', apiLimiter);
    Website requests a token to start the linking flow.
    Returns: { token: string, link: string }
 ─────────────────────────────────────────────────────── */
-app.post('/api/request-token', (req, res) => {
+app.post('/api/request-token', async (req, res) => {
   const { userId, userName } = req.body as { userId?: string; userName?: string };
   if (!userId || !userName) {
     res.status(400).json({ error: 'userId and userName required' });
     return;
   }
-  const token = verifyService.createToken(userId, userName);
+  const token = await verifyService.createToken(userId, userName);
   res.json({
     token,
     link: `https://t.me/${config.bot.username}?start=verify_${token}`,

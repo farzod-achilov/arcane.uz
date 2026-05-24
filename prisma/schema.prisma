@@ -411,3 +411,45 @@ model exchange_rates {
   @@index([currency])
   @@index([createdAt])
 }
+
+// ═══════════════════════════════════════════════════════
+//  TELEGRAM BOT
+// ═══════════════════════════════════════════════════════
+
+model telegram_users {
+  id               String    @id @default(uuid())
+  telegramId       BigInt    @unique
+  telegramUsername String?
+  firstName        String
+  userId           String    @unique
+  userName         String
+  linkedAt         DateTime  @default(now())
+  rewardStreak     Int       @default(0)
+  lastRewardClaim  DateTime?
+  referralCode     String    @unique
+  referredBy       String?
+  totalReferrals   Int       @default(0)
+  totalCoinsEarned Int       @default(0)
+  prefsOrders      Boolean   @default(true)
+  prefsCoins       Boolean   @default(true)
+  prefsWishlist    Boolean   @default(true)
+  prefsDeals       Boolean   @default(true)
+  prefsRewards     Boolean   @default(true)
+  prefsAdmin       Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([telegramId])
+  @@index([userId])
+  @@index([referralCode])
+}
+
+model pending_tokens {
+  token     String   @id
+  userId    String
+  userName  String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}

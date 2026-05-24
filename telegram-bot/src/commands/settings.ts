@@ -35,7 +35,7 @@ export function registerSettingsCommand(bot: Telegraf<ArcaneContext>): void {
       await ctx.answerCbQuery();
       const user = ctx.tgUser!;
       const newPrefs = { ...user.prefs, [key]: !user.prefs[key] };
-      updateUser(user.telegramId, { prefs: newPrefs });
+      await updateUser(user.telegramId, { prefs: newPrefs });
       ctx.tgUser = { ...user, prefs: newPrefs };
 
       const label = key.charAt(0).toUpperCase() + key.slice(1);

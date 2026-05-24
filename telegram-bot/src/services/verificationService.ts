@@ -18,9 +18,9 @@ export class VerificationService {
   constructor(private bot: Telegraf<ArcaneContext>) {}
 
   /** Called from Express /api/request-token endpoint (invoked by Next.js) */
-  createToken(userId: string, userName: string): string {
+  async createToken(userId: string, userName: string): Promise<string> {
     const token = crypto.randomBytes(20).toString('hex');
-    addPendingToken(token, {
+    await addPendingToken(token, {
       userId,
       userName,
       expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 min
@@ -33,13 +33,13 @@ export class VerificationService {
     const from = ctx.from!;
 
     // Already linked?
-    const existing = getUserByTgId(from.id);
+    const existing = await getUserByTgId(from.id);
     if (existing) {
       await ctx.replyWithHTML(tpl.tplAlreadyLinked(existing), mainMenu());
       return;
     }
 
-    const entry = consumeToken(token);
+    const entry = await consumeToken(token);
     if (!entry) {
       await ctx.replyWithHTML(tpl.tplLinkError());
       return;
@@ -66,7 +66,7 @@ export class VerificationService {
         deals: true,  rewards: true, admin: false,
       },
     };
-    saveUser(newUser);
+    await saveUser(newUser);
 
     await ctx.replyWithHTML(tpl.tplLinkedSuccess(entry.userName), mainMenu());
   }
