@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Mail, User as UserIcon, Send, Gamepad2, Bell, Lock, Check } from 'lucide-react';
+import { Mail, User as UserIcon, Send, Gamepad2, Bell, Lock, Check, ExternalLink, Loader2 } from 'lucide-react';
 import { useUser } from '@/lib/userContext';
 import CheckoutInput from '@/components/checkout/CheckoutInput';
 
@@ -11,15 +11,53 @@ export default function SettingsPage() {
   const { user, isLoggedIn, updateProfile, connectTelegram, connectSteam } = useUser();
   const router = useRouter();
   const [name, setName] = useState('');
-  const [tgInput, setTgInput] = useState('');
   const [saved, setSaved] = useState('');
   const [notifEmail, setNotifEmail] = useState(true);
   const [notifTg, setNotifTg] = useState(true);
+
+  // Telegram linking state
+  type TgStatus = { linked: boolean; username?: string; firstName?: string };
+  const [tgStatus,  setTgStatus]  = useState<TgStatus | null>(null);
+  const [linkData,  setLinkData]  = useState<{ token: string; link: string } | null>(null);
+  const [tgLoading, setTgLoading] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!isLoggedIn) router.replace('/login');
     else if (user) setName(user.name);
   }, [isLoggedIn, user, router]);
+
+  // Check if already linked on mount
+  useEffect(() => {
+    if (!user) return;
+    fetch(`/api/telegram/status?userId=${user.id}`)
+      .then((r) => r.json() as Promise<TgStatus>)
+      .then(setTgStatus)
+      .catch(() => setTgStatus({ linked: false }));
+  }, [user]);
+
+  // Poll for confirmation after link is shown
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+  }, []);
+
+  useEffect(() => {
+    if (!linkData || !user) return;
+    pollRef.current = setInterval(async () => {
+      try {
+        const res  = await fetch(`/api/telegram/status?userId=${user.id}`);
+        const data = await res.json() as TgStatus;
+        if (data.linked) {
+          setTgStatus(data);
+          setLinkData(null);
+          stopPolling();
+          const displayName = data.username ? `@${data.username}` : (data.firstName ?? 'Telegram');
+          connectTelegram(displayName);
+        }
+      } catch { /* ignore */ }
+    }, 3000);
+    return stopPolling;
+  }, [linkData, user, connectTelegram, stopPolling]);
 
   if (!user) return null;
 
@@ -27,8 +65,20 @@ export default function SettingsPage() {
     if (name.trim()) { updateProfile({ name: name.trim() }); setSaved('profile'); setTimeout(() => setSaved(''), 2000); }
   };
 
-  const saveTelegram = () => {
-    if (tgInput.trim()) { connectTelegram(tgInput.trim()); setSaved('telegram'); setTgInput(''); setTimeout(() => setSaved(''), 2000); }
+  const handleConnectTelegram = async () => {
+    if (!user) return;
+    setTgLoading(true);
+    try {
+      const res  = await fetch('/api/telegram/connect', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ userId: user.id, userName: user.name }),
+      });
+      const data = await res.json() as { link?: string; token?: string; error?: string };
+      if (data.link && data.token) setLinkData({ link: data.link, token: data.token });
+    } catch { /* bot may be offline */ } finally {
+      setTgLoading(false);
+    }
   };
 
   function Toggle({ value, onChange }: { value: boolean; onChange: () => void }) {
@@ -147,7 +197,8 @@ export default function SettingsPage() {
 
           {/* Telegram */}
           <Section title="Telegram" icon={<Send style={{ width: '14px', height: '14px' }} />}>
-            {user.telegram ? (
+            {tgStatus?.linked ? (
+              /* ── Linked ── */
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center"
@@ -155,34 +206,52 @@ export default function SettingsPage() {
                     <Send style={{ width: '15px', height: '15px', color: '#06B6D4' }} />
                   </div>
                   <div>
-                    <p className="font-heading font-semibold text-white" style={{ fontSize: '14px' }}>{user.telegram}</p>
+                    <p className="font-heading font-semibold text-white" style={{ fontSize: '14px' }}>
+                      {tgStatus.username ? `@${tgStatus.username}` : tgStatus.firstName}
+                    </p>
                     <p className="font-body text-[#22C55E]" style={{ fontSize: '11.5px' }}>Подключён</p>
                   </div>
                 </div>
                 <Check style={{ width: '16px', height: '16px', color: '#22C55E' }} />
               </div>
+            ) : linkData ? (
+              /* ── Waiting for user to open bot ── */
+              <div className="space-y-4">
+                <p className="font-body text-[#9CA3AF]" style={{ fontSize: '13px' }}>
+                  Открой бота и нажми <b>Start</b> — аккаунт привяжется автоматически:
+                </p>
+                <a
+                  href={linkData.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl font-heading font-semibold text-white"
+                  style={{ background: 'linear-gradient(135deg, #06B6D4, #0891B2)', padding: '10px 20px', fontSize: '13px' }}
+                >
+                  <ExternalLink style={{ width: '14px', height: '14px' }} />
+                  Открыть @arcaneuz_bot
+                </a>
+                <div className="flex items-center gap-2 mt-1">
+                  <Loader2 style={{ width: '13px', height: '13px', color: '#4B5563' }} className="animate-spin" />
+                  <p className="font-body text-[#4B5563]" style={{ fontSize: '12px' }}>Ожидаем подтверждения...</p>
+                </div>
+              </div>
             ) : (
+              /* ── Not linked ── */
               <div className="space-y-3">
                 <p className="font-body text-[#6B7280]" style={{ fontSize: '13px' }}>
-                  Привяжите Telegram для получения уведомлений о заказах и снижении цен.
+                  Привяжи Telegram для уведомлений о заказах, акциях и снижении цен.
                 </p>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="@username"
-                    value={tgInput}
-                    onChange={(e) => setTgInput(e.target.value)}
-                    className="flex-1 font-body text-white outline-none rounded-xl px-4 py-2.5 placeholder:text-[#2D2D44]"
-                    style={{ background: '#07070D', border: '1px solid rgba(6,182,212,0.25)', fontSize: '13.5px' }}
-                  />
-                  <button
-                    onClick={saveTelegram}
-                    className="rounded-xl px-4 py-2.5 font-heading font-semibold text-white"
-                    style={{ background: 'linear-gradient(135deg, #06B6D4, #0891B2)', fontSize: '13px' }}
-                  >
-                    {saved === 'telegram' ? '✓' : 'Привязать'}
-                  </button>
-                </div>
+                <button
+                  onClick={handleConnectTelegram}
+                  disabled={tgLoading || tgStatus === null}
+                  className="inline-flex items-center gap-2 rounded-xl font-heading font-semibold text-white disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg, #06B6D4, #0891B2)', padding: '10px 20px', fontSize: '13px' }}
+                >
+                  {tgLoading
+                    ? <><Loader2 style={{ width: '14px', height: '14px' }} className="animate-spin" />Загрузка...</>
+                    : <><Send style={{ width: '14px', height: '14px' }} />Подключить Telegram</>
+                  }
+                </button>
               </div>
             )}
           </Section>
