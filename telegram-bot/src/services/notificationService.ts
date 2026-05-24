@@ -12,7 +12,7 @@ export class NotificationService {
   constructor(private bot: Telegraf<ArcaneContext>) {}
 
   async dispatch(payload: NotifPayload): Promise<boolean> {
-    const user = getUserByUserId(payload.userId);
+    const user = await getUserByUserId(payload.userId);
     if (!user) return false;
 
     const { event, data } = payload;
