@@ -152,7 +152,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
       {/* ═══════════════════════════════════════════
           PAGE SHELL
       ═══════════════════════════════════════════ */}
-      <div style={{ background: '#04040A', minHeight: '100vh', position: 'relative', paddingTop: '80px' }}>
+      <div style={{ background: '#04040A', minHeight: '100vh', position: 'relative', paddingTop: '96px' }}>
 
         {/* ── Ambient blurred artwork bg ── */}
         <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0, overflow: 'hidden' }}>
