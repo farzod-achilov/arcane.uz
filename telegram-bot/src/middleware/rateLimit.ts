@@ -1,4 +1,4 @@
-import type { Next } from 'telegraf';
+type Next = () => Promise<void>;
 import type { ArcaneContext } from '../types/index';
 
 /** Simple in-process rate limiter — replace with Redis in production. */

@@ -1,4 +1,4 @@
-import type { Next } from 'telegraf';
+type Next = () => Promise<void>;
 import type { ArcaneContext } from '../types/index';
 import { getUserByTgId } from '../services/db';
 
