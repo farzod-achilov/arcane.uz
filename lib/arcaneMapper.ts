@@ -11,13 +11,16 @@ export function arcaneGameToProduct(g: ArcaneGame): Product {
     g.priceUzs ??
     (g.priceUsd != null ? Math.round((g.priceUsd * USD_TO_UZS) / 1000) * 1000 : 299_000);
 
-  const trailerRaw  = g.screenshots.find(s => s.startsWith('video:') || s.startsWith('youtube:'));
+  const videoRaws   = g.screenshots.filter(s => s.startsWith('video:') || s.startsWith('youtube:'));
   const screenshots = g.screenshots.filter(s => !s.startsWith('video:') && !s.startsWith('youtube:'));
-  const trailerUrl  = trailerRaw?.startsWith('video:')
-    ? trailerRaw.slice(6)
-    : trailerRaw?.startsWith('youtube:')
-      ? `https://www.youtube.com/embed/${trailerRaw.slice(8)}?enablejsapi=1`
-      : undefined;
+
+  // Convert all video: / youtube: prefixes → playable URLs; first one becomes `trailer`
+  const videoUrls = videoRaws.map(s =>
+    s.startsWith('video:')
+      ? s.slice(6)
+      : `https://www.youtube.com/embed/${s.slice(8)}?enablejsapi=1`
+  );
+  const trailerUrl = videoUrls[0];
 
   return {
     id:          g.id,
@@ -30,7 +33,7 @@ export function arcaneGameToProduct(g: ArcaneGame): Product {
     rating:      g.rating ? Math.round(g.rating) / 10 : 7.5,   // normalize 0-100 → 0-10
     reviewCount: 0,
     image:       g.cover  ?? 'https://picsum.photos/seed/arcane/400/600',
-    screenshots,
+    screenshots: [...videoUrls, ...screenshots],
     trailer:     trailerUrl,
     platform:    g.platforms.length > 0 ? g.platforms : ['PC'],
     category:    g.genres[0] ?? 'Action',

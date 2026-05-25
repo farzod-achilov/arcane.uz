@@ -47,14 +47,13 @@ export async function GET(
       .slice(0, 8);
 
     // Steam API v2: DASH/HLS only (no direct mp4 anymore)
-    // Prefer HLS (plays in all browsers via hls.js); fall back to old mp4 format
-    const firstMovie = d.movies?.[0];
-    const trailer: string | null =
-      firstMovie?.hls_h264 ??
-      firstMovie?.mp4?.max ??
-      firstMovie?.mp4?.['480'] ??
-      firstMovie?.webm?.max ??
-      null;
+    // Collect HLS URLs for ALL movies; fall back to legacy mp4 format
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const trailers: string[] = (d.movies ?? []).map((m: any) =>
+      m.hls_h264 ?? m.mp4?.max ?? m.mp4?.['480'] ?? m.webm?.max ?? null
+    ).filter(Boolean) as string[];
+
+    const trailer: string | null = trailers[0] ?? null;
 
     return NextResponse.json({
       success: true,
@@ -64,6 +63,7 @@ export async function GET(
         cover:       d.header_image ?? null,
         screenshots,
         trailer,
+        trailers,
         description: d.short_description ?? '',
         genres:      (d.genres ?? []).map((g: { description: string }) => g.description).slice(0, 5),
         platforms,

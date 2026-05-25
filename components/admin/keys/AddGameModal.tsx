@@ -196,9 +196,10 @@ export default function AddGameModal({ onClose, onSuccess }: Props) {
       if (!json.success) throw new Error(json.error ?? 'Ошибка Steam');
       const d = json.data;
 
-      let trailerUrl: string | null = d.trailer ?? null;
+      // All Steam trailers as video: prefixed entries; fallback to RAWG if none
+      const steamTrailers: string[] = (d.trailers ?? (d.trailer ? [d.trailer] : []));
+      let trailerUrl: string | null = steamTrailers[0] ?? null;
 
-      // Steam sometimes doesn't expose movies — fallback to RAWG
       if (!trailerUrl && d.title) {
         try {
           const cleanTitle = d.title
@@ -215,10 +216,14 @@ export default function AddGameModal({ onClose, onSuccess }: Props) {
         } catch { /* non-fatal */ }
       }
 
+      // Prepend all video URLs (video: prefix) before screenshots
+      const videoEntries = steamTrailers.map((t: string) => `video:${t}`);
+      const allScreenshots = [...videoEntries, ...(d.screenshots ?? [])];
+
       const r: SearchResult = {
         id: `steam-${d.appId}`, source: 'Steam',
         title:    d.title, cover: d.cover ?? null,
-        screenshots: d.screenshots ?? [], trailer: trailerUrl,
+        screenshots: allScreenshots, trailer: trailerUrl,
         rating: d.rating ?? null, priceUsd: d.priceUsd ?? null,
         genres: d.genres ?? [], platforms: d.platforms ?? [],
         developer: d.developer ?? null, publisher: d.publisher ?? null,
