@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import {
   KeyRound, Package, TrendingUp, AlertTriangle,
   ChevronRight, ShoppingBag, Archive,
-  BarChart2, RefreshCw, ExternalLink,
+  BarChart2, RefreshCw, ExternalLink, FileSpreadsheet,
 } from 'lucide-react';
 import StockHealthBadge from '@/components/admin/keys/StockHealthBadge';
 import { MOCK_ANALYTICS } from '@/lib/admin/mockKeysData';
@@ -287,6 +287,17 @@ export default function KeysAdminPage() {
               <RefreshCw style={{ width: '13px', height: '13px' }} />
               Синхронизировать
             </button>
+            <Link
+              href="/admin/keys/bulk-import"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl font-body transition-all"
+              style={{ background: 'rgba(34,197,94,0.1)', fontSize: '12px', color: '#22C55E',
+                       border: '1px solid rgba(34,197,94,0.22)' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(34,197,94,0.18)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(34,197,94,0.1)')}
+            >
+              <FileSpreadsheet style={{ width: '13px', height: '13px' }} />
+              CSV Импорт
+            </Link>
             <Link
               href="/admin/products"
               className="flex items-center gap-2 px-4 py-2 rounded-xl font-body transition-all"
