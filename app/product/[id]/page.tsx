@@ -28,11 +28,13 @@ import ProductFAQ         from '@/components/product/ProductFAQ';
 import ProductReviews     from '@/components/product/ProductReviews';
 import StickyPurchasePanel   from '@/components/product/StickyPurchasePanel';
 import FullscreenGallery     from '@/components/product/FullscreenGallery';
+import { useHls, isHlsUrl }  from '@/hooks/useHls';
 
 function isVideoUrl(url: string | undefined | null): boolean {
   if (!url) return false;
-  return /\.(mp4|webm|ogg)(\?|$)/i.test(url)
+  return /\.(mp4|webm|ogg|m3u8)(\?|$)/i.test(url)
     || url.includes('video.cloudflare.steamstatic.com')
+    || url.includes('video.akamai.steamstatic.com')
     || url.includes('youtube.com/embed');
 }
 function isYouTubeUrl(url: string | undefined | null): boolean {
@@ -45,6 +47,8 @@ function VideoPlayer({ src }: { src: string }) {
   const vidRef   = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [muted,   setMuted]   = useState(false);
+
+  useHls(vidRef, src);
 
   const togglePlay = () => {
     const v = vidRef.current;
@@ -69,7 +73,7 @@ function VideoPlayer({ src }: { src: string }) {
     <div className="absolute inset-0 bg-black flex items-center justify-center" onClick={togglePlay}>
       <video
         ref={vidRef}
-        src={src}
+        src={isHlsUrl(src) ? undefined : src}
         playsInline
         className="absolute inset-0 w-full h-full"
         style={{ objectFit: 'contain' }}

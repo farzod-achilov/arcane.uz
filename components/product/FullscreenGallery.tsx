@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { X, ChevronLeft, ChevronRight, Play, Volume2, VolumeX, Maximize } from 'lucide-react';
+import { useHls, isHlsUrl } from '@/hooks/useHls';
 
 interface FullscreenGalleryProps {
   media: string[];
@@ -13,8 +14,9 @@ interface FullscreenGalleryProps {
 }
 
 function isVideo(url: string) {
-  return /\.(mp4|webm|ogg)(\?|$)/i.test(url)
-    || url.includes('video.cloudflare.steamstatic.com');
+  return /\.(mp4|webm|ogg|m3u8)(\?|$)/i.test(url)
+    || url.includes('video.cloudflare.steamstatic.com')
+    || url.includes('video.akamai.steamstatic.com');
 }
 function isYouTube(url: string) {
   return url.includes('youtube.com/embed');
@@ -25,6 +27,8 @@ function FsVideoPlayer({ src }: { src: string }) {
   const vidRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [muted,   setMuted]   = useState(false);
+
+  useHls(vidRef, src);
 
   const togglePlay = () => {
     const v = vidRef.current;
@@ -44,7 +48,7 @@ function FsVideoPlayer({ src }: { src: string }) {
          onClick={togglePlay}>
       <video
         ref={vidRef}
-        src={src}
+        src={isHlsUrl(src) ? undefined : src}
         playsInline
         className="max-w-full max-h-full"
         style={{ objectFit: 'contain' }}
