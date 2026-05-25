@@ -32,6 +32,7 @@ export default function AdminSidebar({
     { href: '/admin/price-control',       label: t.nav.priceControl, icon: TrendingUp,      color: '#22C55E' },
     { href: '/admin/smart-pricing',       label: t.nav.smartPricing, icon: BarChart2,       color: '#F59E0B' },
     { href: '/admin/smart-pricing/games', label: t.nav.gamePricing,  icon: Gamepad2,        color: '#9D60FA' },
+    { href: '/admin/steam-import',        label: 'Steam Import',     icon: Gamepad2,        color: '#1E90FF' },
     { href: '/admin/support',             label: t.nav.support,      icon: MessageSquare,   color: '#06B6D4' },
     { href: '/admin/analytics',           label: t.nav.analytics,    icon: BarChart2,       color: '#7C3AED' },
   ];
