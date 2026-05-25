@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { DeliveryType } from '@/lib/types';
-import { DELIVERY_CONFIG, getDelivery } from '@/lib/delivery';
+import { DELIVERY_CONFIG, getDelivery } from '@/lib/deliveryConfig';
 
 /* ── Icon resolver ─────────────────────────────────────── */
 type DeliveryIconName = 'zap' | 'gift' | 'send' | 'monitor' | 'package';

@@ -41,7 +41,7 @@ function validateCreateOrder(body: unknown): CreateOrderDto {
   return { userId: b.userId.trim(), items };
 }
 
-const VALID_STATUSES: OrderStatus[] = ['PENDING', 'PAID', 'COMPLETED', 'CANCELLED'];
+const VALID_STATUSES: OrderStatus[] = ['PENDING', 'PAID', 'WAITING_MANUAL', 'COMPLETED', 'CANCELLED'];
 
 // ── Service methods ───────────────────────────────────────────────────────────
 

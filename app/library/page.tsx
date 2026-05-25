@@ -10,7 +10,7 @@ async function getLibraryData(userId: string) {
   const orders = await prisma.orders.findMany({
     where: {
       userId,
-      status: { in: ['PAID', 'COMPLETED', 'WAITING_STOCK'] },
+      status: { in: ['PAID', 'COMPLETED', 'WAITING_MANUAL'] as never[] },
     },
     include: {
       items: {

@@ -108,6 +108,7 @@ model games {
   releaseDate       DateTime?
   developer         String?
   publisher         String?
+  deliveryType      DeliveryType   @default(MANUAL)
   isActive          Boolean        @default(true)
   stockStore        Int            @default(0)
   stockDrop         Int            @default(0)
@@ -456,26 +457,37 @@ model pending_tokens {
   @@index([expiresAt])
 }
 
+// ── Delivery System ───────────────────────────────────────────────────────────
+
+enum DeliveryType {
+  AUTO
+  MANUAL
+}
+
 // ── Order System ──────────────────────────────────────────────────────────────
 
 enum OrderStatus {
   PENDING
   PAID
+  WAITING_MANUAL
   COMPLETED
   CANCELLED
-  WAITING_STOCK
 }
 
 model orders {
-  id         String      @id @default(cuid())
-  userId     String      @map("user_id")
-  totalPrice Int         @map("total_price")
-  status     OrderStatus @default(PENDING)
-  createdAt  DateTime    @default(now()) @map("created_at")
-  updatedAt  DateTime    @updatedAt @map("updated_at")
+  id           String      @id @default(cuid())
+  userId       String      @map("user_id")
+  totalPrice   Int         @map("total_price")
+  status       OrderStatus @default(PENDING)
+  deliveredAt  DateTime?   @map("delivered_at")
+  deliveredBy  String?     @map("delivered_by")
+  deliveryNote String?     @map("delivery_note")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
 
-  user       users        @relation(fields: [userId], references: [id])
-  items      order_items[]
+  user          users           @relation(fields: [userId], references: [id])
+  items         order_items[]
+  delivery_logs delivery_logs[]
 
   @@index([userId])
   @@index([status])
@@ -483,17 +495,31 @@ model orders {
 }
 
 model order_items {
-  id          String   @id @default(cuid())
-  orderId     String   @map("order_id")
-  gameId      String   @map("game_id")
+  id          String    @id @default(cuid())
+  orderId     String    @map("order_id")
+  gameId      String    @map("game_id")
   price       Int
-  keyValue    String?  @map("key_value")
-  createdAt   DateTime @default(now()) @map("created_at")
-
+  keyValue    String?   @map("key_value")
   deliveredAt DateTime? @map("delivered_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
 
-  order       orders   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  game        games    @relation(fields: [gameId], references: [id])
+  order orders @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  game  games  @relation(fields: [gameId], references: [id])
 
   @@index([orderId])
+}
+
+model delivery_logs {
+  id        String   @id @default(cuid())
+  orderId   String   @map("order_id")
+  actor     String   @default("system")
+  action    String
+  note      String?
+  payload   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  order orders @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([createdAt])
 }

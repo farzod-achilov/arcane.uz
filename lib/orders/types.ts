@@ -2,17 +2,23 @@ import type { orders, order_items, games, users } from '@prisma/client';
 
 // ── Domain types ──────────────────────────────────────────────────────────────
 
-export type OrderStatus = 'PENDING' | 'PAID' | 'COMPLETED' | 'CANCELLED' | 'WAITING_STOCK';
+export type OrderStatus = 'PENDING' | 'PAID' | 'WAITING_MANUAL' | 'COMPLETED' | 'CANCELLED';
 
 export interface OrderItem {
-  id: string;
-  orderId: string;
-  gameId: string;
-  price: number;
-  keyValue: string | null;
+  id:          string;
+  orderId:     string;
+  gameId:      string;
+  price:       number;
+  keyValue:    string | null;
   deliveredAt: Date | null;
-  createdAt: Date;
+  createdAt:   Date;
   game?: Pick<games, 'id' | 'title' | 'slug' | 'cover'>;
+}
+
+export interface OrderDelivery {
+  deliveredAt:  Date | null;
+  deliveredBy:  string | null;
+  deliveryNote: string | null;
 }
 
 // ── Delivery ──────────────────────────────────────────────────────────────────
@@ -37,14 +43,17 @@ export interface DeliveryResult {
 }
 
 export interface Order {
-  id: string;
-  userId: string;
-  totalPrice: number;
-  status: OrderStatus;
-  createdAt: Date;
-  updatedAt: Date;
-  items?: OrderItem[];
-  user?: Pick<users, 'id' | 'email' | 'username'>;
+  id:           string;
+  userId:       string;
+  totalPrice:   number;
+  status:       OrderStatus;
+  deliveredAt:  Date | null;
+  deliveredBy:  string | null;
+  deliveryNote: string | null;
+  createdAt:    Date;
+  updatedAt:    Date;
+  items?:       OrderItem[];
+  user?:        Pick<users, 'id' | 'email' | 'username'>;
 }
 
 // ── Request / Response DTOs ────────────────────────────────────────────────────
@@ -93,12 +102,15 @@ export class OrderError extends Error {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function mapOrder(raw: any): Order {
   return {
-    id:         raw.id,
-    userId:     raw.userId,
-    totalPrice: raw.totalPrice,
-    status:     raw.status as OrderStatus,
-    createdAt:  raw.createdAt,
-    updatedAt:  raw.updatedAt,
+    id:           raw.id,
+    userId:       raw.userId,
+    totalPrice:   raw.totalPrice,
+    status:       raw.status as OrderStatus,
+    deliveredAt:  raw.deliveredAt  ?? null,
+    deliveredBy:  raw.deliveredBy  ?? null,
+    deliveryNote: raw.deliveryNote ?? null,
+    createdAt:    raw.createdAt,
+    updatedAt:    raw.updatedAt,
     items: raw.items?.map((it: any) => ({
       id:        it.id,
       orderId:   it.orderId,

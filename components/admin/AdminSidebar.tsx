@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Package, ShoppingBag, Users, Tag,
   Zap, Gift, MessageSquare, BarChart2, Settings,
-  ChevronLeft, ChevronRight, Shield, LogOut, KeyRound, TrendingUp, Gamepad2,
+  ChevronLeft, ChevronRight, Shield, LogOut, KeyRound, TrendingUp, Gamepad2, Truck,
 } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 
@@ -25,6 +25,7 @@ export default function AdminSidebar({
     { href: '/admin/products',            label: t.nav.products,     icon: Package,         color: '#06B6D4' },
     { href: '/admin/keys',                label: t.nav.keys,         icon: KeyRound,        color: '#22C55E' },
     { href: '/admin/orders',              label: t.nav.orders,       icon: ShoppingBag,     color: '#F59E0B' },
+    { href: '/admin/deliveries',          label: 'Доставка',         icon: Truck,           color: '#22C55E' },
     { href: '/admin/users',               label: t.nav.users,        icon: Users,           color: '#06B6D4' },
     { href: '/admin/discounts',           label: t.nav.discounts,    icon: Tag,             color: '#EF4444' },
     { href: '/admin/coins',               label: t.nav.coins,        icon: Zap,             color: '#F59E0B' },

@@ -5,11 +5,7 @@ import { completeManual, DeliveryError } from '@/lib/delivery';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * POST /api/orders/[id]/deliver
- * Legacy endpoint — now delegates to completeManual.
- * Accepts { key?: string, note?: string } for backward compat.
- */
+/** POST /api/orders/[id]/manual-complete */
 export async function POST(
   req: Request,
   { params }: { params: { id: string } },
@@ -21,15 +17,14 @@ export async function POST(
     }
 
     const body = await req.json().catch(() => ({}));
-    const keyValue    = (body.key ?? body.keyValue)?.trim();
-    const deliveryNote = body.note ?? body.deliveryNote;
+    const { deliveryNote, keyValue } = body as Record<string, string>;
 
     const order = await completeManual({
       orderId:     params.id,
       actorId:     session.user.id,
       actorName:   session.user.name ?? session.user.email ?? 'Admin',
-      keyValue,
       deliveryNote,
+      keyValue,
     });
 
     return NextResponse.json({ ok: true, order });
@@ -37,7 +32,7 @@ export async function POST(
     if (err instanceof DeliveryError) {
       return NextResponse.json({ ok: false, error: err.message }, { status: err.status });
     }
-    console.error('[deliver]', err);
+    console.error('[manual-complete]', err);
     return NextResponse.json({ ok: false, error: 'Internal error' }, { status: 500 });
   }
 }

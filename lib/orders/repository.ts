@@ -46,7 +46,7 @@ export async function findUserOrders(userId: string, limit = 20, offset = 0) {
 
 export async function findWaitingOrders() {
   return prisma.orders.findMany({
-    where: { status: 'WAITING_STOCK' },
+    where: { status: 'WAITING_MANUAL' },
     include: ORDER_INCLUDE,
     orderBy: { createdAt: 'asc' },
   });
@@ -186,7 +186,7 @@ export async function deliverKeysTx(orderId: string) {
     }
 
     // Set final order status
-    const newStatus = waitingItems.length === 0 ? 'COMPLETED' : 'WAITING_STOCK';
+    const newStatus = waitingItems.length === 0 ? 'COMPLETED' : 'WAITING_MANUAL';
     await tx.orders.update({ where: { id: orderId }, data: { status: newStatus } });
 
     return { deliveredItems, waitingItems };

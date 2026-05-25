@@ -41,9 +41,10 @@ function formatDate(iso: string) {
 }
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string; icon: typeof CheckCircle2 }> = {
-  COMPLETED:     { label: 'Доставлен',       color: '#22C55E', bg: 'rgba(34,197,94,0.12)',   icon: CheckCircle2  },
-  PAID:          { label: 'Оплачен',         color: '#06B6D4', bg: 'rgba(6,182,212,0.12)',   icon: Clock         },
-  WAITING_STOCK: { label: 'Ожидает ключ',    color: '#F59E0B', bg: 'rgba(245,158,11,0.12)',  icon: AlertCircle   },
+  COMPLETED:      { label: 'Доставлен',          color: '#22C55E', bg: 'rgba(34,197,94,0.12)',   icon: CheckCircle2 },
+  PAID:           { label: 'Оплачен',            color: '#06B6D4', bg: 'rgba(6,182,212,0.12)',   icon: Clock        },
+  WAITING_MANUAL: { label: 'Ожидает оператора',  color: '#FB923C', bg: 'rgba(251,146,60,0.12)',  icon: AlertCircle  },
+  WAITING_STOCK:  { label: 'Ожидает ключ',       color: '#F59E0B', bg: 'rgba(245,158,11,0.12)',  icon: AlertCircle  },
 };
 
 function PlatformIcon({ p }: { p: string }) {
@@ -261,10 +262,10 @@ interface Props {
 }
 
 const FILTERS = [
-  { id: 'all',     label: 'Все'          },
-  { id: 'COMPLETED',     label: 'Доставлены'  },
-  { id: 'WAITING_STOCK', label: 'Ожидают ключ' },
-  { id: 'PAID',          label: 'Оплачены'    },
+  { id: 'all',            label: 'Все'               },
+  { id: 'COMPLETED',      label: 'Доставлены'        },
+  { id: 'WAITING_MANUAL', label: 'Ждут оператора'    },
+  { id: 'PAID',           label: 'Оплачены'          },
 ] as const;
 
 export default function LibraryClient({ items, username, avatar }: Props) {

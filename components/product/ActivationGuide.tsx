@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion';
 import { Zap, Gift, Send, Monitor, Package, ExternalLink } from 'lucide-react';
 import type { DeliveryType } from '@/lib/types';
-import { DELIVERY_CONFIG } from '@/lib/delivery';
+import { DELIVERY_CONFIG } from '@/lib/deliveryConfig';
 
 type Step = { icon: string; text: string };
 

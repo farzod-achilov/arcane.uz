@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { products } from '@/lib/mockData';
 import { formatPrice } from '@/lib/utils';
-import { getDelivery } from '@/lib/delivery';
+import { getDelivery } from '@/lib/deliveryConfig';
 
 import CheckoutInput     from '@/components/checkout/CheckoutInput';
 import PaymentMethods    from '@/components/checkout/PaymentMethods';
