@@ -10,6 +10,9 @@ git reset --hard origin/main
 echo "==> Installing deps..."
 npm ci
 
+echo "==> Applying Prisma schema..."
+npx prisma db push --accept-data-loss
+
 echo "==> Building Next.js..."
 npm run build
 
