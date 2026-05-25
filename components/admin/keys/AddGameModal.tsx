@@ -196,9 +196,9 @@ export default function AddGameModal({ onClose, onSuccess }: Props) {
       if (!json.success) throw new Error(json.error ?? 'Ошибка Steam');
       const d = json.data;
 
-      // All Steam trailers as video: prefixed entries; fallback to RAWG if none
-      const steamTrailers: string[] = (d.trailers ?? (d.trailer ? [d.trailer] : []));
-      let trailerUrl: string | null = steamTrailers[0] ?? null;
+      // All Steam movies encoded as video:SRC|THUMB; fallback to RAWG if none
+      const steamMovies: Array<{ src: string; thumb: string }> = d.movies ?? [];
+      let trailerUrl: string | null = steamMovies[0]?.src ?? null;
 
       if (!trailerUrl && d.title) {
         try {
@@ -216,8 +216,10 @@ export default function AddGameModal({ onClose, onSuccess }: Props) {
         } catch { /* non-fatal */ }
       }
 
-      // Prepend all video URLs (video: prefix) before screenshots
-      const videoEntries = steamTrailers.map((t: string) => `video:${t}`);
+      // Encode each movie as "video:SRC|THUMB" (thumb may be empty string)
+      const videoEntries = steamMovies.map(
+        (m: { src: string; thumb: string }) => `video:${m.src}${m.thumb ? `|${m.thumb}` : ''}`
+      );
       const allScreenshots = [...videoEntries, ...(d.screenshots ?? [])];
 
       const r: SearchResult = {

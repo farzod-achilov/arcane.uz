@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { X, ChevronLeft, ChevronRight, Play, Volume2, VolumeX, Maximize } from 'lucide-react';
 import { useHls, isHlsUrl } from '@/hooks/useHls';
+import { parseMedia, isVideoMedia, isYouTubeMedia } from '@/lib/media';
 
 interface FullscreenGalleryProps {
   media: string[];
@@ -13,17 +14,12 @@ interface FullscreenGalleryProps {
   onClose: () => void;
 }
 
-function isVideo(url: string) {
-  return /\.(mp4|webm|ogg|m3u8)(\?|$)/i.test(url)
-    || url.includes('video.cloudflare.steamstatic.com')
-    || url.includes('video.akamai.steamstatic.com');
-}
-function isYouTube(url: string) {
-  return url.includes('youtube.com/embed');
-}
+function isVideo(url: string) { return isVideoMedia(url); }
+function isYouTube(url: string) { return isYouTubeMedia(url); }
 
 /* ── Inline video player inside fullscreen ── */
-function FsVideoPlayer({ src }: { src: string }) {
+function FsVideoPlayer({ encoded }: { encoded: string }) {
+  const { src } = parseMedia(encoded);
   const vidRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [muted,   setMuted]   = useState(false);
@@ -212,14 +208,14 @@ export default function FullscreenGallery({ media, startIndex, onClose }: Fullsc
           >
             {isYouTube(current) ? (
               <iframe
-                src={current}
+                src={parseMedia(current).src}
                 className="absolute inset-0 w-full h-full"
                 allow="autoplay; fullscreen"
                 allowFullScreen
                 style={{ border: 'none' }}
               />
             ) : isVideo(current) ? (
-              <FsVideoPlayer src={current} />
+              <FsVideoPlayer encoded={current} />
             ) : (
               <>
                 <Image src={current} alt={`Screenshot ${idx + 1}`} fill unoptimized className="object-cover" priority />
@@ -246,8 +242,10 @@ export default function FullscreenGallery({ media, startIndex, onClose }: Fullsc
         <div className="flex justify-center gap-2 px-4 py-4 overflow-x-auto flex-shrink-0"
              style={{ scrollbarWidth: 'none' }}
              onClick={e => e.stopPropagation()}>
-          {media.map((src, i) => {
-            const isVid = isVideo(src) || isYouTube(src);
+          {media.map((encoded, i) => {
+            const isVid = isVideo(encoded) || isYouTube(encoded);
+            const { src: imgSrc, thumb } = parseMedia(encoded);
+            const thumbSrc = isVid ? (thumb ?? null) : imgSrc;
             return (
               <button key={i} onClick={e => { e.stopPropagation(); setIdx(i); }}
                 className="flex-shrink-0 relative rounded-xl overflow-hidden transition-all duration-200"
@@ -259,13 +257,24 @@ export default function FullscreenGallery({ media, startIndex, onClose }: Fullsc
                   transform: i === idx ? 'scale(1.05)' : 'scale(1)',
                   background: '#0a0a14',
                 }}>
-                {isVid ? (
+                {thumbSrc ? (
+                  <>
+                    <Image src={thumbSrc} alt="" fill unoptimized className="object-cover" />
+                    {isVid && (
+                      <div className="absolute inset-0 flex items-center justify-center"
+                           style={{ background: 'rgba(0,0,0,0.35)' }}>
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center"
+                             style={{ background: 'rgba(124,58,237,0.85)', backdropFilter: 'blur(4px)' }}>
+                          <Play style={{ width: '10px', height: '10px', color: '#fff', marginLeft: '1px' }} />
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
                   <div className="absolute inset-0 flex items-center justify-center"
                        style={{ background: 'linear-gradient(135deg, #1a0a2e, #0a1428)' }}>
                     <Play style={{ width: '16px', height: '16px', color: '#9D60FA' }} />
                   </div>
-                ) : (
-                  <Image src={src} alt="" fill unoptimized className="object-cover" />
                 )}
               </button>
             );

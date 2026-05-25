@@ -29,21 +29,20 @@ import ProductReviews     from '@/components/product/ProductReviews';
 import StickyPurchasePanel   from '@/components/product/StickyPurchasePanel';
 import FullscreenGallery     from '@/components/product/FullscreenGallery';
 import { useHls, isHlsUrl }  from '@/hooks/useHls';
+import { parseMedia, isVideoMedia, isYouTubeMedia, isAnyVideo } from '@/lib/media';
 
 function isVideoUrl(url: string | undefined | null): boolean {
   if (!url) return false;
-  return /\.(mp4|webm|ogg|m3u8)(\?|$)/i.test(url)
-    || url.includes('video.cloudflare.steamstatic.com')
-    || url.includes('video.akamai.steamstatic.com')
-    || url.includes('youtube.com/embed');
+  return isAnyVideo(url);
 }
 function isYouTubeUrl(url: string | undefined | null): boolean {
   if (!url) return false;
-  return url.includes('youtube.com/embed');
+  return isYouTubeMedia(url);
 }
 
 /* ── Inline video player ───────────────────────────────── */
-function VideoPlayer({ src }: { src: string }) {
+function VideoPlayer({ encoded }: { encoded: string }) {
+  const { src } = parseMedia(encoded);
   const vidRef   = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [muted,   setMuted]   = useState(false);
@@ -77,7 +76,7 @@ function VideoPlayer({ src }: { src: string }) {
         playsInline
         className="absolute inset-0 w-full h-full"
         style={{ objectFit: 'contain' }}
-        onPlay={() => setPlaying(true)}
+        onPlay={()  => setPlaying(true)}
         onPause={() => setPlaying(false)}
       />
 
@@ -183,7 +182,9 @@ export default function ProductPage({ params }: { params: { id: string } }) {
 
   const allScreenshots = product ? [
     product.image,
-    ...(product.trailer ? [product.trailer] : []),
+    // Add trailer only if not already included in screenshots (arcane-api includes it)
+    ...(product.trailer && !product.screenshots?.some(s => parseMedia(s).src === parseMedia(product.trailer!).src)
+      ? [product.trailer] : []),
     ...(product.screenshots ?? []),
   ].filter(Boolean) as string[] : [];
 
@@ -910,14 +911,14 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                       <motion.iframe
                         key={`yt-${activeImg}`}
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        src={allScreenshots[activeImg]}
+                        src={parseMedia(allScreenshots[activeImg]).src}
                         className="absolute inset-0 w-full h-full"
                         allow="autoplay; fullscreen" allowFullScreen
                         style={{ border: 'none' }}
                       />
                     ) : isVideoUrl(allScreenshots[activeImg]) ? (
                       <motion.div key={`v-${activeImg}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0">
-                        <VideoPlayer src={allScreenshots[activeImg]!} />
+                        <VideoPlayer encoded={allScreenshots[activeImg]!} />
                       </motion.div>
                     ) : (
                       <motion.div
@@ -1010,44 +1011,60 @@ export default function ProductPage({ params }: { params: { id: string } }) {
 
                 {/* Thumbnail rail */}
                 <div className="thumb-rail flex gap-2.5 overflow-x-auto pb-2">
-                  {allScreenshots.map((src, i) => (
-                    <motion.button
-                      key={i}
-                      onClick={() => setActiveImg(i)}
-                      whileHover={{ y: -2 }}
-                      whileTap={{ scale: 0.96 }}
-                      className="flex-shrink-0 relative rounded-xl overflow-hidden transition-all duration-300"
-                      style={{
-                        width: '140px', height: '80px',
-                        border: `2px solid ${i === activeImg ? (isVideoUrl(src) ? '#EF4444' : '#7C3AED') : 'rgba(255,255,255,0.06)'}`,
-                        boxShadow: i === activeImg ? (isVideoUrl(src) ? '0 0 18px rgba(239,68,68,0.5)' : '0 0 18px rgba(124,58,237,0.55)') : 'none',
-                        background: '#05050E',
-                        transform: i === activeImg ? 'translateY(-2px)' : 'none',
-                      }}
-                    >
-                      {isVideoUrl(src) ? (
-                        <div className="absolute inset-0 flex items-center justify-center" style={{
-                          background: i === activeImg ? 'rgba(239,68,68,0.18)' : 'rgba(239,68,68,0.07)',
-                        }}>
-                          <Play style={{
-                            width: '22px', height: '22px',
-                            color: i === activeImg ? '#F87171' : '#4B5563',
-                            fill: i === activeImg ? '#F87171' : '#4B5563',
-                          }} />
-                        </div>
-                      ) : (
-                        <Image
-                          src={src} alt={`thumb-${i}`}
-                          fill unoptimized
-                          className="object-cover transition-all duration-300"
-                          style={{
-                            opacity: i === activeImg ? 1 : 0.4,
-                            filter: i === activeImg ? 'none' : 'saturate(0.6)',
-                          }}
-                        />
-                      )}
-                    </motion.button>
-                  ))}
+                  {allScreenshots.map((encoded, i) => {
+                    const isVid = isVideoUrl(encoded);
+                    const { src, thumb } = parseMedia(encoded);
+                    const displaySrc = isVid ? (thumb ?? null) : src;
+                    return (
+                      <motion.button
+                        key={i}
+                        onClick={() => setActiveImg(i)}
+                        whileHover={{ y: -2 }}
+                        whileTap={{ scale: 0.96 }}
+                        className="flex-shrink-0 relative rounded-xl overflow-hidden transition-all duration-300"
+                        style={{
+                          width: '140px', height: '80px',
+                          border: `2px solid ${i === activeImg ? (isVid ? '#EF4444' : '#7C3AED') : 'rgba(255,255,255,0.06)'}`,
+                          boxShadow: i === activeImg ? (isVid ? '0 0 18px rgba(239,68,68,0.5)' : '0 0 18px rgba(124,58,237,0.55)') : 'none',
+                          background: '#05050E',
+                          transform: i === activeImg ? 'translateY(-2px)' : 'none',
+                        }}
+                      >
+                        {displaySrc ? (
+                          <>
+                            <Image
+                              src={displaySrc} alt={`thumb-${i}`}
+                              fill unoptimized
+                              className="object-cover transition-all duration-300"
+                              style={{
+                                opacity: i === activeImg ? 1 : 0.4,
+                                filter: i === activeImg ? 'none' : 'saturate(0.6)',
+                              }}
+                            />
+                            {isVid && (
+                              <div className="absolute inset-0 flex items-center justify-center"
+                                   style={{ background: 'rgba(0,0,0,0.3)' }}>
+                                <div className="w-8 h-8 rounded-full flex items-center justify-center"
+                                     style={{ background: i === activeImg ? 'rgba(239,68,68,0.85)' : 'rgba(239,68,68,0.5)' }}>
+                                  <Play style={{ width: '14px', height: '14px', color: '#fff', marginLeft: '2px' }} />
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center" style={{
+                            background: i === activeImg ? 'rgba(239,68,68,0.18)' : 'rgba(239,68,68,0.07)',
+                          }}>
+                            <Play style={{
+                              width: '22px', height: '22px',
+                              color: i === activeImg ? '#F87171' : '#4B5563',
+                              fill: i === activeImg ? '#F87171' : '#4B5563',
+                            }} />
+                          </div>
+                        )}
+                      </motion.button>
+                    );
+                  })}
                 </div>
               </div>
             </section>

@@ -3,13 +3,17 @@
 import { useEffect, RefObject } from 'react';
 
 export function isHlsUrl(url: string) {
-  return url.includes('.m3u8');
+  // Strip optional "|thumb" suffix before checking
+  return url.split('|')[0].includes('.m3u8');
 }
 
 export function useHls(videoRef: RefObject<HTMLVideoElement>, src: string) {
+  // Use only the src part (before optional "|thumb")
+  const rawSrc = src.split('|')[0];
+
   useEffect(() => {
-    if (!src || !videoRef.current) return;
-    if (!isHlsUrl(src)) return;
+    if (!rawSrc || !videoRef.current) return;
+    if (!isHlsUrl(rawSrc)) return;
 
     let hls: import('hls.js').default | null = null;
 
@@ -18,16 +22,16 @@ export function useHls(videoRef: RefObject<HTMLVideoElement>, src: string) {
 
       if (Hls.isSupported()) {
         hls = new Hls({ enableWorker: false });
-        hls.loadSource(src);
+        hls.loadSource(rawSrc);
         hls.attachMedia(videoRef.current);
       } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
         // Safari natively supports HLS
-        videoRef.current.src = src;
+        videoRef.current.src = rawSrc;
       }
     });
 
     return () => {
       hls?.destroy();
     };
-  }, [src, videoRef]);
+  }, [rawSrc, videoRef]);
 }
