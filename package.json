@@ -11,16 +11,20 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "framer-motion": "^11.2.10",
     "hls.js": "^1.6.16",
     "lucide-react": "^0.395.0",
     "next": "14.2.4",
+    "next-auth": "^4.24.14",
     "prisma": "^5.22.0",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "sonner": "^2.0.7"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/hls.js": "^0.13.3",
     "@types/node": "^20",
     "@types/react": "^18",
