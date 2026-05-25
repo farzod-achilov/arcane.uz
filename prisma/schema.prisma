@@ -463,6 +463,7 @@ enum OrderStatus {
   PAID
   COMPLETED
   CANCELLED
+  WAITING_STOCK
 }
 
 model orders {
@@ -488,6 +489,8 @@ model order_items {
   price       Int
   keyValue    String?  @map("key_value")
   createdAt   DateTime @default(now()) @map("created_at")
+
+  deliveredAt DateTime? @map("delivered_at")
 
   order       orders   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   game        games    @relation(fields: [gameId], references: [id])

@@ -1,13 +1,12 @@
 import { prisma } from '@/lib/prisma';
-import type { OrderFilters, CreateOrderDto, Order, mapOrder } from './types';
+import type { OrderFilters, CreateOrderDto } from './types';
 import { OrderError } from './types';
 
-// Re-export for convenience
 export { mapOrder } from './types';
 
-// ── Order Repository ──────────────────────────────────────────────────────────
+// ── Shared include ────────────────────────────────────────────────────────────
 
-const ORDER_INCLUDE = {
+export const ORDER_INCLUDE = {
   items: {
     include: {
       game: { select: { id: true, title: true, slug: true, cover: true } },
@@ -16,21 +15,18 @@ const ORDER_INCLUDE = {
   user: { select: { id: true, email: true, username: true } },
 } as const;
 
+// ── Queries ───────────────────────────────────────────────────────────────────
+
 export async function findOrderById(id: string) {
-  return prisma.orders.findUnique({
-    where: { id },
-    include: ORDER_INCLUDE,
-  });
+  return prisma.orders.findUnique({ where: { id }, include: ORDER_INCLUDE });
 }
 
 export async function findOrders(filters: OrderFilters = {}) {
   const { userId, status, limit = 20, offset = 0 } = filters;
-
   const where = {
     ...(userId ? { userId } : {}),
     ...(status ? { status } : {}),
   };
-
   const [rows, total] = await Promise.all([
     prisma.orders.findMany({
       where,
@@ -41,7 +37,6 @@ export async function findOrders(filters: OrderFilters = {}) {
     }),
     prisma.orders.count({ where }),
   ]);
-
   return { rows, total };
 }
 
@@ -49,19 +44,29 @@ export async function findUserOrders(userId: string, limit = 20, offset = 0) {
   return findOrders({ userId, limit, offset });
 }
 
+export async function findWaitingOrders() {
+  return prisma.orders.findMany({
+    where: { status: 'WAITING_STOCK' },
+    include: ORDER_INCLUDE,
+    orderBy: { createdAt: 'asc' },
+  });
+}
+
+// ── Create (PENDING, no key allocation yet) ───────────────────────────────────
+
 export async function createOrderTx(dto: CreateOrderDto) {
   const { userId, items } = dto;
 
   return prisma.$transaction(async tx => {
-    // 1. Verify user exists
+    // 1. Verify user
     const user = await tx.users.findUnique({ where: { id: userId } });
     if (!user) throw new OrderError('User not found', 'USER_NOT_FOUND', 404);
 
-    // 2. Load games and validate stock
+    // 2. Load & validate games
     const gameIds = Array.from(new Set(items.map(i => i.gameId)));
     const games = await tx.games.findMany({
       where: { id: { in: gameIds }, isActive: true },
-      select: { id: true, title: true, priceUzs: true, stockStore: true },
+      select: { id: true, title: true, priceUzs: true },
     });
 
     if (games.length !== gameIds.length) {
@@ -69,71 +74,130 @@ export async function createOrderTx(dto: CreateOrderDto) {
       throw new OrderError(`Game not found: ${missing}`, 'GAME_NOT_FOUND', 404);
     }
 
-    // 3. Check stock and build line items
     const lineItems = items.map(item => {
       const game = games.find(g => g.id === item.gameId)!;
-      if (game.stockStore < 1) {
-        throw new OrderError(`No keys available for "${game.title}"`, 'OUT_OF_STOCK', 409);
-      }
       return { gameId: game.id, price: game.priceUzs ?? 0 };
     });
 
     const totalPrice = lineItems.reduce((sum, li) => sum + li.price, 0);
 
-    // 4. Allocate keys (one per game, SELECT … SKIP LOCKED)
-    const allocatedKeys: Record<string, string> = {};
-    for (const li of lineItems) {
-      const [keyRow] = await tx.$queryRaw<Array<{ id: string; key_value: string }>>`
-        SELECT id, key_value FROM game_keys
-        WHERE game_id = ${li.gameId}
-          AND status  = 'AVAILABLE'
-        ORDER BY created_at ASC
-        LIMIT 1
-        FOR UPDATE SKIP LOCKED
-      `;
-      if (!keyRow) {
-        throw new OrderError(`No keys available for game ${li.gameId}`, 'OUT_OF_STOCK', 409);
-      }
-      await tx.game_keys.update({
-        where: { id: keyRow.id },
-        data:  { status: 'SOLD' },
-      });
-      allocatedKeys[li.gameId] = keyRow.key_value;
-    }
-
-    // 5. Create order with items
-    const order = await tx.orders.create({
+    // 3. Create PENDING order — keys delivered in separate step after payment
+    return tx.orders.create({
       data: {
         userId,
         totalPrice,
-        status: 'PAID',           // immediate delivery — mark as PAID right away
+        status: 'PENDING',
         items: {
           create: lineItems.map(li => ({
             gameId:   li.gameId,
             price:    li.price,
-            keyValue: allocatedKeys[li.gameId] ?? null,
+            keyValue: null,
           })),
         },
       },
       include: ORDER_INCLUDE,
     });
+  }, { timeout: 8_000 });
+}
 
-    // 6. Decrement stock counters
-    for (const li of lineItems) {
+// ── Key delivery transaction ──────────────────────────────────────────────────
+
+interface KeyRow { id: string; key_value: string }
+
+export async function deliverKeysTx(orderId: string) {
+  return prisma.$transaction(async tx => {
+    // Lock the order row to prevent concurrent delivery attempts
+    const [orderRow] = await tx.$queryRaw<Array<{ id: string; status: string }>>`
+      SELECT id, status FROM orders
+      WHERE id = ${orderId}
+      FOR UPDATE
+    `;
+
+    if (!orderRow) throw new OrderError('Order not found', 'ORDER_NOT_FOUND', 404);
+    if (orderRow.status === 'COMPLETED') {
+      throw new OrderError('Order already completed', 'ALREADY_COMPLETED', 409);
+    }
+    if (orderRow.status === 'CANCELLED') {
+      throw new OrderError('Cannot deliver a cancelled order', 'ORDER_CANCELLED', 409);
+    }
+    if (orderRow.status === 'PENDING') {
+      throw new OrderError('Order not yet paid', 'NOT_PAID', 402);
+    }
+
+    // Load items that still need a key
+    const items = await tx.order_items.findMany({
+      where:   { orderId, keyValue: null },
+      include: { game: { select: { id: true, title: true } } },
+    });
+
+    if (items.length === 0) {
+      // All items already have keys — just mark completed
+      await tx.orders.update({ where: { id: orderId }, data: { status: 'COMPLETED' } });
+      return { deliveredItems: [], waitingItems: [] };
+    }
+
+    const deliveredItems: Array<{ itemId: string; gameId: string; gameTitle: string; keyValue: string }> = [];
+    const waitingItems:   Array<{ itemId: string; gameId: string; gameTitle: string }> = [];
+
+    for (const item of items) {
+      // SELECT FOR UPDATE SKIP LOCKED — concurrent-safe key lock
+      const [keyRow] = await tx.$queryRaw<KeyRow[]>`
+        SELECT id, key_value FROM game_keys
+        WHERE game_id = ${item.gameId}
+          AND status  = 'AVAILABLE'
+        ORDER BY created_at ASC
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED
+      `;
+
+      if (!keyRow) {
+        waitingItems.push({
+          itemId:    item.id,
+          gameId:    item.gameId,
+          gameTitle: item.game?.title ?? item.gameId,
+        });
+        continue;
+      }
+
+      // Mark key as SOLD
+      await tx.game_keys.update({
+        where: { id: keyRow.id },
+        data:  { status: 'SOLD', soldToUserId: item.orderId },
+      });
+
+      // Attach key to order item
+      await tx.order_items.update({
+        where: { id: item.id },
+        data:  { keyValue: keyRow.key_value, deliveredAt: new Date() },
+      });
+
+      // Decrement game stock
       await tx.games.update({
-        where: { id: li.gameId },
+        where: { id: item.gameId },
         data:  { stockStore: { decrement: 1 } },
+      });
+
+      deliveredItems.push({
+        itemId:    item.id,
+        gameId:    item.gameId,
+        gameTitle: item.game?.title ?? item.gameId,
+        keyValue:  keyRow.key_value,
       });
     }
 
-    return order;
-  }, { timeout: 10_000 });
+    // Set final order status
+    const newStatus = waitingItems.length === 0 ? 'COMPLETED' : 'WAITING_STOCK';
+    await tx.orders.update({ where: { id: orderId }, data: { status: newStatus } });
+
+    return { deliveredItems, waitingItems };
+  }, { timeout: 15_000 });
 }
+
+// ── Status update ─────────────────────────────────────────────────────────────
 
 export async function updateOrderStatus(id: string, status: string) {
   const order = await prisma.orders.findUnique({ where: { id } });
   if (!order) throw new OrderError('Order not found', 'ORDER_NOT_FOUND', 404);
-
   return prisma.orders.update({
     where: { id },
     data:  { status: status as never },

@@ -2,7 +2,7 @@ import type { orders, order_items, games, users } from '@prisma/client';
 
 // ── Domain types ──────────────────────────────────────────────────────────────
 
-export type OrderStatus = 'PENDING' | 'PAID' | 'COMPLETED' | 'CANCELLED';
+export type OrderStatus = 'PENDING' | 'PAID' | 'COMPLETED' | 'CANCELLED' | 'WAITING_STOCK';
 
 export interface OrderItem {
   id: string;
@@ -10,8 +10,30 @@ export interface OrderItem {
   gameId: string;
   price: number;
   keyValue: string | null;
+  deliveredAt: Date | null;
   createdAt: Date;
   game?: Pick<games, 'id' | 'title' | 'slug' | 'cover'>;
+}
+
+// ── Delivery ──────────────────────────────────────────────────────────────────
+
+export type DeliveryOutcome = 'completed' | 'waiting_stock' | 'partial';
+
+export interface ItemDeliveryResult {
+  itemId:    string;
+  gameId:    string;
+  gameTitle: string;
+  delivered: boolean;
+  keyValue?: string;
+  reason?:   string;
+}
+
+export interface DeliveryResult {
+  orderId:   string;
+  outcome:   DeliveryOutcome;
+  delivered: number;
+  waiting:   number;
+  items:     ItemDeliveryResult[];
 }
 
 export interface Order {
@@ -82,8 +104,9 @@ export function mapOrder(raw: any): Order {
       orderId:   it.orderId,
       gameId:    it.gameId,
       price:     it.price,
-      keyValue:  it.keyValue ?? null,
-      createdAt: it.createdAt,
+      keyValue:    it.keyValue   ?? null,
+      deliveredAt: it.deliveredAt ?? null,
+      createdAt:   it.createdAt,
       game: it.game ? {
         id:    it.game.id,
         title: it.game.title,
