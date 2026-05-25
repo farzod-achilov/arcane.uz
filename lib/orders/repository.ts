@@ -58,7 +58,7 @@ export async function createOrderTx(dto: CreateOrderDto) {
     if (!user) throw new OrderError('User not found', 'USER_NOT_FOUND', 404);
 
     // 2. Load games and validate stock
-    const gameIds = [...new Set(items.map(i => i.gameId))];
+    const gameIds = Array.from(new Set(items.map(i => i.gameId)));
     const games = await tx.games.findMany({
       where: { id: { in: gameIds }, isActive: true },
       select: { id: true, title: true, priceUzs: true, stockStore: true },

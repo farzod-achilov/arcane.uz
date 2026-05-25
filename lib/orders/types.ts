@@ -68,12 +68,8 @@ export class OrderError extends Error {
 
 // ── Raw Prisma → domain mappers ───────────────────────────────────────────────
 
-type RawOrder = orders & {
-  items?: (order_items & { game?: games | null })[];
-  user?: users | null;
-};
-
-export function mapOrder(raw: RawOrder): Order {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapOrder(raw: any): Order {
   return {
     id:         raw.id,
     userId:     raw.userId,
@@ -81,18 +77,18 @@ export function mapOrder(raw: RawOrder): Order {
     status:     raw.status as OrderStatus,
     createdAt:  raw.createdAt,
     updatedAt:  raw.updatedAt,
-    items: raw.items?.map(it => ({
-      id:       it.id,
-      orderId:  it.orderId,
-      gameId:   it.gameId,
-      price:    it.price,
-      keyValue: it.keyValue,
+    items: raw.items?.map((it: any) => ({
+      id:        it.id,
+      orderId:   it.orderId,
+      gameId:    it.gameId,
+      price:     it.price,
+      keyValue:  it.keyValue ?? null,
       createdAt: it.createdAt,
       game: it.game ? {
         id:    it.game.id,
         title: it.game.title,
         slug:  it.game.slug,
-        cover: it.game.cover,
+        cover: it.game.cover ?? null,
       } : undefined,
     })),
     user: raw.user ? {
