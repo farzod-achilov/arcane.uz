@@ -118,6 +118,7 @@ model games {
   drop_rewards      drop_rewards[]
   game_keys         game_keys[]
   game_pricing      game_pricing?
+  order_items       order_items[]
 
   @@unique([externalId, source])
   @@index([slug])
@@ -243,6 +244,7 @@ model users {
   live_drops       live_drops[]
   sessions         sessions[]
   transactions     transactions[]
+  orders           orders[]
 
   @@index([email])
   @@index([username])
@@ -452,4 +454,43 @@ model pending_tokens {
   createdAt DateTime @default(now())
 
   @@index([expiresAt])
+}
+
+// ── Order System ──────────────────────────────────────────────────────────────
+
+enum OrderStatus {
+  PENDING
+  PAID
+  COMPLETED
+  CANCELLED
+}
+
+model orders {
+  id         String      @id @default(cuid())
+  userId     String      @map("user_id")
+  totalPrice Int         @map("total_price")
+  status     OrderStatus @default(PENDING)
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
+
+  user       users        @relation(fields: [userId], references: [id])
+  items      order_items[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model order_items {
+  id          String   @id @default(cuid())
+  orderId     String   @map("order_id")
+  gameId      String   @map("game_id")
+  price       Int
+  keyValue    String?  @map("key_value")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  order       orders   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  game        games    @relation(fields: [gameId], references: [id])
+
+  @@index([orderId])
 }
