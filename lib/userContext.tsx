@@ -4,8 +4,9 @@ import {
   createContext, useContext, useState, useEffect, useCallback,
   type ReactNode,
 } from 'react';
+import { useSession, signIn, signOut } from 'next-auth/react';
 import {
-  DEMO_USER, INITIAL_NOTIFICATIONS, getLevelFromXp,
+  INITIAL_NOTIFICATIONS, getLevelFromXp,
   type Notification,
 } from './mockUserData';
 
@@ -33,7 +34,7 @@ interface UserContextType {
   unreadCount: number;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
-  register: (name: string, email: string, password: string) => Promise<boolean>;
+  register: (name: string, email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   addToWishlist: (id: string) => void;
   removeFromWishlist: (id: string) => void;
   isInWishlist: (id: string) => boolean;
@@ -47,7 +48,6 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | null>(null);
 
-const LS_USER   = 'arcane_user';
 const LS_LIST   = 'arcane_wishlist';
 const LS_NOTIFS = 'arcane_notifs';
 
@@ -61,22 +61,48 @@ function readLS<T>(key: string, fallback: T): T {
   }
 }
 
+function sessionToUser(session: { user: { id: string; name?: string | null; email?: string | null; image?: string | null; arcCoins?: number; xp?: number } }): User {
+  const s = session.user;
+  return {
+    id:            s.id,
+    name:          s.name   ?? 'Игрок',
+    email:         s.email  ?? '',
+    telegram:      null,
+    steamId:       null,
+    steamUsername: null,
+    steamAvatar:   null,
+    xp:            s.xp       ?? 0,
+    coins:         s.arcCoins ?? 0,
+    avatar:        s.image    ?? `https://picsum.photos/seed/${s.id}/200/200`,
+    joinDate:      new Date().toISOString().split('T')[0],
+  };
+}
+
 export function UserProvider({ children }: { children: ReactNode }) {
+  const { data: session, status } = useSession();
+
   const [user,          setUser]  = useState<User | null>(null);
   const [wishlist,      setWList] = useState<string[]>([]);
   const [notifications, setNotifs] = useState<Notification[]>([]);
   const [hydrated,      setHyd]   = useState(false);
 
-  /* Read from localStorage once on mount */
+  /* Hydrate local state from localStorage */
   useEffect(() => {
-    setUser(readLS<User | null>(LS_USER, null));
     setWList(readLS<string[]>(LS_LIST, []));
     setNotifs(readLS<Notification[]>(LS_NOTIFS, INITIAL_NOTIFICATIONS));
     setHyd(true);
   }, []);
 
-  /* Persist on change */
-  useEffect(() => { if (hydrated) localStorage.setItem(LS_USER,   JSON.stringify(user)); },          [user, hydrated]);
+  /* Sync NextAuth session → user state */
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user) {
+      setUser(sessionToUser(session as Parameters<typeof sessionToUser>[0]));
+    } else if (status === 'unauthenticated') {
+      setUser(null);
+    }
+  }, [session, status]);
+
+  /* Persist wishlist + notifications */
   useEffect(() => { if (hydrated) localStorage.setItem(LS_LIST,   JSON.stringify(wishlist)); },      [wishlist, hydrated]);
   useEffect(() => { if (hydrated) localStorage.setItem(LS_NOTIFS, JSON.stringify(notifications)); }, [notifications, hydrated]);
 
@@ -84,66 +110,47 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   /* ── Auth ── */
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
-    await new Promise((r) => setTimeout(r, 900)); // simulate network
-    if (!email || password.length < 3) return false;
-    const newUser: User = email === DEMO_USER.email
-      ? { ...DEMO_USER }
-      : {
-          id: `usr_${Date.now()}`,
-          name: email.split('@')[0],
-          email,
-          telegram: null,
-          steamId: null,
-          steamUsername: null,
-          steamAvatar: null,
-          xp: 0,
-          coins: 100, // welcome bonus
-          avatar: `https://picsum.photos/seed/${email}/200/200`,
-          joinDate: new Date().toISOString().split('T')[0],
-        };
-    setUser(newUser);
-    return true;
+    const result = await signIn('credentials', { redirect: false, email, password });
+    return result?.ok ?? false;
   }, []);
 
-  const register = useCallback(async (name: string, email: string, password: string): Promise<boolean> => {
-    await new Promise((r) => setTimeout(r, 1100));
-    if (!name || !email || password.length < 6) return false;
-    const newUser: User = {
-      id: `usr_${Date.now()}`,
-      name,
-      email,
-      telegram: null,
-      steamId: null,
-      steamUsername: null,
-      steamAvatar: null,
-      xp: 0,
-      coins: 500, // welcome bonus
-      avatar: `https://picsum.photos/seed/${email}/200/200`,
-      joinDate: new Date().toISOString().split('T')[0],
-    };
-    setUser(newUser);
-    // Welcome notification
+  const register = useCallback(async (name: string, email: string, password: string): Promise<{ ok: boolean; error?: string }> => {
+    const res = await fetch('/api/auth/register', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ name, email, password }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { ok: false, error: (data as { error?: string }).error ?? 'Ошибка регистрации' };
+    }
+
+    const ok = await signIn('credentials', { redirect: false, email, password });
+    if (!ok?.ok) return { ok: false, error: 'Не удалось войти после регистрации' };
+
     setNotifs((prev) => [{
-      id: `w_${Date.now()}`,
-      type: 'system',
+      id:    `w_${Date.now()}`,
+      type:  'system',
       title: `Добро пожаловать, ${name}!`,
-      body: '+500 Arcane Coins в подарок за регистрацию',
-      time: Date.now(),
-      read: false,
-      href: '/dashboard',
+      body:  '+500 Arcane Coins в подарок за регистрацию',
+      time:  Date.now(),
+      read:  false,
+      href:  '/library',
     }, ...prev]);
-    return true;
+
+    return { ok: true };
   }, []);
 
   const logout = useCallback(() => {
-    setUser(null);
     setWList([]);
+    signOut({ redirect: false });
   }, []);
 
   /* ── Wishlist ── */
-  const addToWishlist    = useCallback((id: string) => setWList((p) => p.includes(id) ? p : [...p, id]), []);
+  const addToWishlist      = useCallback((id: string) => setWList((p) => p.includes(id) ? p : [...p, id]), []);
   const removeFromWishlist = useCallback((id: string) => setWList((p) => p.filter((x) => x !== id)), []);
-  const isInWishlist     = useCallback((id: string) => wishlist.includes(id), [wishlist]);
+  const isInWishlist       = useCallback((id: string) => wishlist.includes(id), [wishlist]);
 
   /* ── Notifications ── */
   const markNotificationRead = useCallback((id: string) =>
@@ -159,9 +166,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const connectSteam = useCallback(() => {
     setUser((u) => u ? {
       ...u,
-      steamId: '76561198XXXXXXXX',
+      steamId:       '76561198XXXXXXXX',
       steamUsername: u.name,
-      steamAvatar: `https://picsum.photos/seed/steam${u.id}/200/200`,
+      steamAvatar:   `https://picsum.photos/seed/steam${u.id}/200/200`,
     } : u);
   }, []);
 
@@ -172,11 +179,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const addCoins = useCallback((amount: number) =>
     setUser((u) => u ? { ...u, coins: u.coins + amount } : u), []);
 
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  const legacyLogin = useCallback(async (email: string, password: string): Promise<boolean> => {
+    return login(email, password);
+  }, [login]);
+
   return (
     <UserContext.Provider value={{
       user, isLoggedIn: !!user,
       notifications, wishlist, unreadCount,
-      login, logout, register,
+      login: legacyLogin, logout, register,
       addToWishlist, removeFromWishlist, isInWishlist,
       markNotificationRead, markAllRead,
       connectTelegram, connectSteam,
@@ -192,3 +204,6 @@ export function useUser() {
   if (!ctx) throw new Error('useUser must be used inside UserProvider');
   return ctx;
 }
+
+// Re-export for convenience
+export { getLevelFromXp };
