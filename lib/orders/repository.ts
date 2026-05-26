@@ -55,11 +55,14 @@ export async function findWaitingOrders() {
 // ── Create (PENDING, no key allocation yet) ───────────────────────────────────
 
 export async function createOrderTx(dto: CreateOrderDto) {
-  const { userId, items } = dto;
+  const { userId, items, paymentMethod } = dto;
 
   return prisma.$transaction(async tx => {
     // 1. Verify user
-    const user = await tx.users.findUnique({ where: { id: userId } });
+    const user = await tx.users.findUnique({
+      where:  { id: userId },
+      select: { id: true, balanceUzs: true },
+    });
     if (!user) throw new OrderError('User not found', 'USER_NOT_FOUND', 404);
 
     // 2. Load & validate games
@@ -81,12 +84,27 @@ export async function createOrderTx(dto: CreateOrderDto) {
 
     const totalPrice = lineItems.reduce((sum, li) => sum + li.price, 0);
 
-    // 3. Create PENDING order — keys delivered in separate step after payment
+    // 3a. Balance payment — check and deduct immediately
+    if (paymentMethod === 'balance') {
+      if (user.balanceUzs < totalPrice) {
+        throw new OrderError(
+          `Недостаточно средств. Баланс: ${user.balanceUzs} сум, нужно: ${totalPrice} сум`,
+          'INSUFFICIENT_BALANCE',
+          400,
+        );
+      }
+      await tx.users.update({
+        where: { id: userId },
+        data:  { balanceUzs: { decrement: totalPrice } },
+      });
+    }
+
+    // 3b. Create order — PAID immediately for balance, PENDING for external payment
     return tx.orders.create({
       data: {
         userId,
         totalPrice,
-        status: 'PENDING',
+        status: paymentMethod === 'balance' ? 'PAID' : 'PENDING',
         items: {
           create: lineItems.map(li => ({
             gameId:   li.gameId,

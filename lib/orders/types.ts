@@ -64,8 +64,9 @@ export interface CreateOrderItemDto {
 }
 
 export interface CreateOrderDto {
-  userId: string;
-  items: CreateOrderItemDto[];
+  userId:         string;
+  items:          CreateOrderItemDto[];
+  paymentMethod?: string;
 }
 
 export interface OrderFilters {

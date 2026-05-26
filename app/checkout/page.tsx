@@ -322,8 +322,18 @@ function CheckoutInner() {
   const [submitting, setSubmitting]   = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [orderId, setOrderId]         = useState('');
+  const [uzsBalance, setUzsBalance]   = useState(0);
 
   const userArcCoins = (session?.user as { arcCoins?: number })?.arcCoins ?? 0;
+
+  // Fetch UZS balance
+  useEffect(() => {
+    if (!session?.user) return;
+    fetch('/api/user/balance')
+      .then(r => r.json())
+      .then(d => setUzsBalance(d.balanceUzs ?? 0))
+      .catch(() => {});
+  }, [session]);
 
   // Pre-fill email from session
   useEffect(() => {
@@ -373,13 +383,15 @@ function CheckoutInner() {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
           body:    JSON.stringify({
-            userId: (session.user as { id: string }).id,
-            items:  items.map(i => ({ gameId: i.gameId })),
+            userId:        (session.user as { id: string }).id,
+            items:         items.map(i => ({ gameId: i.gameId })),
+            paymentMethod: payMethod === 'balance' ? 'balance' : undefined,
           }),
         });
-        const data = await res.json() as { success?: boolean; order?: { id: string }; error?: string };
+        const data = await res.json() as { success?: boolean; order?: { id: string }; error?: string; code?: string };
         if (data.success && data.order) {
           setOrderId(data.order.id);
+          if (payMethod === 'balance') setUzsBalance(prev => Math.max(0, prev - total));
           setStep('processing');
         } else {
           setSubmitError(data.error ?? 'Ошибка создания заказа');
@@ -604,7 +616,12 @@ function CheckoutInner() {
                     <Card>
                       <CardHeader icon={<CreditCard className="w-4 h-4" />} title="Способ оплаты" />
                       <div className="p-5">
-                        <PaymentMethods selected={payMethod} onSelect={setPayMethod} />
+                        <PaymentMethods
+                        selected={payMethod}
+                        onSelect={setPayMethod}
+                        balanceUzs={uzsBalance}
+                        total={total}
+                      />
                       </div>
                     </Card>
 

@@ -38,7 +38,11 @@ function validateCreateOrder(body: unknown): CreateOrderDto {
     throw new OrderError('Maximum 10 items per order', 'TOO_MANY_ITEMS', 400);
   }
 
-  return { userId: b.userId.trim(), items };
+  return {
+    userId:         b.userId.trim(),
+    items,
+    paymentMethod:  typeof b.paymentMethod === 'string' ? b.paymentMethod : undefined,
+  };
 }
 
 const VALID_STATUSES: OrderStatus[] = ['PENDING', 'PAID', 'WAITING_MANUAL', 'COMPLETED', 'CANCELLED'];
