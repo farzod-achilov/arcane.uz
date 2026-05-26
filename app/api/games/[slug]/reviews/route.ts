@@ -91,5 +91,17 @@ export async function POST(req: Request, { params }: Ctx) {
     },
   });
 
+  // Recalculate and sync average rating to games table
+  const agg = await prisma.reviews.aggregate({
+    where: { gameId: game.id },
+    _avg:  { rating: true },
+  });
+  if (agg._avg.rating != null) {
+    await prisma.games.update({
+      where: { id: game.id },
+      data:  { rating: Math.round(agg._avg.rating * 10) / 10 },
+    });
+  }
+
   return NextResponse.json({ ok: true, id: review.id, verified: review.verified });
 }

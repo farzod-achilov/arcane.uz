@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { PriceEngineService }           from '@/lib/smartPricing/engine';
 import { getPriceSettings, getCurrencySettings, getGamePricing, upsertGamePricing } from '@/lib/smartPricing/repository';
+import { prisma } from '@/lib/prisma';
+import { notifyWishlistPriceDrop } from '@/lib/delivery/notify';
 import type { PricingStrategy, SmartMarkupType } from '@/lib/smartPricing/types';
 
 export const dynamic = 'force-dynamic';
@@ -55,13 +57,16 @@ export async function PATCH(req: Request, { params }: Ctx) {
       customFinalPrice:     body.customFinalPrice        ?? Number(existing?.customFinalPrice)       ?? null,
     });
 
+    const newPriceUzs = Math.round(result.finalPriceUzs);
+    const oldPriceUzs = existing ? Number(existing.finalPriceUzs) : null;
+
     const saved = await upsertGamePricing(
       params.id,
       {
         ...body,
         supplierPriceUsd:  result.supplierPriceUsd,
         finalPriceUsd:     result.finalPriceUsd,
-        finalPriceUzs:     Math.round(result.finalPriceUzs),
+        finalPriceUzs:     newPriceUzs,
         youSaveAmount:     result.youSaveAmount,
         youSavePercent:    result.youSavePercent,
         marginPercent:     result.marginPercent,
@@ -71,12 +76,30 @@ export async function PATCH(req: Request, { params }: Ctx) {
         event:           'price_calculated',
         previousUsd:     existing ? Number(existing.finalPriceUsd) : null,
         newUsd:          result.finalPriceUsd,
-        previousUzs:     existing ? Number(existing.finalPriceUzs) : null,
-        newUzs:          result.finalPriceUzs,
+        previousUzs:     oldPriceUzs,
+        newUzs:          newPriceUzs,
         appliedStrategy: strategy,
         appliedRules:    result.appliedRules,
       },
     );
+
+    // Sync price to games table so storefront shows the updated price
+    const game = await prisma.games.update({
+      where: { id: params.id },
+      data:  { priceUzs: newPriceUzs, priceUsd: result.finalPriceUsd },
+      select: { id: true, title: true, slug: true },
+    });
+
+    // Notify wishlist users if price dropped by more than 5%
+    if (oldPriceUzs && newPriceUzs < oldPriceUzs * 0.95) {
+      notifyWishlistPriceDrop({
+        gameId:    params.id,
+        gameTitle: game.title,
+        gameSlug:  game.slug,
+        oldPrice:  oldPriceUzs,
+        newPrice:  newPriceUzs,
+      }).catch(() => null);
+    }
 
     return NextResponse.json({ success: true, data: saved, calculated: result });
   } catch (err) {
