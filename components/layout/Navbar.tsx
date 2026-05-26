@@ -652,7 +652,7 @@ export default function Navbar() {
                   </Link>
                   {/* Avatar + name */}
                   <Link
-                    href="/dashboard"
+                    href="/profile"
                     className="group flex items-center gap-2.5 rounded-xl transition-all duration-200 relative"
                     style={{
                       background: 'rgba(124,58,237,0.08)',

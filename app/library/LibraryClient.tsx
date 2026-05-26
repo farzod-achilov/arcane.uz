@@ -238,7 +238,7 @@ function GameCard({ item, index }: { item: LibraryItem; index: number }) {
               </div>
             </div>
 
-            <Link href={`/product/${item.game.slug}`}
+            <Link href={`/games/${item.game.slug}`}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl font-heading font-medium text-[#9D60FA] transition-all duration-200 group/link"
                   style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)',
                            fontSize: '12px' }}
