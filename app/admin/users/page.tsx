@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Search, Send, Crown, Zap, ShoppingBag, X,
-  RefreshCw, Shield, Ban, Users,
+  RefreshCw, Shield, Ban, Users, CheckCircle2, Loader2,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 
@@ -47,6 +47,7 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [search,  setSearch]  = useState('');
   const [totalCoins, setTotalCoins] = useState(0);
+  const [banning,    setBanning]    = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -62,6 +63,21 @@ export default function AdminUsersPage() {
   }, [page, search]);
 
   useEffect(() => { load(); }, [load]);
+
+  async function toggleBan(user: AdminUser) {
+    setBanning(user.id);
+    try {
+      const res  = await fetch(`/api/admin/users/${user.id}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ isBanned: !user.isBanned }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setUsers(prev => prev.map(u => u.id === user.id ? { ...u, isBanned: data.user.isBanned } : u));
+      }
+    } finally { setBanning(null); }
+  }
 
   const withTelegram = 0; // would need telegram_users join — skip for now
 
@@ -140,7 +156,7 @@ export default function AdminUsersPage() {
           <table className="w-full">
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
-                {['Пользователь', 'Уровень', 'Монеты', 'Заказы', 'Потрачено', 'Вишлист', 'Последний вход', 'Флаги'].map(h => (
+                {['Пользователь', 'Уровень', 'Монеты', 'Заказы', 'Потрачено', 'Вишлист', 'Последний вход', 'Флаги', 'Действия'].map(h => (
                   <th key={h} className="px-4 py-3 text-left font-body text-[#374151] whitespace-nowrap"
                       style={{ fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     {h}
@@ -151,14 +167,14 @@ export default function AdminUsersPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="py-16 text-center">
+                  <td colSpan={9} className="py-16 text-center">
                     <RefreshCw style={{ width: '16px', height: '16px', color: '#374151', margin: '0 auto 8px', animation: 'spin 1s linear infinite' }} />
                     <p className="font-body text-[#374151]" style={{ fontSize: '13px' }}>Загрузка...</p>
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-16 text-center">
+                  <td colSpan={9} className="py-16 text-center">
                     <p className="font-body text-[#374151]" style={{ fontSize: '13px' }}>Пользователи не найдены</p>
                   </td>
                 </tr>
@@ -264,6 +280,31 @@ export default function AdminUsersPage() {
                           <span className="font-body text-[#1F2937]" style={{ fontSize: '11px' }}>—</span>
                         )}
                       </div>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-4 py-3">
+                      {!user.isAdmin && (
+                        <button
+                          onClick={() => toggleBan(user)}
+                          disabled={banning === user.id}
+                          title={user.isBanned ? 'Разбанить' : 'Забанить'}
+                          className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 font-body transition-all disabled:opacity-50"
+                          style={{
+                            fontSize:   '10.5px',
+                            background: user.isBanned ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                            border:     user.isBanned ? '1px solid rgba(34,197,94,0.25)' : '1px solid rgba(239,68,68,0.25)',
+                            color:      user.isBanned ? '#22C55E' : '#EF4444',
+                          }}
+                        >
+                          {banning === user.id
+                            ? <Loader2 style={{ width: '10px', height: '10px' }} className="animate-spin" />
+                            : user.isBanned
+                              ? <CheckCircle2 style={{ width: '10px', height: '10px' }} />
+                              : <Ban style={{ width: '10px', height: '10px' }} />}
+                          {user.isBanned ? 'Разбанить' : 'Бан'}
+                        </button>
+                      )}
                     </td>
                   </motion.tr>
                 );
