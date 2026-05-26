@@ -127,15 +127,16 @@ export default async function GamePage({ params }: Props) {
 
               {/* Buy button */}
               {inStock ? (
-                <button
-                  className="w-full py-3 rounded-xl font-heading font-bold text-white text-sm transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
+                <Link
+                  href={`/checkout?gameId=${game.id}`}
+                  className="w-full py-3 rounded-xl font-heading font-bold text-white text-sm transition-all duration-200 hover:opacity-90 active:scale-[0.98] flex items-center justify-center"
                   style={{
                     background: 'linear-gradient(135deg, #7C3AED, #5B21B6)',
                     boxShadow: '0 0 24px rgba(124,58,237,0.35)',
                   }}
                 >
                   Купить сейчас
-                </button>
+                </Link>
               ) : (
                 <button
                   disabled

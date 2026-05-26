@@ -1,40 +1,39 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShoppingCart, CreditCard, ArrowLeft, ChevronRight,
   Trash2, Tag, Check, Shield, Zap, Package, Mail, AtSign,
-  Truck,
+  CheckCircle2, ArrowRight, Loader2, AlertCircle,
 } from 'lucide-react';
-import { products } from '@/lib/mockData';
 import { formatPrice } from '@/lib/utils';
-import { getDelivery } from '@/lib/deliveryConfig';
 
 import CheckoutInput     from '@/components/checkout/CheckoutInput';
 import PaymentMethods    from '@/components/checkout/PaymentMethods';
 import ProcessingOverlay from '@/components/checkout/ProcessingOverlay';
-import SuccessScreen     from '@/components/checkout/SuccessScreen';
-import DeliveryInfoCard  from '@/components/ui/DeliveryInfoCard';
 
-/* ── Mock cart ────────────────────────────────────────── */
-const INITIAL_CART = [
-  { product: products[0], quantity: 1, platform: 'Steam' },
-  { product: products[1], quantity: 1, platform: 'PS5'   },
-];
+/* ── Types ────────────────────────────────────────────── */
+interface CheckoutItem {
+  gameId:       string;
+  title:        string;
+  cover:        string | null;
+  priceUzs:     number;
+  deliveryType: 'AUTO' | 'MANUAL';
+}
 
 const STEPS = ['cart', 'payment', 'processing', 'success'] as const;
 type Step = typeof STEPS[number];
 
-/* ── Section card wrapper ─────────────────────────────── */
+/* ── Helpers ─────────────────────────────────────────── */
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div
-      className={`rounded-2xl overflow-hidden ${className}`}
-      style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)' }}
-    >
+    <div className={`rounded-2xl overflow-hidden ${className}`}
+         style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)' }}>
       {children}
     </div>
   );
@@ -42,30 +41,24 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
 
 function CardHeader({ icon, title, count }: { icon: React.ReactNode; title: string; count?: number }) {
   return (
-    <div
-      className="flex items-center gap-3 px-5 py-4"
-      style={{ borderBottom: '1px solid rgba(255,255,255,0.055)' }}
-    >
+    <div className="flex items-center gap-3 px-5 py-4"
+         style={{ borderBottom: '1px solid rgba(255,255,255,0.055)' }}>
       <div className="text-[#7C3AED]">{icon}</div>
       <span className="font-heading font-semibold text-white" style={{ fontSize: '14px' }}>
         {title}
         {count !== undefined && (
-          <span className="ml-2 font-pixel text-[#4B5563]" style={{ fontSize: '8px' }}>
-            ({count})
-          </span>
+          <span className="ml-2 font-pixel text-[#4B5563]" style={{ fontSize: '8px' }}>({count})</span>
         )}
       </span>
     </div>
   );
 }
 
-/* ── Step indicator ───────────────────────────────────── */
 function StepIndicator({ current }: { current: Step }) {
   const visibleSteps = [
     { id: 'cart',    label: 'Корзина' },
     { id: 'payment', label: 'Оплата'  },
   ] as const;
-
   return (
     <div className="flex items-center gap-3">
       {visibleSteps.map((s, i) => {
@@ -73,25 +66,17 @@ function StepIndicator({ current }: { current: Step }) {
         const isCurrent = current === s.id;
         return (
           <div key={s.id} className="flex items-center gap-3">
-            <div
-              className="flex items-center gap-2 font-heading font-semibold"
-              style={{ fontSize: '13px', color: isCurrent ? '#E2E8F0' : isDone ? '#7C3AED' : '#374151' }}
-            >
-              <div
-                className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{
-                  background: isCurrent ? 'linear-gradient(135deg, #7C3AED, #06B6D4)' : isDone ? '#7C3AED' : '#0D0D16',
-                  border: !isCurrent && !isDone ? '1px solid rgba(255,255,255,0.08)' : 'none',
-                  boxShadow: isCurrent ? '0 0 12px rgba(124,58,237,0.5)' : 'none',
-                }}
-              >
-                {isDone ? (
-                  <Check style={{ width: '12px', height: '12px', color: '#fff' }} />
-                ) : (
-                  <span style={{ fontSize: '10px', color: isCurrent ? '#fff' : '#4B5563' }}>
-                    {i + 1}
-                  </span>
-                )}
+            <div className="flex items-center gap-2 font-heading font-semibold"
+                 style={{ fontSize: '13px', color: isCurrent ? '#E2E8F0' : isDone ? '#7C3AED' : '#374151' }}>
+              <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                   style={{
+                     background: isCurrent ? 'linear-gradient(135deg, #7C3AED, #06B6D4)' : isDone ? '#7C3AED' : '#0D0D16',
+                     border: !isCurrent && !isDone ? '1px solid rgba(255,255,255,0.08)' : 'none',
+                     boxShadow: isCurrent ? '0 0 12px rgba(124,58,237,0.5)' : 'none',
+                   }}>
+                {isDone
+                  ? <Check style={{ width: '12px', height: '12px', color: '#fff' }} />
+                  : <span style={{ fontSize: '10px', color: isCurrent ? '#fff' : '#4B5563' }}>{i + 1}</span>}
               </div>
               {s.label}
             </div>
@@ -105,200 +90,35 @@ function StepIndicator({ current }: { current: Step }) {
   );
 }
 
-/* ── Delivery summary card (read-only, from product data) */
-function DeliverySummaryCard({ items }: { items: typeof INITIAL_CART }) {
-  const uniqueTypes = Array.from(new Set(items.map(i => i.product.deliveryType)));
-  const allInstant  = uniqueTypes.length === 1 && uniqueTypes[0] === 'instant';
-
+/* ── Delivery badge (replaces DeliveryInfoCard) ──────── */
+function DeliveryBadge({ type }: { type: 'AUTO' | 'MANUAL' }) {
   return (
-    <Card>
-      <CardHeader icon={<Truck className="w-4 h-4" />} title="Способ доставки" />
-      <div className="p-5 space-y-3">
-        {allInstant ? (
-          /* All items are instant → single compact card */
-          <DeliveryInfoCard
-            deliveryType="instant"
-            variant="compact"
-            animated={false}
-          />
-        ) : (
-          /* Mixed delivery types → one row per item */
-          items.map((item) => {
-            const cfg = getDelivery(
-              item.product.deliveryType,
-              {
-                time: item.product.deliveryTime,
-                description: item.product.deliveryDescription,
-              },
-            );
-            return (
-              <div key={item.product.id}>
-                <p className="font-body text-[#374151] mb-1.5" style={{ fontSize: '11px' }}>
-                  {item.product.title}
-                </p>
-                <DeliveryInfoCard
-                  deliveryType={item.product.deliveryType}
-                  deliveryTime={item.product.deliveryTime}
-                  deliveryDescription={item.product.deliveryDescription}
-                  variant="compact"
-                  animated={false}
-                />
-              </div>
-            );
-          })
-        )}
-
-        {/* Informational note */}
-        <p
-          className="font-body text-[#2D2D44] pt-1"
-          style={{ fontSize: '11px', lineHeight: '1.55' }}
-        >
-          Способ доставки определяется продуктом и не может быть изменён.
-        </p>
-      </div>
-    </Card>
-  );
-}
-
-/* ── Promo code section ───────────────────────────────── */
-function PromoSection({
-  code, setCode, applied, onApply,
-}: { code: string; setCode: (v: string) => void; applied: boolean; onApply: () => void }) {
-  return (
-    <Card>
-      <CardHeader icon={<Tag className="w-4 h-4" />} title="Промокод" />
-      <div className="p-5">
-        <div className="flex gap-2.5">
-          <div className="flex-1 relative">
-            <input
-              type="text"
-              placeholder="ARCANE10"
-              value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-              disabled={applied}
-              className="w-full font-body text-white outline-none transition-all duration-200 placeholder:text-[#2D2D44]"
-              style={{
-                background: '#07070D',
-                border: `1px solid ${applied ? 'rgba(34,197,94,0.4)' : 'rgba(255,255,255,0.08)'}`,
-                borderRadius: '12px',
-                padding: '11px 14px',
-                fontSize: '13.5px',
-                letterSpacing: '0.05em',
-              }}
-            />
-          </div>
-          <motion.button
-            whileHover={{ scale: applied ? 1 : 1.02 }}
-            whileTap={{ scale: applied ? 1 : 0.97 }}
-            onClick={onApply}
-            disabled={applied || !code}
-            className="relative overflow-hidden rounded-xl font-heading font-semibold text-white flex-shrink-0 px-5"
-            style={{
-              background: applied ? 'rgba(34,197,94,0.15)' : !code ? '#0D0D16' : 'linear-gradient(135deg, #7C3AED, #5B21B6)',
-              border: applied ? '1px solid rgba(34,197,94,0.35)' : '1px solid rgba(124,58,237,0.3)',
-              fontSize: '13px',
-              color: applied ? '#22C55E' : !code ? '#374151' : '#fff',
-              cursor: applied || !code ? 'not-allowed' : 'pointer',
-              boxShadow: !applied && code ? '0 0 16px rgba(124,58,237,0.3)' : 'none',
-            }}
-          >
-            {applied ? (
-              <span className="flex items-center gap-1.5">
-                <Check style={{ width: '14px', height: '14px' }} />
-                Применён
-              </span>
-            ) : 'Применить'}
-          </motion.button>
-        </div>
-        {applied && (
-          <motion.p
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="font-body text-[#22C55E] mt-2"
-            style={{ fontSize: '11.5px' }}
-          >
-            ✓ Скидка 10% применена
-          </motion.p>
-        )}
-      </div>
-    </Card>
-  );
-}
-
-/* ── Arcane Coins toggle ──────────────────────────────── */
-function CoinsSection({
-  active, onToggle, discount,
-}: { active: boolean; onToggle: () => void; discount: number }) {
-  return (
-    <Card>
-      <div className="p-5 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <motion.div
-            animate={{ boxShadow: active ? '0 0 16px rgba(124,58,237,0.5)' : 'none' }}
-            transition={{ duration: 0.3 }}
-            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{
-              background: active ? 'linear-gradient(135deg, rgba(124,58,237,0.3), rgba(6,182,212,0.2))' : 'rgba(124,58,237,0.08)',
-              border: `1px solid ${active ? 'rgba(124,58,237,0.4)' : 'rgba(124,58,237,0.18)'}`,
-            }}
-          >
-            <Zap style={{ width: '16px', height: '16px', color: '#9D60FA' }} />
-          </motion.div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-heading font-semibold text-white" style={{ fontSize: '13.5px' }}>
-                Arcane Coins
-              </span>
-              <span
-                className="font-pixel rounded-full"
-                style={{
-                  fontSize: '7.5px', color: '#9D60FA',
-                  background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.22)',
-                  padding: '2px 7px', letterSpacing: '0.06em',
-                }}
-              >
-                1 250
-              </span>
-            </div>
-            <p className="font-body text-[#6B7280] mt-0.5" style={{ fontSize: '11px' }}>
-              {active ? `Скидка: −${formatPrice(discount)}` : `Доступно: −${formatPrice(discount)}`}
-            </p>
-          </div>
-        </div>
-        <motion.button
-          animate={{ background: active ? 'linear-gradient(90deg, #7C3AED, #06B6D4)' : '#1A1A28' }}
-          transition={{ duration: 0.25 }}
-          onClick={onToggle}
-          className="relative w-11 h-6 rounded-full flex-shrink-0 cursor-pointer"
-          style={{ border: `1px solid ${active ? 'transparent' : 'rgba(255,255,255,0.1)'}` }}
-        >
-          <motion.div
-            animate={{ x: active ? 21 : 2 }}
-            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-            className="absolute top-[3px] w-4 h-4 bg-white rounded-full"
-            style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.4)' }}
-          />
-        </motion.button>
-      </div>
-    </Card>
+    <span
+      className="inline-flex items-center gap-1 font-pixel rounded"
+      style={{
+        fontSize: '7px', letterSpacing: '0.05em', padding: '2px 6px',
+        color:      type === 'AUTO' ? '#22C55E'            : '#A78BFA',
+        background: type === 'AUTO' ? 'rgba(34,197,94,0.1)' : 'rgba(167,139,250,0.1)',
+        border:     type === 'AUTO' ? '1px solid rgba(34,197,94,0.25)' : '1px solid rgba(167,139,250,0.25)',
+      }}
+    >
+      <Zap style={{ width: '8px', height: '8px' }} />
+      {type === 'AUTO' ? 'Авто-доставка' : 'Ручная доставка'}
+    </span>
   );
 }
 
 /* ── Order summary sidebar ────────────────────────────── */
 function OrderSummary({
-  items, subtotal, promoDiscount, coinsDiscount, total,
-  step, onNext, onBack, processing,
+  items, subtotal, coinsDiscount, total, step, onNext, onBack, submitting,
 }: {
-  items: typeof INITIAL_CART;
-  subtotal: number; promoDiscount: number; coinsDiscount: number; total: number;
-  step: Step; onNext: () => void; onBack?: () => void; processing: boolean;
+  items: CheckoutItem[]; subtotal: number; coinsDiscount: number; total: number;
+  step: Step; onNext: () => void; onBack?: () => void; submitting: boolean;
 }) {
   const coinsToEarn = Math.round(total / 1000);
-
   return (
     <div className="sticky top-[132px]">
       <Card>
-        {/* Header */}
         <div className="px-5 py-4 flex items-center justify-between"
              style={{ borderBottom: '1px solid rgba(255,255,255,0.055)' }}>
           <span className="font-heading font-semibold text-[#9CA3AF]"
@@ -306,45 +126,33 @@ function OrderSummary({
             Ваш заказ
           </span>
           <span className="font-pixel text-[#4B5563]" style={{ fontSize: '7.5px' }}>
-            {items.length} позиции
+            {items.length} поз.
           </span>
         </div>
 
         {/* Items */}
         <div className="px-5 py-4 space-y-3"
              style={{ borderBottom: '1px solid rgba(255,255,255,0.055)' }}>
-          {items.map((item) => {
-            const delivery = getDelivery(item.product.deliveryType, {
-              time: item.product.deliveryTime,
-            });
-            return (
-              <div key={item.product.id} className="flex items-center gap-3">
-                <div className="relative w-10 h-12 rounded-xl overflow-hidden flex-shrink-0">
-                  <Image src={item.product.image} alt={item.product.title} fill className="object-cover" unoptimized />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-heading font-semibold text-white line-clamp-1" style={{ fontSize: '12.5px' }}>
-                    {item.product.title}
-                  </p>
-                  <p className="font-body text-[#4B5563] mt-0.5" style={{ fontSize: '10.5px' }}>
-                    {item.platform} · RU/CIS
-                  </p>
-                  {/* Inline delivery badge */}
-                  <div className="flex items-center gap-1 mt-1">
-                    <DeliveryInfoCard
-                      deliveryType={item.product.deliveryType}
-                      deliveryTime={item.product.deliveryTime}
-                      variant="inline"
-                      animated={false}
-                    />
-                  </div>
-                </div>
-                <span className="font-heading font-bold text-white flex-shrink-0" style={{ fontSize: '12.5px' }}>
-                  {formatPrice(item.product.price)}
-                </span>
+          {items.map(item => (
+            <div key={item.gameId} className="flex items-center gap-3">
+              <div className="relative w-10 h-12 rounded-xl overflow-hidden flex-shrink-0">
+                {item.cover
+                  ? <Image src={item.cover} alt={item.title} fill className="object-cover" unoptimized />
+                  : <div className="w-full h-full flex items-center justify-center" style={{ background: 'rgba(124,58,237,0.1)' }}>
+                      <Package style={{ width: '14px', height: '14px', color: '#6B7280' }} />
+                    </div>}
               </div>
-            );
-          })}
+              <div className="flex-1 min-w-0">
+                <p className="font-heading font-semibold text-white line-clamp-1" style={{ fontSize: '12.5px' }}>
+                  {item.title}
+                </p>
+                <DeliveryBadge type={item.deliveryType} />
+              </div>
+              <span className="font-heading font-bold text-white flex-shrink-0" style={{ fontSize: '12.5px' }}>
+                {formatPrice(item.priceUzs)}
+              </span>
+            </div>
+          ))}
         </div>
 
         {/* Price breakdown */}
@@ -355,24 +163,9 @@ function OrderSummary({
             <span className="font-body text-[#9CA3AF]" style={{ fontSize: '13px' }}>{formatPrice(subtotal)}</span>
           </div>
           <AnimatePresence>
-            {promoDiscount > 0 && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="flex justify-between"
-              >
-                <span className="font-body text-[#22C55E]" style={{ fontSize: '13px' }}>Промокод −10%</span>
-                <span className="font-body text-[#22C55E]" style={{ fontSize: '13px' }}>−{formatPrice(promoDiscount)}</span>
-              </motion.div>
-            )}
             {coinsDiscount > 0 && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="flex justify-between"
-              >
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                className="flex justify-between">
                 <span className="font-body text-[#9D60FA] flex items-center gap-1" style={{ fontSize: '13px' }}>
                   <Zap style={{ width: '11px', height: '11px' }} />Arcane Coins
                 </span>
@@ -386,20 +179,13 @@ function OrderSummary({
         <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.055)' }}>
           <div className="flex items-baseline justify-between">
             <span className="font-heading font-bold text-white">К оплате</span>
-            <motion.span
-              key={total}
-              initial={{ scale: 1.05 }}
-              animate={{ scale: 1 }}
-              className="font-heading font-bold text-white"
-              style={{ fontSize: '20px' }}
-            >
+            <motion.span key={total} initial={{ scale: 1.05 }} animate={{ scale: 1 }}
+              className="font-heading font-bold text-white" style={{ fontSize: '20px' }}>
               {formatPrice(total)}
             </motion.span>
           </div>
-          <div
-            className="flex items-center gap-2 mt-3 rounded-xl px-3 py-2"
-            style={{ background: 'rgba(124,58,237,0.07)', border: '1px solid rgba(124,58,237,0.15)' }}
-          >
+          <div className="flex items-center gap-2 mt-3 rounded-xl px-3 py-2"
+               style={{ background: 'rgba(124,58,237,0.07)', border: '1px solid rgba(124,58,237,0.15)' }}>
             <Zap style={{ width: '12px', height: '12px', color: '#9D60FA', flexShrink: 0 }} />
             <span className="font-body text-[#9D60FA]" style={{ fontSize: '11.5px' }}>
               Получите +{coinsToEarn} Arcane Coins
@@ -410,42 +196,31 @@ function OrderSummary({
         {/* CTA */}
         <div className="p-4 space-y-2.5">
           <motion.button
-            whileHover={!processing && items.length > 0 ? { scale: 1.015 } : {}}
-            whileTap={!processing && items.length > 0 ? { scale: 0.985 } : {}}
+            whileHover={!submitting && items.length > 0 ? { scale: 1.015 } : {}}
+            whileTap={!submitting && items.length > 0 ? { scale: 0.985 } : {}}
             onClick={onNext}
-            disabled={items.length === 0 || processing}
+            disabled={items.length === 0 || submitting}
             className="group relative w-full flex items-center justify-center gap-2 rounded-xl font-heading font-semibold text-white overflow-hidden transition-all duration-200"
             style={{
               background: 'linear-gradient(135deg, #7C3AED 0%, #5B21B6 60%, #06B6D4 130%)',
-              padding: '14px 20px',
-              fontSize: '14px',
-              letterSpacing: '0.025em',
+              padding: '14px 20px', fontSize: '14px', letterSpacing: '0.025em',
               boxShadow: items.length > 0 ? '0 0 0 1px rgba(124,58,237,0.4), 0 4px 24px rgba(124,58,237,0.3)' : 'none',
               opacity: items.length === 0 ? 0.4 : 1,
-              cursor: items.length === 0 ? 'not-allowed' : 'pointer',
+              cursor: items.length === 0 || submitting ? 'not-allowed' : 'pointer',
             }}
           >
-            <span
-              className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-              style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 55%)' }}
-            />
-            <CreditCard style={{ width: '16px', height: '16px' }} className="relative z-10" />
-            <span className="relative z-10">
-              {step === 'cart' ? 'К оплате' : `Оплатить ${formatPrice(total)}`}
-            </span>
-            <ChevronRight style={{ width: '16px', height: '16px' }} className="relative z-10" />
+            {submitting
+              ? <Loader2 style={{ width: '16px', height: '16px' }} className="animate-spin" />
+              : <CreditCard style={{ width: '16px', height: '16px' }} />}
+            <span>{step === 'cart' ? 'К оплате' : submitting ? 'Создаём заказ...' : `Оплатить ${formatPrice(total)}`}</span>
+            {!submitting && <ChevronRight style={{ width: '16px', height: '16px' }} />}
           </motion.button>
 
           {onBack && step === 'payment' && (
             <button
               onClick={onBack}
               className="w-full flex items-center justify-center gap-2 rounded-xl font-heading font-medium transition-all duration-200"
-              style={{
-                background: '#09090E', border: '1px solid rgba(255,255,255,0.07)',
-                padding: '11px 20px', fontSize: '13px', color: '#4B5563',
-              }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#9CA3AF'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4B5563'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)'; }}
+              style={{ background: '#09090E', border: '1px solid rgba(255,255,255,0.07)', padding: '11px 20px', fontSize: '13px', color: '#4B5563' }}
             >
               <ArrowLeft style={{ width: '14px', height: '14px' }} />
               Назад в корзину
@@ -464,44 +239,195 @@ function OrderSummary({
   );
 }
 
+/* ── Success screen ───────────────────────────────────── */
+function SuccessView({ orderId, items, total, email }: {
+  orderId: string; items: CheckoutItem[]; total: number; email: string;
+}) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+      className="min-h-screen flex items-center justify-center px-4" style={{ background: '#05040B', paddingTop: '120px' }}>
+      <div className="max-w-lg w-full text-center">
+        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300, delay: 0.2 }}
+          className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"
+          style={{ background: 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(34,197,94,0.1))', border: '1px solid rgba(34,197,94,0.3)', boxShadow: '0 0 40px rgba(34,197,94,0.2)' }}>
+          <CheckCircle2 style={{ width: '36px', height: '36px', color: '#22C55E' }} />
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
+          <p className="font-pixel text-[#7C3AED] mb-2" style={{ fontSize: '9px', letterSpacing: '0.14em' }}>ЗАКАЗ СОЗДАН</p>
+          <h1 className="font-heading font-bold text-white mb-2" style={{ fontSize: '28px' }}>Спасибо за покупку!</h1>
+          <p className="font-body text-[#4B5563] mb-6" style={{ fontSize: '13px' }}>
+            Заказ <span className="text-[#7C3AED]">#{orderId.slice(0, 8)}</span> создан · Ключ придёт на <span className="text-white">{email}</span>
+          </p>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+          className="rounded-2xl p-5 mb-6 text-left"
+          style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)' }}>
+          {items.map(item => (
+            <div key={item.gameId} className="flex items-center gap-3">
+              <div className="relative w-10 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                {item.cover
+                  ? <Image src={item.cover} alt={item.title} fill unoptimized className="object-cover" />
+                  : <div className="w-full h-full" style={{ background: 'rgba(124,58,237,0.1)' }} />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-body text-white" style={{ fontSize: '13px' }}>{item.title}</p>
+                <DeliveryBadge type={item.deliveryType} />
+              </div>
+              <span className="font-heading font-bold text-[#22C55E]" style={{ fontSize: '14px' }}>
+                {formatPrice(item.priceUzs)}
+              </span>
+            </div>
+          ))}
+          <div className="mt-4 pt-4 flex items-center justify-between" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <span className="font-body text-[#6B7280]" style={{ fontSize: '13px' }}>Итого</span>
+            <span className="font-heading font-bold text-white" style={{ fontSize: '16px' }}>{formatPrice(total)}</span>
+          </div>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
+          className="flex flex-col sm:flex-row gap-3">
+          <Link href="/library"
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-heading font-semibold text-white"
+            style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', boxShadow: '0 0 20px rgba(124,58,237,0.3)' }}>
+            Моя библиотека <ArrowRight style={{ width: '15px', height: '15px' }} />
+          </Link>
+          <Link href="/catalog"
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-heading font-semibold"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#6B7280' }}>
+            Продолжить покупки
+          </Link>
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+}
+
 /* ══════════════════════════════════════════
-   MAIN PAGE
+   INNER PAGE (uses hooks)
 ══════════════════════════════════════════ */
-export default function CheckoutPage() {
+function CheckoutInner() {
+  const { data: session, status } = useSession();
+  const searchParams = useSearchParams();
+
   const [step, setStep]               = useState<Step>('cart');
-  const [items, setItems]             = useState(INITIAL_CART);
+  const [items, setItems]             = useState<CheckoutItem[]>([]);
+  const [loadingGame, setLoadingGame] = useState(true);
   const [payMethod, setPayMethod]     = useState('payme');
-  const [promoCode, setPromoCode]     = useState('');
-  const [promoApplied, setPromoApplied] = useState(false);
   const [useCoins, setUseCoins]       = useState(false);
   const [email, setEmail]             = useState('');
   const [telegram, setTelegram]       = useState('');
   const [emailError, setEmailError]   = useState('');
-  const orderNumber = useRef(`ARC-${Math.floor(10000 + Math.random() * 90000)}`).current;
+  const [submitting, setSubmitting]   = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [orderId, setOrderId]         = useState('');
 
-  const subtotal      = items.reduce((s, i) => s + i.product.price * i.quantity, 0);
-  const promoDiscount = promoApplied ? Math.round(subtotal * 0.1) : 0;
-  const coinsDiscount = useCoins ? 12500 : 0;
-  const total         = Math.max(0, subtotal - promoDiscount - coinsDiscount);
+  const userArcCoins = (session?.user as { arcCoins?: number })?.arcCoins ?? 0;
 
-  const validateEmail = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+  // Pre-fill email from session
+  useEffect(() => {
+    if (session?.user?.email && !email) setEmail(session.user.email);
+  }, [session]);
 
-  const handlePromo = () => { if (promoCode === 'ARCANE10') setPromoApplied(true); };
+  // Load games from URL params
+  useEffect(() => {
+    const gameId = searchParams.get('gameId');
+    if (!gameId) { setLoadingGame(false); return; }
 
-  const handleNext = () => {
+    setLoadingGame(true);
+    fetch(`/api/arcane/games/${gameId}`)
+      .then(r => r.json())
+      .then((data: { success?: boolean; data?: { id: string; title: string; cover: string | null; priceUzs: number | null; deliveryType: string } }) => {
+        if (data.success && data.data) {
+          setItems([{
+            gameId:       data.data.id,
+            title:        data.data.title,
+            cover:        data.data.cover,
+            priceUzs:     data.data.priceUzs ?? 0,
+            deliveryType: (data.data.deliveryType as 'AUTO' | 'MANUAL') ?? 'MANUAL',
+          }]);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingGame(false));
+  }, [searchParams]);
+
+  const subtotal      = items.reduce((s, i) => s + i.priceUzs, 0);
+  const coinsDiscount = useCoins ? Math.min(userArcCoins, Math.round(subtotal * 0.1)) : 0;
+  const total         = Math.max(0, subtotal - coinsDiscount);
+
+  const validateEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+
+  const handleNext = async () => {
     if (step === 'cart') {
       if (!validateEmail(email)) { setEmailError('Введите корректный email'); return; }
       setEmailError('');
       setStep('payment');
     } else if (step === 'payment') {
-      setStep('processing');
+      if (!session?.user) return;
+      setSubmitting(true);
+      setSubmitError('');
+      try {
+        const res  = await fetch('/api/orders', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            userId: (session.user as { id: string }).id,
+            items:  items.map(i => ({ gameId: i.gameId })),
+          }),
+        });
+        const data = await res.json() as { success?: boolean; order?: { id: string }; error?: string };
+        if (data.success && data.order) {
+          setOrderId(data.order.id);
+          setStep('processing');
+        } else {
+          setSubmitError(data.error ?? 'Ошибка создания заказа');
+        }
+      } catch {
+        setSubmitError('Ошибка сети');
+      } finally {
+        setSubmitting(false);
+      }
     }
   };
 
-  const removeItem = (id: string) => setItems((prev) => prev.filter((i) => i.product.id !== id));
+  const removeItem = (gameId: string) => setItems(prev => prev.filter(i => i.gameId !== gameId));
+
+  // Auth guard
+  if (status === 'loading' || loadingGame) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#05040B' }}>
+        <Loader2 style={{ width: '24px', height: '24px', color: '#7C3AED' }} className="animate-spin" />
+      </div>
+    );
+  }
+
+  if (status === 'unauthenticated') {
+    const gameId = searchParams.get('gameId') ?? '';
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: '#05040B' }}>
+        <div className="text-center max-w-sm">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
+               style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)' }}>
+            <Shield style={{ width: '28px', height: '28px', color: '#7C3AED' }} />
+          </div>
+          <h2 className="font-heading font-bold text-white mb-2" style={{ fontSize: '20px' }}>Нужен аккаунт</h2>
+          <p className="font-body text-[#4B5563] mb-6" style={{ fontSize: '13px' }}>Войдите, чтобы оформить заказ</p>
+          <Link
+            href={`/login?callbackUrl=${encodeURIComponent('/checkout' + (gameId ? '?gameId=' + gameId : ''))}`}
+            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl font-heading font-bold text-white"
+            style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)' }}
+          >
+            Войти
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (step === 'success') {
-    return <SuccessScreen items={items} total={total} email={email} orderNumber={orderNumber} />;
+    return <SuccessView orderId={orderId} items={items} total={total} email={email} />;
   }
 
   return (
@@ -513,35 +439,23 @@ export default function CheckoutPage() {
       </AnimatePresence>
 
       <div className="min-h-screen" style={{ background: '#05040B', paddingTop: '120px' }}>
-        <div
-          className="fixed inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 70% 40% at 50% 0%, rgba(124,58,237,0.05) 0%, transparent 70%)' }}
-        />
+        <div className="fixed inset-0 pointer-events-none"
+             style={{ background: 'radial-gradient(ellipse 70% 40% at 50% 0%, rgba(124,58,237,0.05) 0%, transparent 70%)' }} />
 
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-
-          {/* Page header */}
-          <motion.div
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            className="mb-8"
-          >
-            <Link
-              href="/catalog"
+          {/* Header */}
+          <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="mb-8">
+            <Link href="/catalog"
               className="inline-flex items-center gap-2 font-body mb-4 transition-colors duration-200 text-[#4B5563] hover:text-[#9CA3AF]"
-              style={{ fontSize: '13px' }}
-            >
+              style={{ fontSize: '13px' }}>
               <ArrowLeft style={{ width: '14px', height: '14px' }} />
               Продолжить покупки
             </Link>
-
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
               <div>
-                <p
-                  className="font-heading font-semibold text-[#7C3AED] mb-1"
-                  style={{ fontSize: '11px', letterSpacing: '0.13em', textTransform: 'uppercase' }}
-                >
+                <p className="font-heading font-semibold text-[#7C3AED] mb-1"
+                   style={{ fontSize: '11px', letterSpacing: '0.13em', textTransform: 'uppercase' }}>
                   Arcane Store
                 </p>
                 <h1 className="font-heading font-bold text-white" style={{ fontSize: 'clamp(22px, 3vw, 30px)' }}>
@@ -553,28 +467,17 @@ export default function CheckoutPage() {
           </motion.div>
 
           <div className="grid lg:grid-cols-[1fr_360px] gap-5">
-
-            {/* ── LEFT: Main content ── */}
+            {/* LEFT */}
             <div className="min-w-0">
               <AnimatePresence mode="wait">
-
                 {/* ═══ CART STEP ═══ */}
                 {step === 'cart' && (
-                  <motion.div
-                    key="cart"
-                    initial={{ opacity: 0, x: -16 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 16 }}
-                    transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                    className="space-y-4"
-                  >
+                  <motion.div key="cart"
+                    initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }}
+                    transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }} className="space-y-4">
                     {/* Cart items */}
                     <Card>
-                      <CardHeader
-                        icon={<ShoppingCart className="w-4 h-4" />}
-                        title="Корзина"
-                        count={items.length}
-                      />
+                      <CardHeader icon={<ShoppingCart className="w-4 h-4" />} title="Корзина" count={items.length} />
                       {items.length === 0 ? (
                         <div className="p-10 text-center">
                           <Package className="mx-auto mb-3 text-[#1F2937]" style={{ width: '36px', height: '36px' }} />
@@ -585,51 +488,34 @@ export default function CheckoutPage() {
                         </div>
                       ) : (
                         <div className="divide-y divide-white/[0.05]">
-                          {items.map((item) => (
-                            <div key={item.product.id} className="flex gap-4 px-5 py-4">
+                          {items.map(item => (
+                            <div key={item.gameId} className="flex gap-4 px-5 py-4">
                               <div className="relative w-14 rounded-xl overflow-hidden flex-shrink-0" style={{ height: '72px' }}>
-                                <Image src={item.product.image} alt={item.product.title} fill className="object-cover" unoptimized />
+                                {item.cover
+                                  ? <Image src={item.cover} alt={item.title} fill className="object-cover" unoptimized />
+                                  : <div className="w-full h-full flex items-center justify-center" style={{ background: 'rgba(124,58,237,0.1)' }}>
+                                      <Package style={{ width: '20px', height: '20px', color: '#6B7280' }} />
+                                    </div>}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="min-w-0">
-                                    <p className="font-body text-[#374151] mb-0.5" style={{ fontSize: '11px' }}>
-                                      {item.product.subtitle}
-                                    </p>
                                     <h3 className="font-heading font-semibold text-white line-clamp-1" style={{ fontSize: '14px' }}>
-                                      {item.product.title}
+                                      {item.title}
                                     </h3>
-                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                      <span
-                                        className="font-pixel rounded"
-                                        style={{
-                                          fontSize: '7.5px', color: '#9D60FA',
-                                          background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)',
-                                          padding: '1.5px 5px', letterSpacing: '0.06em',
-                                        }}
-                                      >
-                                        {item.platform}
-                                      </span>
-                                      {/* Delivery inline badge from product data */}
-                                      <DeliveryInfoCard
-                                        deliveryType={item.product.deliveryType}
-                                        deliveryTime={item.product.deliveryTime}
-                                        variant="inline"
-                                        animated={false}
-                                      />
-                                      <span className="font-body text-[#374151]" style={{ fontSize: '10.5px' }}>RU/CIS</span>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <DeliveryBadge type={item.deliveryType} />
                                     </div>
                                   </div>
                                   <button
-                                    onClick={() => removeItem(item.product.id)}
-                                    className="p-1.5 rounded-lg transition-all duration-200 text-[#374151] hover:text-[#F87171] hover:bg-red-400/10 flex-shrink-0"
-                                  >
+                                    onClick={() => removeItem(item.gameId)}
+                                    className="p-1.5 rounded-lg transition-all duration-200 text-[#374151] hover:text-[#F87171] hover:bg-red-400/10 flex-shrink-0">
                                     <Trash2 style={{ width: '14px', height: '14px' }} />
                                   </button>
                                 </div>
                                 <div className="flex items-center justify-end mt-2">
                                   <span className="font-heading font-bold text-white" style={{ fontSize: '15px' }}>
-                                    {formatPrice(item.product.price)}
+                                    {formatPrice(item.priceUzs)}
                                   </span>
                                 </div>
                               </div>
@@ -638,9 +524,6 @@ export default function CheckoutPage() {
                         </div>
                       )}
                     </Card>
-
-                    {/* Delivery info — from product data, read-only */}
-                    <DeliverySummaryCard items={items} />
 
                     {/* Email + Telegram */}
                     <Card>
@@ -651,7 +534,7 @@ export default function CheckoutPage() {
                           type="email"
                           placeholder="your@email.com"
                           value={email}
-                          onChange={(e) => { setEmail(e.target.value); setEmailError(''); }}
+                          onChange={e => { setEmail(e.target.value); setEmailError(''); }}
                           icon={<Mail style={{ width: '15px', height: '15px' }} />}
                           error={emailError}
                           success={!!email && validateEmail(email)}
@@ -662,38 +545,62 @@ export default function CheckoutPage() {
                           type="text"
                           placeholder="@username"
                           value={telegram}
-                          onChange={(e) => setTelegram(e.target.value)}
+                          onChange={e => setTelegram(e.target.value)}
                           icon={<AtSign style={{ width: '15px', height: '15px' }} />}
                           hint="Для уведомлений и поддержки"
                         />
                       </div>
                     </Card>
 
-                    <PromoSection
-                      code={promoCode}
-                      setCode={setPromoCode}
-                      applied={promoApplied}
-                      onApply={handlePromo}
-                    />
-
-                    <CoinsSection
-                      active={useCoins}
-                      onToggle={() => setUseCoins(!useCoins)}
-                      discount={coinsDiscount || 12500}
-                    />
+                    {/* Arcane Coins toggle */}
+                    {userArcCoins > 0 && (
+                      <Card>
+                        <div className="p-5 flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <motion.div
+                              animate={{ boxShadow: useCoins ? '0 0 16px rgba(124,58,237,0.5)' : 'none' }}
+                              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                              style={{
+                                background: useCoins ? 'linear-gradient(135deg, rgba(124,58,237,0.3), rgba(6,182,212,0.2))' : 'rgba(124,58,237,0.08)',
+                                border: `1px solid ${useCoins ? 'rgba(124,58,237,0.4)' : 'rgba(124,58,237,0.18)'}`,
+                              }}>
+                              <Zap style={{ width: '16px', height: '16px', color: '#9D60FA' }} />
+                            </motion.div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-heading font-semibold text-white" style={{ fontSize: '13.5px' }}>Arcane Coins</span>
+                                <span className="font-pixel rounded-full px-2 py-0.5"
+                                      style={{ fontSize: '7.5px', color: '#9D60FA', background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.22)' }}>
+                                  {userArcCoins.toLocaleString('ru')}
+                                </span>
+                              </div>
+                              <p className="font-body text-[#6B7280] mt-0.5" style={{ fontSize: '11px' }}>
+                                {useCoins ? `Скидка: −${formatPrice(coinsDiscount)}` : `Доступно: −${formatPrice(Math.min(userArcCoins, Math.round(subtotal * 0.1)))}`}
+                              </p>
+                            </div>
+                          </div>
+                          <motion.button
+                            animate={{ background: useCoins ? 'linear-gradient(90deg, #7C3AED, #06B6D4)' : '#1A1A28' }}
+                            onClick={() => setUseCoins(v => !v)}
+                            className="relative w-11 h-6 rounded-full flex-shrink-0 cursor-pointer"
+                            style={{ border: `1px solid ${useCoins ? 'transparent' : 'rgba(255,255,255,0.1)'}` }}>
+                            <motion.div
+                              animate={{ x: useCoins ? 21 : 2 }}
+                              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                              className="absolute top-[3px] w-4 h-4 bg-white rounded-full"
+                              style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.4)' }} />
+                          </motion.button>
+                        </div>
+                      </Card>
+                    )}
                   </motion.div>
                 )}
 
                 {/* ═══ PAYMENT STEP ═══ */}
                 {step === 'payment' && (
-                  <motion.div
-                    key="payment"
-                    initial={{ opacity: 0, x: 16 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -16 }}
-                    transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                    className="space-y-4"
-                  >
+                  <motion.div key="payment"
+                    initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }}
+                    transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }} className="space-y-4">
                     <Card>
                       <CardHeader icon={<CreditCard className="w-4 h-4" />} title="Способ оплаты" />
                       <div className="p-5">
@@ -701,13 +608,16 @@ export default function CheckoutPage() {
                       </div>
                     </Card>
 
-                    {/* Delivery reminder on payment step */}
-                    <DeliverySummaryCard items={items} />
+                    {submitError && (
+                      <div className="flex items-center gap-3 rounded-2xl px-4 py-3"
+                           style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                        <AlertCircle style={{ width: '15px', height: '15px', color: '#EF4444', flexShrink: 0 }} />
+                        <p className="font-body text-[#F87171]" style={{ fontSize: '13px' }}>{submitError}</p>
+                      </div>
+                    )}
 
-                    <div
-                      className="flex items-center gap-3.5 rounded-2xl p-4"
-                      style={{ background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.18)' }}
-                    >
+                    <div className="flex items-center gap-3.5 rounded-2xl p-4"
+                         style={{ background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.18)' }}>
                       <Shield style={{ width: '18px', height: '18px', color: '#22C55E', flexShrink: 0 }} />
                       <div>
                         <p className="font-heading font-semibold text-white" style={{ fontSize: '13px' }}>Безопасная оплата</p>
@@ -716,7 +626,6 @@ export default function CheckoutPage() {
                         </p>
                       </div>
                     </div>
-
                     <p className="font-body text-[#374151] text-center" style={{ fontSize: '11.5px' }}>
                       Поддерживаются Click, Payme, UzCard, HUMO, Uzum Bank
                     </p>
@@ -725,23 +634,35 @@ export default function CheckoutPage() {
               </AnimatePresence>
             </div>
 
-            {/* ── RIGHT: Summary ── */}
+            {/* RIGHT: Summary */}
             <div>
               <OrderSummary
                 items={items}
                 subtotal={subtotal}
-                promoDiscount={promoDiscount}
                 coinsDiscount={coinsDiscount}
                 total={total}
                 step={step}
                 onNext={handleNext}
                 onBack={() => setStep('cart')}
-                processing={step === 'processing'}
+                submitting={submitting}
               />
             </div>
           </div>
         </div>
       </div>
     </>
+  );
+}
+
+/* ── Page entry (wraps in Suspense for useSearchParams) ── */
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#05040B' }}>
+        <Loader2 style={{ width: '24px', height: '24px', color: '#7C3AED' }} className="animate-spin" />
+      </div>
+    }>
+      <CheckoutInner />
+    </Suspense>
   );
 }
