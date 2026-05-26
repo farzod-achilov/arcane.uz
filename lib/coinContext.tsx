@@ -1,6 +1,7 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { useSession } from 'next-auth/react';
 
 export type TxType = 'earn' | 'spend';
 
@@ -20,25 +21,29 @@ interface CoinCtx {
 }
 
 const CoinContext = createContext<CoinCtx>({
-  balance: 4720,
+  balance: 0,
   history: [],
   addCoins: () => {},
   spendCoins: () => {},
 });
 
-const SEED: CoinTx[] = [
-  { id: 'h1', type: 'earn',  amount: 3000, label: 'Продано: AAA Игра',            timestamp: Date.now() - 1   * 3_600_000 },
-  { id: 'h2', type: 'earn',  amount: 500,  label: 'Продано: Инди Игра',           timestamp: Date.now() - 3   * 3_600_000 },
-  { id: 'h3', type: 'spend', amount: 99000, label: 'Куплен Золотой Кейс',         timestamp: Date.now() - 5   * 3_600_000 },
-  { id: 'h4', type: 'earn',  amount: 1000, label: 'Продано: 1000 Монет',          timestamp: Date.now() - 9   * 3_600_000 },
-  { id: 'h5', type: 'spend', amount: 49000, label: 'Куплен Серебряный Кейс',      timestamp: Date.now() - 24  * 3_600_000 },
-  { id: 'h6', type: 'earn',  amount: 10000, label: 'Продано: ARCANE Bundle',      timestamp: Date.now() - 30  * 3_600_000 },
-  { id: 'h7', type: 'earn',  amount: 470,  label: 'Стартовый бонус',              timestamp: Date.now() - 48  * 3_600_000 },
-];
-
 export function CoinProvider({ children }: { children: ReactNode }) {
-  const [balance, setBalance] = useState(4720);
-  const [history, setHistory] = useState<CoinTx[]>(SEED);
+  const { data: session, status } = useSession();
+  const [balance, setBalance] = useState(0);
+  const [history, setHistory] = useState<CoinTx[]>([]);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    fetch('/api/user/balance')
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { arcCoins?: number } | null) => {
+        if (data?.arcCoins !== undefined) setBalance(data.arcCoins);
+      })
+      .catch(() => {
+        const coins = (session?.user as { arcCoins?: number })?.arcCoins;
+        if (coins !== undefined) setBalance(coins);
+      });
+  }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addCoins = useCallback((amount: number, label: string) => {
     setBalance(prev => prev + amount);

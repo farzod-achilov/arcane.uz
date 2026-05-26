@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Mail, User as UserIcon, Send, Gamepad2, Bell, Lock, Check, ExternalLink, Loader2 } from 'lucide-react';
+import { Mail, User as UserIcon, Send, Gamepad2, Bell, Lock, Check, ExternalLink, Loader2, Save } from 'lucide-react';
 import { useUser } from '@/lib/userContext';
 import CheckoutInput from '@/components/checkout/CheckoutInput';
 
@@ -61,8 +61,26 @@ export default function SettingsPage() {
 
   if (!user) return null;
 
-  const saveProfile = () => {
-    if (name.trim()) { updateProfile({ name: name.trim() }); setSaved('profile'); setTimeout(() => setSaved(''), 2000); }
+  const [saving, setSaving] = useState(false);
+
+  const saveProfile = async () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setSaving(true);
+    try {
+      const res = await fetch('/api/user/profile', {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ name: trimmed }),
+      });
+      if (res.ok) {
+        updateProfile({ name: trimmed });
+        setSaved('profile');
+        setTimeout(() => setSaved(''), 2000);
+      }
+    } catch { /* ignore */ } finally {
+      setSaving(false);
+    }
   };
 
   const handleConnectTelegram = async () => {
@@ -158,10 +176,11 @@ export default function SettingsPage() {
               icon={<UserIcon style={{ width: '15px', height: '15px' }} />}
             />
             <motion.button
-              whileHover={{ scale: 1.01 }}
+              whileHover={{ scale: saving ? 1 : 1.01 }}
               whileTap={{ scale: 0.99 }}
               onClick={saveProfile}
-              className="mt-3 inline-flex items-center gap-2 rounded-xl font-heading font-semibold text-white"
+              disabled={saving || saved === 'profile'}
+              className="mt-3 inline-flex items-center gap-2 rounded-xl font-heading font-semibold text-white disabled:opacity-60"
               style={{
                 background: saved === 'profile' ? 'rgba(34,197,94,0.8)' : 'linear-gradient(135deg, #7C3AED, #5B21B6)',
                 padding: '10px 20px',
@@ -169,7 +188,12 @@ export default function SettingsPage() {
                 boxShadow: '0 0 0 1px rgba(124,58,237,0.3)',
               }}
             >
-              {saved === 'profile' ? <><Check style={{ width: '13px', height: '13px' }} />Сохранено</> : 'Сохранить'}
+              {saved === 'profile'
+                ? <><Check style={{ width: '13px', height: '13px' }} />Сохранено</>
+                : saving
+                  ? <><Loader2 style={{ width: '13px', height: '13px' }} className="animate-spin" />Сохранение...</>
+                  : <><Save style={{ width: '13px', height: '13px' }} />Сохранить</>
+              }
             </motion.button>
           </Section>
 

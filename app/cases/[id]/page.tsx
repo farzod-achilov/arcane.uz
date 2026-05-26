@@ -1370,8 +1370,9 @@ export default function ArcaneDropPage() {
   const [particles,    setParticles]    = useState(false);
   const [earnedArc,    setEarnedArc]    = useState(0);
   const [showCoinBurst, setShowCoinBurst] = useState(false);
+  const [dropError,    setDropError]    = useState<string | null>(null);
   const { setFullscreenOverlay }        = useOverlay();
-  const { balance: arcBalance, addCoins } = useCoin();
+  const { balance: arcBalance, addCoins, spendCoins } = useCoin();
 
   useEffect(() => { if (!config) notFound(); }, [config]);
   if (!config) return null;
@@ -1382,6 +1383,7 @@ export default function ArcaneDropPage() {
 
   const handleDrop = useCallback(async () => {
     if (phase !== 'idle') return;
+    setDropError(null);
     setPhase('inserting');
     await new Promise(r => setTimeout(r, 800));
     setPhase('charging');
@@ -1391,7 +1393,18 @@ export default function ArcaneDropPage() {
       new Promise(r => setTimeout(r, 1000)),
       fetch(`/api/cases/${tier}/open`, { method: 'POST' }).then(r => r.json()).catch(() => ({ ok: false })),
     ]);
-    if (!data.ok || !data.reward) { setPhase('idle'); return; }
+    if (!data.ok || !data.reward) {
+      setPhase('idle');
+      if (data.code === 'INSUFFICIENT_COINS') {
+        setDropError(`Недостаточно монет. Нужно ${formatPrice(config.price)}, а у вас ${arcBalance.toLocaleString()} ARCANE.`);
+      } else if (data.error === 'Unauthorized' || data.status === 401) {
+        setDropError('Войдите в аккаунт, чтобы открыть кейс.');
+      } else {
+        setDropError('Ошибка при открытии кейса. Попробуйте ещё раз.');
+      }
+      return;
+    }
+    spendCoins(config.price, `Открытие: ${config.title}`);
     setPhase('opening');
     await new Promise(r => setTimeout(r, 700));
     setReward(data.reward);
@@ -1399,7 +1412,7 @@ export default function ArcaneDropPage() {
     setFullscreenOverlay(true);
     setParticles(true);
     setTimeout(() => setParticles(false), 1800);
-  }, [phase, tier, setFullscreenOverlay]);
+  }, [phase, tier, setFullscreenOverlay, spendCoins, config, arcBalance]);
 
   const handleClaim = useCallback(() => setPhase('claimed'), []);
 
@@ -1612,6 +1625,18 @@ export default function ArcaneDropPage() {
                       ) : null;
                     })}
                   </div>
+
+                  {/* Error message */}
+                  <AnimatePresence>
+                    {dropError && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                        className="mt-3 px-4 py-3 rounded-xl text-center"
+                        style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}>
+                        <p className="font-body" style={{ fontSize: 13, color: '#F87171' }}>{dropError}</p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </>
               )}
 
