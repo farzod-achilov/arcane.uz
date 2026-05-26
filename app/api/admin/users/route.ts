@@ -32,6 +32,7 @@ export async function GET(req: Request) {
         username:    true,
         avatar:      true,
         arcCoins:    true,
+        balanceUzs:  true,
         level:       true,
         totalSpent:  true,
         isAdmin:     true,

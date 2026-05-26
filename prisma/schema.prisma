@@ -247,6 +247,7 @@ model users {
   level            Int                @default(1)
   xp               Int                @default(0)
   arcCoins         Int                @default(500)
+  balanceUzs       Int                @default(0)
   streak           Int                @default(0)
   lastLoginAt      DateTime?
   isAdmin          Boolean            @default(false)

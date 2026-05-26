@@ -1371,8 +1371,15 @@ export default function ArcaneDropPage() {
   const [earnedArc,    setEarnedArc]    = useState(0);
   const [showCoinBurst, setShowCoinBurst] = useState(false);
   const [dropError,    setDropError]    = useState<string | null>(null);
+  const [uzsBalance,   setUzsBalance]   = useState(0);
   const { setFullscreenOverlay }        = useOverlay();
-  const { balance: arcBalance, addCoins, spendCoins } = useCoin();
+  const { balance: arcBalance, addCoins } = useCoin();
+
+  useEffect(() => {
+    fetch('/api/user/balance').then(r => r.ok ? r.json() : null).then(d => {
+      if (d?.balanceUzs !== undefined) setUzsBalance(d.balanceUzs);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => { if (!config) notFound(); }, [config]);
   if (!config) return null;
@@ -1395,8 +1402,8 @@ export default function ArcaneDropPage() {
     ]);
     if (!data.ok || !data.reward) {
       setPhase('idle');
-      if (data.code === 'INSUFFICIENT_COINS') {
-        setDropError(`Недостаточно монет. Нужно ${formatPrice(config.price)}, а у вас ${arcBalance.toLocaleString()} ARCANE.`);
+      if (data.code === 'INSUFFICIENT_BALANCE') {
+        setDropError(`Недостаточно средств. Нужно ${formatPrice(config.price)}, на балансе ${formatPrice(uzsBalance)}.`);
       } else if (data.error === 'Unauthorized' || data.status === 401) {
         setDropError('Войдите в аккаунт, чтобы открыть кейс.');
       } else {
@@ -1404,7 +1411,7 @@ export default function ArcaneDropPage() {
       }
       return;
     }
-    spendCoins(config.price, `Открытие: ${config.title}`);
+    setUzsBalance(prev => Math.max(0, prev - config.price));
     setPhase('opening');
     await new Promise(r => setTimeout(r, 700));
     setReward(data.reward);
@@ -1412,7 +1419,7 @@ export default function ArcaneDropPage() {
     setFullscreenOverlay(true);
     setParticles(true);
     setTimeout(() => setParticles(false), 1800);
-  }, [phase, tier, setFullscreenOverlay, spendCoins, config, arcBalance]);
+  }, [phase, tier, setFullscreenOverlay, config, uzsBalance]);
 
   const handleClaim = useCallback(() => setPhase('claimed'), []);
 
@@ -1527,6 +1534,15 @@ export default function ArcaneDropPage() {
           Все машины
         </Link>
         <div className="flex items-center gap-3">
+          {/* UZS Balance */}
+          <motion.div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full"
+            style={{ background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.28)' }}>
+            <span className="text-sm">💳</span>
+            <span className="font-heading font-black tabular-nums" style={{ fontSize: 14, color: '#67E8F9' }}>
+              {formatPrice(uzsBalance)}
+            </span>
+          </motion.div>
+          {/* ARC coins (for rewards) */}
           <ArcBalanceCounter balance={arcBalance} showBurst={showCoinBurst} earned={earnedArc} />
           <motion.div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full"
             style={{ background: `${vis.color}10`, border: `1px solid ${vis.color}28` }}
@@ -1605,7 +1621,7 @@ export default function ArcaneDropPage() {
                       <motion.div animate={{ rotate: [0, 360] }} transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}>
                         <Zap className="w-5 h-5" style={{ color: vis.color }} />
                       </motion.div>
-                      <span>ВСТАВИТЬ МОНЕТУ</span>
+                      <span>ОТКРЫТЬ КЕЙС</span>
                       <span className="font-normal text-sm" style={{ color: 'rgba(255,255,255,0.35)' }}>
                         {formatPrice(config.price)}
                       </span>

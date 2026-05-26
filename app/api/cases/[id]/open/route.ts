@@ -21,9 +21,9 @@ export async function POST(
   const userId = session.user.id;
   const price  = caseConfig.price;
 
-  const user = await prisma.users.findUnique({ where: { id: userId }, select: { arcCoins: true } });
-  if (!user)             return NextResponse.json({ ok: false, error: 'User not found' }, { status: 404 });
-  if (user.arcCoins < price) return NextResponse.json({ ok: false, error: 'Недостаточно монет', code: 'INSUFFICIENT_COINS' }, { status: 400 });
+  const user = await prisma.users.findUnique({ where: { id: userId }, select: { arcCoins: true, balanceUzs: true } });
+  if (!user)                   return NextResponse.json({ ok: false, error: 'User not found' }, { status: 404 });
+  if (user.balanceUzs < price) return NextResponse.json({ ok: false, error: 'Недостаточно средств на балансе', code: 'INSUFFICIENT_BALANCE' }, { status: 400 });
 
   // Anticipation delay — UI spins while we wait
   await new Promise((r) => setTimeout(r, 600));
@@ -32,29 +32,14 @@ export async function POST(
 
   // Atomic DB writes
   await prisma.$transaction(async (tx) => {
-    // 1. Deduct coins
+    // 1. Deduct UZS balance
     await tx.users.update({
       where: { id: userId },
-      data:  { arcCoins: { decrement: price }, totalDrops: { increment: 1 } },
+      data:  { balanceUzs: { decrement: price }, totalDrops: { increment: 1 } },
     });
 
-    // 2. Record spend transaction
-    await tx.transactions.create({
-      data: {
-        id:            nanoid(),
-        userId,
-        type:          'DROP_OPEN',
-        amount:        -price,
-        balanceBefore: user.arcCoins,
-        balanceAfter:  user.arcCoins - price,
-        description:   `Открытие кейса ${caseConfig.title}`,
-        metadata:      { rewardId: reward.id, rewardName: reward.name, rewardRarity: reward.rarity },
-      },
-    });
-
-    // 3. If coins reward — credit them back
+    // 2. If coins reward — credit arcCoins
     if (reward.type === 'coins' && reward.coinValue > 0) {
-      const balAfterSpend = user.arcCoins - price;
       await tx.users.update({
         where: { id: userId },
         data:  { arcCoins: { increment: reward.coinValue } },
@@ -65,8 +50,8 @@ export async function POST(
           userId,
           type:          'ADMIN_GRANT',
           amount:        reward.coinValue,
-          balanceBefore: balAfterSpend,
-          balanceAfter:  balAfterSpend + reward.coinValue,
+          balanceBefore: user.arcCoins,
+          balanceAfter:  user.arcCoins + reward.coinValue,
           description:   `Награда из кейса: ${reward.name}`,
           metadata:      { source: 'case_open', tier },
         },

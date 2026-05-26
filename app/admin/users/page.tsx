@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Search, Send, Crown, Zap, ShoppingBag, X,
-  RefreshCw, Shield, Ban, Users, CheckCircle2, Loader2,
+  RefreshCw, Shield, Ban, Users, CheckCircle2, Loader2, Wallet, Plus,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 
@@ -14,6 +14,7 @@ interface AdminUser {
   username:    string;
   avatar:      string | null;
   arcCoins:    number;
+  balanceUzs:  number;
   level:       number;
   totalSpent:  number;
   isAdmin:     boolean;
@@ -48,6 +49,9 @@ export default function AdminUsersPage() {
   const [search,  setSearch]  = useState('');
   const [totalCoins, setTotalCoins] = useState(0);
   const [banning,    setBanning]    = useState<string | null>(null);
+  const [topUpUser,  setTopUpUser]  = useState<AdminUser | null>(null);
+  const [topUpAmt,   setTopUpAmt]   = useState('');
+  const [topUpSaving,setTopUpSaving]= useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,6 +84,26 @@ export default function AdminUsersPage() {
   }
 
   const withTelegram = 0; // would need telegram_users join — skip for now
+
+  async function handleTopUp() {
+    if (!topUpUser) return;
+    const amount = parseInt(topUpAmt) || 0;
+    if (amount <= 0) return;
+    setTopUpSaving(true);
+    try {
+      const res  = await fetch(`/api/admin/users/${topUpUser.id}/grant-balance`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ amount }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setUsers(prev => prev.map(u => u.id === topUpUser.id ? { ...u, balanceUzs: data.user.balanceUzs } : u));
+        setTopUpUser(null);
+        setTopUpAmt('');
+      }
+    } finally { setTopUpSaving(false); }
+  }
 
   return (
     <div className="p-6 space-y-5">
@@ -156,7 +180,7 @@ export default function AdminUsersPage() {
           <table className="w-full">
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
-                {['Пользователь', 'Уровень', 'Монеты', 'Заказы', 'Потрачено', 'Вишлист', 'Последний вход', 'Флаги', 'Действия'].map(h => (
+                {['Пользователь', 'Уровень', 'Монеты', 'UZS баланс', 'Заказы', 'Потрачено', 'Вишлист', 'Последний вход', 'Флаги', 'Действия'].map(h => (
                   <th key={h} className="px-4 py-3 text-left font-body text-[#374151] whitespace-nowrap"
                       style={{ fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     {h}
@@ -226,6 +250,16 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
 
+                    {/* UZS Balance */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        <Wallet style={{ width: '11px', height: '11px', color: '#06B6D4' }} />
+                        <span className="font-heading font-semibold text-[#67E8F9]" style={{ fontSize: '12px' }}>
+                          {formatPrice(user.balanceUzs)}
+                        </span>
+                      </div>
+                    </td>
+
                     {/* Orders */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
@@ -284,27 +318,37 @@ export default function AdminUsersPage() {
 
                     {/* Actions */}
                     <td className="px-4 py-3">
-                      {!user.isAdmin && (
+                      <div className="flex items-center gap-1.5">
                         <button
-                          onClick={() => toggleBan(user)}
-                          disabled={banning === user.id}
-                          title={user.isBanned ? 'Разбанить' : 'Забанить'}
-                          className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 font-body transition-all disabled:opacity-50"
-                          style={{
-                            fontSize:   '10.5px',
-                            background: user.isBanned ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-                            border:     user.isBanned ? '1px solid rgba(34,197,94,0.25)' : '1px solid rgba(239,68,68,0.25)',
-                            color:      user.isBanned ? '#22C55E' : '#EF4444',
-                          }}
-                        >
-                          {banning === user.id
-                            ? <Loader2 style={{ width: '10px', height: '10px' }} className="animate-spin" />
-                            : user.isBanned
-                              ? <CheckCircle2 style={{ width: '10px', height: '10px' }} />
-                              : <Ban style={{ width: '10px', height: '10px' }} />}
-                          {user.isBanned ? 'Разбанить' : 'Бан'}
+                          onClick={() => { setTopUpUser(user); setTopUpAmt(''); }}
+                          title="Пополнить UZS баланс"
+                          className="flex items-center gap-1 rounded-lg px-2 py-1.5 font-body transition-all"
+                          style={{ fontSize: '10.5px', background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.25)', color: '#06B6D4' }}>
+                          <Plus style={{ width: '9px', height: '9px' }} />
+                          Баланс
                         </button>
-                      )}
+                        {!user.isAdmin && (
+                          <button
+                            onClick={() => toggleBan(user)}
+                            disabled={banning === user.id}
+                            title={user.isBanned ? 'Разбанить' : 'Забанить'}
+                            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 font-body transition-all disabled:opacity-50"
+                            style={{
+                              fontSize:   '10.5px',
+                              background: user.isBanned ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                              border:     user.isBanned ? '1px solid rgba(34,197,94,0.25)' : '1px solid rgba(239,68,68,0.25)',
+                              color:      user.isBanned ? '#22C55E' : '#EF4444',
+                            }}
+                          >
+                            {banning === user.id
+                              ? <Loader2 style={{ width: '10px', height: '10px' }} className="animate-spin" />
+                              : user.isBanned
+                                ? <CheckCircle2 style={{ width: '10px', height: '10px' }} />
+                                : <Ban style={{ width: '10px', height: '10px' }} />}
+                            {user.isBanned ? 'Разбанить' : 'Бан'}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </motion.tr>
                 );
@@ -335,6 +379,74 @@ export default function AdminUsersPage() {
           </div>
         )}
       </motion.div>
+
+      {/* Top-up modal */}
+      {topUpUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+             style={{ background: 'rgba(0,0,0,0.75)' }}
+             onClick={() => setTopUpUser(null)}>
+          <div className="rounded-2xl p-6 w-full max-w-sm space-y-4"
+               style={{ background: '#0D0D1A', border: '1px solid rgba(6,182,212,0.3)' }}
+               onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                     style={{ background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.3)' }}>
+                  <Wallet style={{ width: '16px', height: '16px', color: '#06B6D4' }} />
+                </div>
+                <div>
+                  <p className="font-heading font-bold text-white" style={{ fontSize: '15px' }}>Пополнить баланс</p>
+                  <p className="font-body text-[#4B5563]" style={{ fontSize: '11px' }}>@{topUpUser.username}</p>
+                </div>
+              </div>
+              <button onClick={() => setTopUpUser(null)} style={{ color: '#374151' }}>
+                <X style={{ width: '16px', height: '16px' }} />
+              </button>
+            </div>
+
+            <div className="rounded-xl p-3" style={{ background: 'rgba(6,182,212,0.06)', border: '1px solid rgba(6,182,212,0.15)' }}>
+              <p className="font-body text-[#4B5563]" style={{ fontSize: '11px' }}>Текущий баланс</p>
+              <p className="font-heading font-bold" style={{ fontSize: '16px', color: '#06B6D4' }}>
+                {formatPrice(topUpUser.balanceUzs)}
+              </p>
+            </div>
+
+            <div>
+              <p className="font-body text-[#6B7280] mb-1.5" style={{ fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Сумма пополнения (сум)
+              </p>
+              <input
+                type="number"
+                value={topUpAmt}
+                onChange={e => setTopUpAmt(e.target.value)}
+                placeholder="например 50000"
+                className="w-full rounded-xl px-3 py-2.5 text-white font-body outline-none placeholder:text-[#1F2937]"
+                style={{ background: '#09090E', border: '1px solid rgba(255,255,255,0.1)', fontSize: '13px' }}
+                autoFocus
+              />
+              {topUpAmt && parseInt(topUpAmt) > 0 && (
+                <p className="font-body text-[#4B5563] mt-1.5" style={{ fontSize: '11px' }}>
+                  Новый баланс: {formatPrice(topUpUser.balanceUzs + (parseInt(topUpAmt) || 0))}
+                </p>
+              )}
+            </div>
+
+            <div className="flex gap-3 pt-1">
+              <button onClick={() => setTopUpUser(null)}
+                className="flex-1 rounded-xl py-2.5 font-heading font-semibold transition-all"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#6B7280', fontSize: '13px' }}>
+                Отмена
+              </button>
+              <button onClick={handleTopUp} disabled={!topUpAmt || parseInt(topUpAmt) <= 0 || topUpSaving}
+                className="flex-1 rounded-xl py-2.5 font-heading font-semibold text-white transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                style={{ background: 'linear-gradient(135deg, #0891B2, #0E7490)', fontSize: '13px' }}>
+                {topUpSaving ? <Loader2 style={{ width: '13px', height: '13px' }} className="animate-spin" /> : <Plus style={{ width: '13px', height: '13px' }} />}
+                {topUpSaving ? 'Пополнение...' : 'Пополнить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

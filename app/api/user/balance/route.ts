@@ -11,8 +11,8 @@ export async function GET() {
 
   const user = await prisma.users.findUnique({
     where:  { id: session.user.id },
-    select: { arcCoins: true },
+    select: { arcCoins: true, balanceUzs: true },
   });
 
-  return NextResponse.json({ arcCoins: user?.arcCoins ?? 0 });
+  return NextResponse.json({ arcCoins: user?.arcCoins ?? 0, balanceUzs: user?.balanceUzs ?? 0 });
 }
