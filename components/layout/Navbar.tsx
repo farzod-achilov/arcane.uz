@@ -9,6 +9,7 @@ import SearchOverlay from '@/components/ui/SearchOverlay';
 import NotificationDropdown from '@/components/user/NotificationDropdown';
 import { useUser } from '@/lib/userContext';
 import { useCoin, coinTimeAgo } from '@/lib/coinContext';
+import { useCart } from '@/lib/cartContext';
 
 const TICKER_ITEMS = [
   'ARCANE.UZ',
@@ -28,7 +29,7 @@ export default function Navbar() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotifOpen,  setIsNotifOpen]  = useState(false);
   const [isCoinOpen,   setIsCoinOpen]   = useState(false);
-  const [cartCount] = useState(2);
+  const { count: cartCount } = useCart();
   const coinRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const router   = useRouter();

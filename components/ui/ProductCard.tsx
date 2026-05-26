@@ -1,12 +1,15 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Star, ShoppingCart, Heart, Zap } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Star, ShoppingCart, Heart, Zap, Check } from 'lucide-react';
 import { Product } from '@/lib/types';
 import { formatPrice } from '@/lib/utils';
 import { useUser } from '@/lib/userContext';
+import { useCart } from '@/lib/cartContext';
 
 interface ProductCardProps {
   product: Product;
@@ -25,11 +28,26 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
   const badge = product.badge ? badgeCfg[product.badge] : null;
   const { isLoggedIn, isInWishlist, addToWishlist, removeFromWishlist } = useUser();
   const wishlisted = isInWishlist(product.id);
+  const { addGame, has } = useCart();
+  const router = useRouter();
+  const [justAdded, setJustAdded] = useState(false);
+  const inCart = has(product.id);
 
   const handleWishlist = (e: React.MouseEvent) => {
     e.preventDefault();
     if (!isLoggedIn) return;
     wishlisted ? removeFromWishlist(product.id) : addToWishlist(product.id);
+  };
+
+  const handleCart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (inCart) {
+      router.push('/checkout');
+      return;
+    }
+    addGame(product.id);
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 1500);
   };
 
   return (
@@ -258,25 +276,25 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
               </div>
 
               {/* Cart button — appears on hover */}
-              <button
-                onClick={(e) => e.preventDefault()}
+              <motion.button
+                onClick={handleCart}
+                whileTap={{ scale: 0.9 }}
                 className="w-8 h-8 flex items-center justify-center rounded-lg flex-shrink-0 transition-all duration-200 opacity-0 group-hover:opacity-100"
                 style={{
-                  background: 'linear-gradient(135deg, #7C3AED, #5B21B6)',
-                  boxShadow: '0 0 0 1px rgba(124,58,237,0.35)',
+                  background: justAdded || inCart
+                    ? 'linear-gradient(135deg, #22C55E, #16A34A)'
+                    : 'linear-gradient(135deg, #7C3AED, #5B21B6)',
+                  boxShadow: justAdded || inCart
+                    ? '0 0 12px rgba(34,197,94,0.5)'
+                    : '0 0 0 1px rgba(124,58,237,0.35)',
                   color: '#fff',
                 }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.boxShadow =
-                    '0 0 14px rgba(124,58,237,0.65), 0 0 0 1px rgba(124,58,237,0.5)';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.boxShadow =
-                    '0 0 0 1px rgba(124,58,237,0.35)';
-                }}
+                title={inCart ? 'Перейти в корзину' : 'Добавить в корзину'}
               >
-                <ShoppingCart className="w-3.5 h-3.5" />
-              </button>
+                {justAdded || inCart
+                  ? <Check className="w-3.5 h-3.5" />
+                  : <ShoppingCart className="w-3.5 h-3.5" />}
+              </motion.button>
             </div>
           </div>
         </div>

@@ -16,6 +16,7 @@ import { formatPrice } from '@/lib/utils';
 import CheckoutInput     from '@/components/checkout/CheckoutInput';
 import PaymentMethods    from '@/components/checkout/PaymentMethods';
 import ProcessingOverlay from '@/components/checkout/ProcessingOverlay';
+import { useCart } from '@/lib/cartContext';
 
 /* ── Types ────────────────────────────────────────────── */
 interface CheckoutItem {
@@ -310,6 +311,7 @@ function SuccessView({ orderId, items, total, email }: {
 function CheckoutInner() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
+  const { gameIds, removeGame, clear: clearCart } = useCart();
 
   const [step, setStep]               = useState<Step>('cart');
   const [items, setItems]             = useState<CheckoutItem[]>([]);
@@ -340,28 +342,37 @@ function CheckoutInner() {
     if (session?.user?.email && !email) setEmail(session.user.email);
   }, [session]);
 
-  // Load games from URL params
+  // Load games: from URL param (buy-now) or from cart
   useEffect(() => {
-    const gameId = searchParams.get('gameId');
-    if (!gameId) { setLoadingGame(false); return; }
+    const urlGameId = searchParams.get('gameId');
+    const idsToLoad = urlGameId ? [urlGameId] : gameIds;
+
+    if (idsToLoad.length === 0) { setLoadingGame(false); return; }
 
     setLoadingGame(true);
-    fetch(`/api/arcane/games/${gameId}`)
-      .then(r => r.json())
-      .then((data: { success?: boolean; data?: { id: string; title: string; cover: string | null; priceUzs: number | null; deliveryType: string } }) => {
-        if (data.success && data.data) {
-          setItems([{
-            gameId:       data.data.id,
-            title:        data.data.title,
-            cover:        data.data.cover,
-            priceUzs:     data.data.priceUzs ?? 0,
-            deliveryType: (data.data.deliveryType as 'AUTO' | 'MANUAL') ?? 'MANUAL',
-          }]);
-        }
+    Promise.all(
+      idsToLoad.map(id =>
+        fetch(`/api/arcane/games/${id}`)
+          .then(r => r.json())
+          .catch(() => null)
+      )
+    )
+      .then(results => {
+        type GameData = { id: string; title: string; cover: string | null; priceUzs: number | null; deliveryType: string };
+        const loaded = results
+          .filter((d): d is { success: true; data: GameData } => d?.success && !!d.data)
+          .map(d => ({
+            gameId:       d.data.id,
+            title:        d.data.title,
+            cover:        d.data.cover,
+            priceUzs:     d.data.priceUzs ?? 0,
+            deliveryType: (d.data.deliveryType as 'AUTO' | 'MANUAL') ?? 'MANUAL',
+          }));
+        setItems(loaded);
       })
-      .catch(() => {})
       .finally(() => setLoadingGame(false));
-  }, [searchParams]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, gameIds.join(',')]); // join to avoid infinite loop on array ref
 
   const subtotal      = items.reduce((s, i) => s + i.priceUzs, 0);
   const coinsDiscount = useCoins ? Math.min(userArcCoins, Math.round(subtotal * 0.1)) : 0;
@@ -392,6 +403,7 @@ function CheckoutInner() {
         if (data.success && data.order) {
           setOrderId(data.order.id);
           if (payMethod === 'balance') setUzsBalance(prev => Math.max(0, prev - total));
+          clearCart();
           setStep('processing');
         } else {
           setSubmitError(data.error ?? 'Ошибка создания заказа');
@@ -404,7 +416,10 @@ function CheckoutInner() {
     }
   };
 
-  const removeItem = (gameId: string) => setItems(prev => prev.filter(i => i.gameId !== gameId));
+  const removeItem = (gameId: string) => {
+    setItems(prev => prev.filter(i => i.gameId !== gameId));
+    removeGame(gameId);
+  };
 
   // Auth guard
   if (status === 'loading' || loadingGame) {

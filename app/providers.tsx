@@ -5,15 +5,18 @@ import { Toaster } from 'sonner';
 import { UserProvider } from '@/lib/userContext';
 import { OverlayProvider } from '@/lib/overlayContext';
 import { CoinProvider } from '@/lib/coinContext';
+import { CartProvider } from '@/lib/cartContext';
 import type { ReactNode } from 'react';
 
 export default function Providers({ children }: { children: ReactNode }) {
   return (
     <SessionProvider>
       <CoinProvider>
-        <OverlayProvider>
-          <UserProvider>{children}</UserProvider>
-        </OverlayProvider>
+        <CartProvider>
+          <OverlayProvider>
+            <UserProvider>{children}</UserProvider>
+          </OverlayProvider>
+        </CartProvider>
       </CoinProvider>
       <Toaster
         position="top-right"
