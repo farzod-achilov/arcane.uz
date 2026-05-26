@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
@@ -10,25 +10,31 @@ import {
   BarChart2, RefreshCw, ExternalLink, FileSpreadsheet,
 } from 'lucide-react';
 import StockHealthBadge from '@/components/admin/keys/StockHealthBadge';
-import { MOCK_ANALYTICS } from '@/lib/admin/mockKeysData';
 import type { GameStockInfo } from '@/lib/admin/adminKeysTypes';
-import type { ArcaneGameListResponse } from '@/lib/arcaneApi';
 
-function toStockInfo(g: ArcaneGameListResponse['data'][0]): GameStockInfo {
-  const total = (g.stockStore ?? 0) + (g.stockDrop ?? 0);
+/* ── DB game → GameStockInfo ────────────────────────────────── */
+interface DbGame {
+  id: string; title: string; slug: string; cover: string | null;
+  isActive: boolean; stockStore: number; stockDrop: number;
+  _count: { game_keys: number; order_items: number };
+}
+
+function toStockInfo(g: DbGame): GameStockInfo {
+  const total     = g.stockStore + g.stockDrop;
   const threshold = 5;
   const health: GameStockInfo['health'] =
-    total === 0                           ? 'EMPTY'    :
-    total <= Math.floor(threshold * 0.5) ? 'CRITICAL' :
-    total <= threshold                    ? 'LOW'      : 'OK';
+    total === 0                            ? 'EMPTY'    :
+    total <= Math.floor(threshold * 0.5)  ? 'CRITICAL' :
+    total <= threshold                     ? 'LOW'      : 'OK';
+
   return {
     gameId:            g.id,
     title:             g.title,
     cover:             g.cover,
-    stockStore:        g.stockStore ?? 0,
-    stockDrop:         g.stockDrop  ?? 0,
+    stockStore:        g.stockStore,
+    stockDrop:         g.stockDrop,
     stockBoth:         0,
-    sold:              0,
+    sold:              g._count.order_items,
     disabled:          0,
     reserved:          0,
     lowStockThreshold: threshold,
@@ -39,7 +45,7 @@ function toStockInfo(g: ArcaneGameListResponse['data'][0]): GameStockInfo {
 }
 
 /* ── Mini stock bar ─────────────────────────────────────────── */
-function StockBar({ store, drop, both, total }: { store: number; drop: number; both: number; total: number }) {
+function StockBar({ store, drop, total }: { store: number; drop: number; total: number }) {
   if (total === 0) return (
     <div className="h-1.5 rounded-full w-full" style={{ background: 'rgba(255,255,255,0.06)' }} />
   );
@@ -53,22 +59,18 @@ function StockBar({ store, drop, both, total }: { store: number; drop: number; b
       <motion.div initial={{ width: 0 }} animate={{ width: `${(drop / max) * 100}%` }}
         transition={{ duration: 0.6, ease: 'easeOut', delay: 0.05 }}
         style={{ background: '#F59E0B', borderRadius: '2px' }} />
-      <motion.div initial={{ width: 0 }} animate={{ width: `${(both / max) * 100}%` }}
-        transition={{ duration: 0.6, ease: 'easeOut', delay: 0.1 }}
-        style={{ background: '#9D60FA', borderRadius: '2px' }} />
     </div>
   );
 }
 
-/* ── Game stock card ────────────────────────────────────────── */
+/* ── Game card ──────────────────────────────────────────────── */
 function GameStockCard({ game, index }: { game: GameStockInfo; index: number }) {
-  const totalAvail = game.stockStore + game.stockDrop + game.stockBoth;
-
+  const totalAvail = game.stockStore + game.stockDrop;
   return (
     <motion.div
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.08 + index * 0.05, duration: 0.35 }}
+      transition={{ delay: 0.06 + index * 0.04, duration: 0.3 }}
       whileHover={{ y: -3, boxShadow: '0 12px 32px rgba(0,0,0,0.4)' }}
     >
       <Link href={`/admin/keys/${game.gameId}`}>
@@ -83,7 +85,6 @@ function GameStockCard({ game, index }: { game: GameStockInfo; index: number }) 
             }`,
           }}
         >
-          {/* Cover */}
           <div className="relative h-28 overflow-hidden">
             {game.cover ? (
               <Image src={game.cover} alt={game.title} fill unoptimized
@@ -108,7 +109,6 @@ function GameStockCard({ game, index }: { game: GameStockInfo; index: number }) 
             )}
           </div>
 
-          {/* Info */}
           <div className="p-4">
             <div className="flex items-start justify-between gap-2 mb-3">
               <p className="font-heading font-semibold text-white line-clamp-1 flex-1" style={{ fontSize: '13px' }}>
@@ -118,13 +118,12 @@ function GameStockCard({ game, index }: { game: GameStockInfo; index: number }) 
                 className="group-hover:text-[#7C3AED] transition-colors mt-0.5" />
             </div>
 
-            <StockBar store={game.stockStore} drop={game.stockDrop} both={game.stockBoth} total={totalAvail} />
+            <StockBar store={game.stockStore} drop={game.stockDrop} total={totalAvail} />
 
             <div className="flex gap-3 mt-2.5">
               {[
                 { label: 'STORE', value: game.stockStore, color: '#06B6D4' },
                 { label: 'DROP',  value: game.stockDrop,  color: '#F59E0B' },
-                { label: 'BOTH',  value: game.stockBoth,  color: '#9D60FA' },
               ].map(s => (
                 <div key={s.label} className="flex items-center gap-1">
                   <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: s.color }} />
@@ -142,13 +141,6 @@ function GameStockCard({ game, index }: { game: GameStockInfo; index: number }) 
                   {game.sold} продано
                 </span>
               </div>
-              {game.reserved > 0 && (
-                <span className="font-pixel rounded px-1.5 py-0.5"
-                  style={{ fontSize: '7px', color: '#F59E0B', background: 'rgba(245,158,11,0.1)',
-                           border: '1px solid rgba(245,158,11,0.2)' }}>
-                  {game.reserved} резерв
-                </span>
-              )}
             </div>
           </div>
         </div>
@@ -166,14 +158,10 @@ function AlertBanner({ games, type }: { games: GameStockInfo[]; type: 'LOW' | 'C
     EMPTY:    { color: '#6B7280', bg: 'rgba(107,114,128,0.07)', border: 'rgba(107,114,128,0.2)', icon: Archive,       text: 'Нет ключей' },
   }[type];
   const Icon = cfg.icon;
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
+    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
       className="flex items-center gap-3 rounded-xl px-4 py-3"
-      style={{ background: cfg.bg, border: `1px solid ${cfg.border}` }}
-    >
+      style={{ background: cfg.bg, border: `1px solid ${cfg.border}` }}>
       <Icon style={{ width: '14px', height: '14px', color: cfg.color, flexShrink: 0 }} />
       <div className="flex-1 min-w-0">
         <span className="font-body" style={{ fontSize: '12px', color: cfg.color }}>{cfg.text}: </span>
@@ -189,111 +177,68 @@ function AlertBanner({ games, type }: { games: GameStockInfo[]; type: 'LOW' | 'C
   );
 }
 
-/* ── Empty state ────────────────────────────────────────────── */
-function EmptyState() {
-  return (
-    <div className="col-span-full flex flex-col items-center justify-center py-20 gap-4">
-      <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
-           style={{ background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.12)' }}>
-        <KeyRound style={{ width: '28px', height: '28px', color: '#374151' }} />
-      </div>
-      <div className="text-center">
-        <p className="font-heading font-semibold text-white mb-1" style={{ fontSize: '15px' }}>
-          Нет активных продуктов
-        </p>
-        <p className="font-body text-[#4B5563]" style={{ fontSize: '12px' }}>
-          Сначала добавьте игры в раздел «Продукты»
-        </p>
-      </div>
-      <Link
-        href="/admin/products"
-        className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-heading font-semibold text-white transition-all"
-        style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', fontSize: '13px',
-                 boxShadow: '0 0 16px rgba(124,58,237,0.3)' }}
-      >
-        <ExternalLink style={{ width: '13px', height: '13px' }} />
-        Перейти к продуктам
-      </Link>
-    </div>
-  );
-}
-
 /* ── Page ───────────────────────────────────────────────────── */
 export default function KeysAdminPage() {
-  const [filter,     setFilter]     = useState<'ALL' | 'OK' | 'LOW' | 'CRITICAL' | 'EMPTY'>('ALL');
-  const [apiGames,   setApiGames]   = useState<GameStockInfo[]>([]);
-  const [apiLoading, setApiLoading] = useState(true);
+  const [filter,  setFilter]  = useState<'ALL' | 'OK' | 'LOW' | 'CRITICAL' | 'EMPTY'>('ALL');
+  const [games,   setGames]   = useState<GameStockInfo[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetch('/api/arcane/games?limit=200')
-      .then(r => r.json())
-      .then((res: ArcaneGameListResponse) => {
-        if (res.success && res.data?.length) {
-          setApiGames(res.data.map(toStockInfo));
-        }
-      })
-      .catch(() => {})
-      .finally(() => setApiLoading(false));
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res  = await fetch('/api/admin/games?limit=200');
+      const data = await res.json();
+      if (data.games?.length) {
+        setGames((data.games as DbGame[]).map(toStockInfo));
+      }
+    } finally { setLoading(false); }
   }, []);
 
-  const data = MOCK_ANALYTICS;
+  useEffect(() => { load(); }, [load]);
 
-  // Prefer API data; fall back to mock if offline
-  const allGames = apiGames.length > 0 ? apiGames : data.games;
+  const totalAvailable = games.reduce((s, g) => s + g.stockStore + g.stockDrop, 0);
+  const totalSold      = games.reduce((s, g) => s + g.sold, 0);
+  const alertCount     = games.filter(g => g.health === 'CRITICAL' || g.health === 'EMPTY').length;
 
-  const liveStats = {
-    totalAvailable: allGames.reduce((s, g) => s + g.stockStore + g.stockDrop + g.stockBoth, 0),
-    totalSold:      allGames.reduce((s, g) => s + g.sold, 0),
-    deliveredToday: data.deliveredToday,
-    alertCount:     allGames.filter(g => g.health === 'CRITICAL' || g.health === 'EMPTY').length,
-  };
+  const emptyGames    = games.filter(g => g.health === 'EMPTY');
+  const criticalGames = games.filter(g => g.health === 'CRITICAL');
+  const lowGames      = games.filter(g => g.health === 'LOW');
 
-  const filteredGames = filter === 'ALL'
-    ? allGames
-    : allGames.filter(g => g.health === filter);
+  const filtered = filter === 'ALL' ? games : games.filter(g => g.health === filter);
 
   const topStats = [
-    { title: 'Доступно',           value: liveStats.totalAvailable, icon: KeyRound,      color: '#22C55E', desc: 'активных ключей' },
-    { title: 'Продано',            value: liveStats.totalSold,      icon: ShoppingBag,   color: '#7C3AED', desc: 'за всё время' },
-    { title: 'Доставлено сегодня', value: liveStats.deliveredToday, icon: TrendingUp,    color: '#06B6D4', desc: 'ключей выдано' },
-    { title: 'Алерты',             value: liveStats.alertCount,     icon: AlertTriangle, color: '#EF4444', desc: 'требуют внимания' },
+    { title: 'Доступно',  value: totalAvailable, icon: KeyRound,      color: '#22C55E', desc: 'активных ключей'   },
+    { title: 'Продано',   value: totalSold,       icon: ShoppingBag,   color: '#7C3AED', desc: 'за всё время'      },
+    { title: 'Игр всего', value: games.length,    icon: TrendingUp,    color: '#06B6D4', desc: 'в системе'         },
+    { title: 'Алерты',    value: alertCount,      icon: AlertTriangle, color: '#EF4444', desc: 'требуют внимания'  },
   ];
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}>
-        <p className="font-pixel mb-1" style={{ fontSize: '8px', color: '#7C3AED', letterSpacing: '0.14em' }}>
-          KEY INVENTORY SYSTEM
-        </p>
+        <p className="font-pixel mb-1" style={{ fontSize: '8px', color: '#7C3AED', letterSpacing: '0.14em' }}>KEY INVENTORY</p>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="font-heading font-bold text-white" style={{ fontSize: '24px' }}>
-              Управление ключами
-            </h1>
+            <h1 className="font-heading font-bold text-white" style={{ fontSize: '24px' }}>Управление ключами</h1>
             <p className="font-body text-[#4B5563]" style={{ fontSize: '13px' }}>
-              {apiLoading
-                ? 'Загрузка из базы данных...'
-                : `${allGames.length} игр · ${liveStats.totalAvailable} доступных ключей · ${apiGames.length > 0 ? 'arcane-api' : 'mock данные'}`}
+              {loading ? 'Загрузка из базы данных...' : `${games.length} игр · ${totalAvailable} доступных ключей`}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <button
-              className="flex items-center gap-2 px-4 py-2 rounded-xl font-body transition-all"
-              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-                       fontSize: '12px', color: '#6B7280' }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}>
-              <RefreshCw style={{ width: '13px', height: '13px' }} />
-              Синхронизировать
+              onClick={load}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl font-body transition-all disabled:opacity-50"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', fontSize: '12px', color: '#6B7280' }}
+            >
+              <RefreshCw style={{ width: '13px', height: '13px' }} className={loading ? 'animate-spin' : ''} />
+              Обновить
             </button>
             <Link
               href="/admin/keys/bulk-import"
               className="flex items-center gap-2 px-4 py-2 rounded-xl font-body transition-all"
-              style={{ background: 'rgba(34,197,94,0.1)', fontSize: '12px', color: '#22C55E',
-                       border: '1px solid rgba(34,197,94,0.22)' }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(34,197,94,0.18)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(34,197,94,0.1)')}
+              style={{ background: 'rgba(34,197,94,0.1)', fontSize: '12px', color: '#22C55E', border: '1px solid rgba(34,197,94,0.22)' }}
             >
               <FileSpreadsheet style={{ width: '13px', height: '13px' }} />
               CSV Импорт
@@ -301,8 +246,7 @@ export default function KeysAdminPage() {
             <Link
               href="/admin/products"
               className="flex items-center gap-2 px-4 py-2 rounded-xl font-body transition-all"
-              style={{ background: 'rgba(124,58,237,0.9)', fontSize: '12px', color: '#fff',
-                       boxShadow: '0 0 16px rgba(124,58,237,0.28)' }}
+              style={{ background: 'rgba(124,58,237,0.9)', fontSize: '12px', color: '#fff', boxShadow: '0 0 16px rgba(124,58,237,0.28)' }}
             >
               <BarChart2 style={{ width: '13px', height: '13px' }} />
               Продукты
@@ -322,19 +266,14 @@ export default function KeysAdminPage() {
             whileHover={{ y: -3 }}
             className="rounded-2xl p-5 relative overflow-hidden"
             style={{ background: '#0D0D1A', border: `1px solid ${s.color}18` }}
-            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.boxShadow = `0 8px 28px ${s.color}14`)}
-            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.boxShadow = 'none')}
           >
             <div className="absolute top-0 right-0 w-24 h-24 pointer-events-none"
                  style={{ background: `radial-gradient(circle at top right, ${s.color}0E, transparent 70%)` }} />
-            <div className="absolute top-0 left-0 right-0 h-px"
-                 style={{ background: `linear-gradient(90deg, transparent, ${s.color}40, transparent)` }} />
             <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-4"
-                 style={{ background: `${s.color}12`, border: `1px solid ${s.color}22`, boxShadow: `0 0 10px ${s.color}10` }}>
+                 style={{ background: `${s.color}12`, border: `1px solid ${s.color}22` }}>
               <s.icon style={{ width: '15px', height: '15px', color: s.color }} />
             </div>
-            <p className="font-pixel text-white mb-0.5"
-               style={{ fontSize: '22px', letterSpacing: '0.02em', textShadow: `0 0 14px ${s.color}40` }}>
+            <p className="font-pixel text-white mb-0.5" style={{ fontSize: '22px' }}>
               {s.value.toLocaleString('ru')}
             </p>
             <p className="font-body text-[#4B5563]" style={{ fontSize: '11px' }}>{s.title}</p>
@@ -345,12 +284,12 @@ export default function KeysAdminPage() {
 
       {/* Alerts */}
       <div className="space-y-2">
-        <AlertBanner games={data.emptyGames}    type="EMPTY"    />
-        <AlertBanner games={data.criticalGames} type="CRITICAL" />
-        <AlertBanner games={data.lowStockGames} type="LOW"      />
+        <AlertBanner games={emptyGames}    type="EMPTY"    />
+        <AlertBanner games={criticalGames} type="CRITICAL" />
+        <AlertBanner games={lowGames}      type="LOW"      />
       </div>
 
-      {/* Legend + Filter */}
+      {/* Filter */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-1.5">
           {(['ALL', 'OK', 'LOW', 'CRITICAL', 'EMPTY'] as const).map(f => {
@@ -371,7 +310,7 @@ export default function KeysAdminPage() {
           })}
         </div>
         <div className="flex items-center gap-4">
-          {[{ label: 'STORE', color: '#06B6D4' }, { label: 'DROP', color: '#F59E0B' }, { label: 'BOTH', color: '#9D60FA' }].map(l => (
+          {[{ label: 'STORE', color: '#06B6D4' }, { label: 'DROP', color: '#F59E0B' }].map(l => (
             <div key={l.label} className="flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-full" style={{ background: l.color }} />
               <span className="font-pixel text-[#374151]" style={{ fontSize: '8px' }}>{l.label}</span>
@@ -381,22 +320,46 @@ export default function KeysAdminPage() {
       </div>
 
       {/* Game grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filteredGames.map((game, i) => (
-          <GameStockCard key={game.gameId} game={game} index={i} />
-        ))}
-
-        {filteredGames.length === 0 && filter === 'ALL' && !apiLoading && (
-          <EmptyState />
-        )}
-
-        {filteredGames.length === 0 && filter !== 'ALL' && (
-          <div className="col-span-full text-center py-16">
-            <KeyRound style={{ width: '32px', height: '32px', color: '#1F2937', margin: '0 auto 12px' }} />
-            <p className="font-body text-[#374151]" style={{ fontSize: '14px' }}>Нет игр с выбранным статусом</p>
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <RefreshCw style={{ width: '24px', height: '24px', color: '#374151', margin: '0 auto 8px', animation: 'spin 1s linear infinite' }} />
+            <p className="font-body text-[#374151]" style={{ fontSize: '13px' }}>Загрузка игр...</p>
           </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filtered.map((game, i) => (
+            <GameStockCard key={game.gameId} game={game} index={i} />
+          ))}
+
+          {filtered.length === 0 && filter === 'ALL' && (
+            <div className="col-span-full flex flex-col items-center justify-center py-20 gap-4">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                   style={{ background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.12)' }}>
+                <KeyRound style={{ width: '28px', height: '28px', color: '#374151' }} />
+              </div>
+              <div className="text-center">
+                <p className="font-heading font-semibold text-white mb-1" style={{ fontSize: '15px' }}>Нет активных продуктов</p>
+                <p className="font-body text-[#4B5563]" style={{ fontSize: '12px' }}>Сначала добавьте игры в раздел «Продукты»</p>
+              </div>
+              <Link href="/admin/products"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-heading font-semibold text-white transition-all"
+                style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', fontSize: '13px', boxShadow: '0 0 16px rgba(124,58,237,0.3)' }}>
+                <ExternalLink style={{ width: '13px', height: '13px' }} />
+                Перейти к продуктам
+              </Link>
+            </div>
+          )}
+
+          {filtered.length === 0 && filter !== 'ALL' && (
+            <div className="col-span-full text-center py-16">
+              <KeyRound style={{ width: '32px', height: '32px', color: '#1F2937', margin: '0 auto 12px' }} />
+              <p className="font-body text-[#374151]" style={{ fontSize: '14px' }}>Нет игр с выбранным статусом</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

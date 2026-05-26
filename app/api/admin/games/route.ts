@@ -28,7 +28,7 @@ export async function GET(req: Request) {
         id: true, title: true, slug: true, cover: true,
         genres: true, platforms: true, developer: true,
         priceUzs: true, priceUsd: true,
-        isActive: true, stockStore: true, deliveryType: true,
+        isActive: true, stockStore: true, stockDrop: true, deliveryType: true,
         createdAt: true,
         _count: { select: { order_items: true, game_keys: true } },
       },

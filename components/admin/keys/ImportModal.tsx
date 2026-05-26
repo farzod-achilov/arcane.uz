@@ -71,16 +71,18 @@ export default function ImportModal({ gameId, gameTitle, onClose, onSuccess }: P
     setLoading(true);
     setError('');
     try {
-      // Mock import result — replace with actual API call
-      await new Promise(r => setTimeout(r, 1200));
-      const mockResult: ImportResult = {
-        imported: parsed.valid.length,
-        duplicates: Math.floor(parsed.valid.length * 0.05),
-        invalid: parsed.invalid.length,
-        total: parsed.valid.length + parsed.invalid.length,
-      };
-      setResult(mockResult);
-      onSuccess(mockResult);
+      const res  = await fetch('/api/keys/bulk-import', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ gameId, keys: parsed.valid, type: keyType }),
+      });
+      const data = await res.json() as ImportResult & { error?: string };
+      if (!res.ok || data.error) {
+        setError(data.error ?? 'Ошибка при импорте ключей');
+        return;
+      }
+      setResult(data);
+      onSuccess(data);
     } catch {
       setError('Ошибка при импорте ключей. Попробуйте снова.');
     } finally {

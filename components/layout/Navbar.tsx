@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Search, Bell, User, Menu, X, LogOut, TrendingUp, TrendingDown, BookOpen, Heart } from 'lucide-react';
+import { ShoppingCart, Search, Bell, User, Menu, X, LogOut, TrendingUp, TrendingDown, Heart } from 'lucide-react';
 import SearchOverlay from '@/components/ui/SearchOverlay';
 import NotificationDropdown from '@/components/user/NotificationDropdown';
 import { useUser } from '@/lib/userContext';
@@ -649,17 +649,6 @@ export default function Navbar() {
                     <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                          style={{ background: 'rgba(239,68,68,0.08)' }} />
                     <Heart className="relative z-10 w-[18px] h-[18px] transition-colors duration-200 group-hover:text-[#F87171]" />
-                  </Link>
-                  {/* Library link */}
-                  <Link
-                    href="/library"
-                    className="group relative flex items-center gap-2 rounded-xl transition-all duration-200 p-2.5"
-                    title="Моя библиотека"
-                    style={{ color: pathname.startsWith('/library') ? '#9D60FA' : '#6B7280' }}
-                  >
-                    <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                         style={{ background: 'rgba(124,58,237,0.08)' }} />
-                    <BookOpen className="relative z-10 w-[18px] h-[18px] transition-colors duration-200 group-hover:text-[#9D60FA]" />
                   </Link>
                   {/* Avatar + name */}
                   <Link

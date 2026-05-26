@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import {
   Search, Plus, Eye, EyeOff, Edit2, RefreshCw, Wifi, WifiOff,
-  CheckCircle2, AlertCircle, Clock, Zap, Hand, Package, X, Save, Loader2,
+  CheckCircle2, AlertCircle, Clock, Zap, Hand, Package, X, Save, Loader2, Trash2,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import AddGameModal from '@/components/admin/keys/AddGameModal';
@@ -178,6 +178,93 @@ function EditModal({ game, onClose, onSaved }: { game: GameRow; onClose: () => v
   );
 }
 
+/* ── Nuke Modal ─────────────────────────────────────── */
+function NukeModal({ total, onClose, onDone }: { total: number; onClose: () => void; onDone: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [done, setDone]       = useState(false);
+  const [error, setError]     = useState('');
+
+  async function execute() {
+    setLoading(true);
+    setError('');
+    try {
+      const res  = await fetch('/api/admin/games/nuke', { method: 'POST' });
+      const data = await res.json() as { ok?: boolean; deleted?: { gamesCount: number }; error?: string };
+      if (!res.ok || !data.ok) { setError(data.error ?? 'Ошибка'); return; }
+      setDone(true);
+      setTimeout(() => { onDone(); onClose(); }, 1500);
+    } catch { setError('Ошибка сети'); }
+    finally { setLoading(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+         style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}
+         onClick={e => { if (e.target === e.currentTarget && !loading) onClose(); }}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+        className="w-full max-w-md rounded-2xl overflow-hidden"
+        style={{ background: '#0A0A14', border: '1px solid rgba(239,68,68,0.3)' }}
+      >
+        <div className="px-6 pt-6 pb-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                 style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)' }}>
+              <Trash2 style={{ width: '18px', height: '18px', color: '#EF4444' }} />
+            </div>
+            <div>
+              <p className="font-heading font-bold text-white" style={{ fontSize: '15px' }}>Удалить все игры</p>
+              <p className="font-body text-[#6B7280]" style={{ fontSize: '11px' }}>Это действие нельзя отменить</p>
+            </div>
+          </div>
+
+          <div className="rounded-xl px-4 py-3 mb-5"
+               style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)' }}>
+            <p className="font-body text-[#FCA5A5]" style={{ fontSize: '12px', lineHeight: '1.6' }}>
+              Будет удалено <strong style={{ color: '#F87171' }}>{total} игр</strong> вместе со всеми ключами,
+              транзакциями ключей и позициями заказов. Заказы сохранятся, но без привязки к играм.
+            </p>
+          </div>
+
+          {done && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              className="flex items-center gap-2 rounded-xl px-4 py-3 mb-4"
+              style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)' }}>
+              <CheckCircle2 style={{ width: '14px', height: '14px', color: '#22C55E' }} />
+              <p className="font-body text-[#22C55E]" style={{ fontSize: '12px' }}>Все игры удалены!</p>
+            </motion.div>
+          )}
+
+          {error && (
+            <div className="flex items-center gap-2 rounded-xl px-4 py-3 mb-4"
+                 style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+              <AlertCircle style={{ width: '13px', height: '13px', color: '#EF4444' }} />
+              <p className="font-body text-[#F87171]" style={{ fontSize: '12px' }}>{error}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 px-6 py-4"
+             style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          <button onClick={onClose} disabled={loading || done}
+            className="px-4 py-2 rounded-xl font-body disabled:opacity-40"
+            style={{ background: 'rgba(255,255,255,0.04)', color: '#6B7280', fontSize: '12px' }}>
+            Отмена
+          </button>
+          <button onClick={execute} disabled={loading || done}
+            className="flex items-center gap-2 px-5 py-2 rounded-xl font-heading font-semibold text-white disabled:opacity-50"
+            style={{ background: 'rgba(239,68,68,0.85)', fontSize: '12px', boxShadow: '0 0 14px rgba(239,68,68,0.25)' }}>
+            {loading
+              ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                    className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white" />Удаляем...</>
+              : <><Trash2 style={{ width: '13px', height: '13px' }} />Удалить все</>}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 /* ── Page ───────────────────────────────────────────────────── */
 export default function AdminProductsPage() {
   const [games, setGames]         = useState<GameRow[]>([]);
@@ -188,6 +275,7 @@ export default function AdminProductsPage() {
   const [loading, setLoading]     = useState(true);
   const [editGame, setEditGame]   = useState<GameRow | null>(null);
   const [showAdd, setShowAdd]     = useState(false);
+  const [showNuke, setShowNuke]   = useState(false);
   const [toggling, setToggling]   = useState<string | null>(null);
 
   const load = useCallback(async (p = page, q = search) => {
@@ -230,13 +318,24 @@ export default function AdminProductsPage() {
             Каталог игр <span className="font-body text-[#4B5563] text-sm ml-2">{total} игр</span>
           </h1>
         </div>
-        <button
-          onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 rounded-xl px-4 py-2.5 font-heading font-semibold text-white text-sm"
-          style={{ background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', boxShadow: '0 0 16px rgba(124,58,237,0.3)' }}
-        >
-          <Plus className="w-4 h-4" /> Добавить игру
-        </button>
+        <div className="flex items-center gap-2">
+          {total > 0 && (
+            <button
+              onClick={() => setShowNuke(true)}
+              className="flex items-center gap-2 rounded-xl px-4 py-2.5 font-heading font-semibold text-sm"
+              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: '#EF4444' }}
+            >
+              <Trash2 className="w-4 h-4" /> Удалить все
+            </button>
+          )}
+          <button
+            onClick={() => setShowAdd(true)}
+            className="flex items-center gap-2 rounded-xl px-4 py-2.5 font-heading font-semibold text-white text-sm"
+            style={{ background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', boxShadow: '0 0 16px rgba(124,58,237,0.3)' }}
+          >
+            <Plus className="w-4 h-4" /> Добавить игру
+          </button>
+        </div>
       </div>
 
       <DigisellerSyncPanel />
@@ -383,6 +482,17 @@ export default function AdminProductsPage() {
       <AnimatePresence>
         {editGame && (
           <EditModal game={editGame} onClose={() => setEditGame(null)} onSaved={handleSaved} />
+        )}
+      </AnimatePresence>
+
+      {/* Nuke Modal */}
+      <AnimatePresence>
+        {showNuke && (
+          <NukeModal
+            total={total}
+            onClose={() => setShowNuke(false)}
+            onDone={() => { setGames([]); setTotal(0); setPages(1); setPage(1); }}
+          />
         )}
       </AnimatePresence>
 

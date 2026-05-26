@@ -35,7 +35,16 @@ export default function AddKeyModal({ gameId, gameTitle, onClose, onSuccess }: P
     setLoading(true);
     setError('');
     try {
-      await new Promise(r => setTimeout(r, 800));
+      const res  = await fetch(`/api/admin/keys/${gameId}/add`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ key: normalized, type: keyType }),
+      });
+      const data = await res.json() as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        setError(data.error ?? 'Ошибка при добавлении ключа');
+        return;
+      }
       setSuccess(true);
       setTimeout(() => { onSuccess(); onClose(); }, 1500);
     } catch {
