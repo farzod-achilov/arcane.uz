@@ -122,9 +122,27 @@ model games {
   order_items       order_items[]
   wishlists         wishlists[]
   reviews           reviews[]
+  discounts         discounts[]
 
   @@unique([externalId, source])
   @@index([slug])
+}
+
+model discounts {
+  id          String    @id
+  gameId      String
+  type        String    @default("flash")
+  discountPct Int
+  startsAt    DateTime?
+  endsAt      DateTime?
+  isActive    Boolean   @default(true)
+  isFeatured  Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+  games       games     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([gameId])
+  @@index([isActive])
 }
 
 model inventory {
