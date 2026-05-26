@@ -82,7 +82,7 @@ export async function getGameBySlug(slug: string) {
       genres: true, platforms: true, rating: true,
       priceUzs: true, priceUsd: true,
       releaseDate: true, developer: true, publisher: true,
-      isActive: true, stockStore: true, externalId: true, source: true,
+      isActive: true, stockStore: true, deliveryType: true, externalId: true, source: true,
     },
   });
 }

@@ -39,7 +39,8 @@ export default async function GamePage({ params }: Props) {
   if (!game || !game.isActive) notFound();
 
   const similar = await getSimilarGames(game.slug, game.genres, 4);
-  const inStock  = game.stockStore > 0;
+  const isManual = game.deliveryType === 'MANUAL';
+  const inStock  = game.stockStore > 0 || isManual;
 
   return (
     <div className="min-h-screen" style={{ background: '#0A0A0F', paddingTop: '96px' }}>
@@ -102,12 +103,13 @@ export default async function GamePage({ params }: Props) {
             >
               {/* Stock */}
               <div className="flex items-center gap-2">
-                <div
-                  className="w-2 h-2 rounded-full"
-                  style={{ background: inStock ? '#22C55E' : '#6B7280' }}
-                />
-                <span className="font-body text-sm" style={{ color: inStock ? '#22C55E' : '#6B7280' }}>
-                  {inStock ? `В наличии · ${game.stockStore} шт.` : 'Нет в наличии'}
+                <div className="w-2 h-2 rounded-full" style={{
+                  background: isManual ? '#A78BFA' : inStock ? '#22C55E' : '#6B7280'
+                }} />
+                <span className="font-body text-sm" style={{
+                  color: isManual ? '#A78BFA' : inStock ? '#22C55E' : '#6B7280'
+                }}>
+                  {isManual ? 'Ручная доставка' : inStock ? `В наличии · ${game.stockStore} шт.` : 'Нет в наличии'}
                 </span>
               </div>
 
@@ -151,11 +153,11 @@ export default async function GamePage({ params }: Props) {
                 </button>
               )}
 
-              {/* Instant delivery note */}
+              {/* Delivery note */}
               <div className="flex items-center gap-2 pt-1">
-                <Zap className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#22C55E' }} />
+                <Zap className="w-3.5 h-3.5 flex-shrink-0" style={{ color: isManual ? '#A78BFA' : '#22C55E' }} />
                 <span className="font-body" style={{ fontSize: '12px', color: '#4B5563' }}>
-                  Мгновенная доставка ключа на email
+                  {isManual ? 'Доставка через поддержку после оплаты' : 'Мгновенная доставка ключа на email'}
                 </span>
               </div>
 
