@@ -1,13 +1,14 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
   Star, Calendar, Monitor, Package, Users,
   Zap, Tag, Apple, Terminal, Shield, Globe, Check,
   Award, ChevronRight, Maximize2, ShoppingCart, Heart, Cpu,
+  Play, Volume2, VolumeX,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import GameCard from '@/components/catalog/GameCard';
@@ -17,6 +18,8 @@ import FullscreenGallery from '@/components/product/FullscreenGallery';
 import { useWishlist } from '@/hooks/useWishlist';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { parseMedia, isVideoMedia, isYouTubeMedia } from '@/lib/media';
+import { useHls, isHlsUrl } from '@/hooks/useHls';
 import type { GameListItem } from '@/lib/db/games';
 import type { getGameBySlug } from '@/lib/db/games';
 
@@ -28,6 +31,71 @@ function PlatformIcon({ p }: { p: string }) {
   return <Monitor className="w-3.5 h-3.5" />;
 }
 
+/* ── Inline HLS video player ── */
+function InlineVideo({ encoded }: { encoded: string }) {
+  const { src } = parseMedia(encoded);
+  const vidRef  = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [muted,   setMuted]   = useState(false);
+
+  useHls(vidRef, src);
+
+  const toggle = () => {
+    const v = vidRef.current;
+    if (!v) return;
+    if (v.paused) v.play(); else v.pause();
+  };
+  const toggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const v = vidRef.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setMuted(v.muted);
+  };
+
+  return (
+    <div className="absolute inset-0 bg-black" onClick={toggle}>
+      <video
+        ref={vidRef}
+        src={isHlsUrl(src) ? undefined : src}
+        playsInline
+        className="absolute inset-0 w-full h-full"
+        style={{ objectFit: 'contain' }}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+      />
+      {/* Dark overlay when paused */}
+      <div className="absolute inset-0 pointer-events-none transition-opacity duration-300"
+           style={{ background: 'rgba(0,0,0,0.45)', opacity: playing ? 0 : 1 }} />
+      {!playing && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-20 h-20 rounded-full flex items-center justify-center"
+               style={{ background: 'rgba(255,255,255,0.14)', backdropFilter: 'blur(10px)', border: '2px solid rgba(255,255,255,0.25)', boxShadow: '0 0 40px rgba(124,58,237,0.4)' }}>
+            <Play style={{ width: '30px', height: '30px', color: '#fff', marginLeft: '4px' }} />
+          </div>
+        </div>
+      )}
+      {/* Controls */}
+      <div className="absolute bottom-0 left-0 right-0 flex items-center gap-3 px-4 py-3 opacity-0 hover:opacity-100 transition-opacity duration-200"
+           style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85), transparent)' }}
+           onClick={e => e.stopPropagation()}>
+        <button onClick={toggle} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10">
+          {playing
+            ? <span style={{ color: '#fff', fontSize: '14px' }}>⏸</span>
+            : <Play style={{ width: '14px', height: '14px', color: '#fff', marginLeft: '1px' }} />}
+        </button>
+        <button onClick={toggleMute} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10">
+          {muted
+            ? <VolumeX style={{ width: '14px', height: '14px', color: '#fff' }} />
+            : <Volume2 style={{ width: '14px', height: '14px', color: '#fff' }} />}
+        </button>
+        <div className="flex-1" />
+        <span className="font-body text-white/40" style={{ fontSize: '10px', letterSpacing: '0.08em' }}>ТРЕЙЛЕР</span>
+      </div>
+    </div>
+  );
+}
+
 /* ── Inner gallery component ── */
 function GallerySection({ screenshots, title }: { screenshots: string[]; title: string }) {
   const [activeIdx, setActiveIdx] = useState(0);
@@ -37,7 +105,10 @@ function GallerySection({ screenshots, title }: { screenshots: string[]; title: 
   const prev    = useCallback(() => setActiveIdx(i => (i === 0 ? screenshots.length - 1 : i - 1)), [screenshots.length]);
   const next    = useCallback(() => setActiveIdx(i => (i === screenshots.length - 1 ? 0 : i + 1)), [screenshots.length]);
 
-  const current = screenshots[activeIdx];
+  const currentEncoded = screenshots[activeIdx] ?? '';
+  const isVideo   = isVideoMedia(currentEncoded);
+  const isYouTube = isYouTubeMedia(currentEncoded);
+  const { src: currentSrc, thumb: currentThumb } = parseMedia(currentEncoded);
 
   return (
     <>
@@ -50,35 +121,68 @@ function GallerySection({ screenshots, title }: { screenshots: string[]; title: 
           background: '#05050E',
           border: '1px solid rgba(255,255,255,0.05)',
           boxShadow: '0 0 80px rgba(0,0,0,0.6)',
-          cursor: 'zoom-in',
+          cursor: isVideo ? 'default' : 'zoom-in',
         }}
-        onClick={openFs}
+        onClick={() => { if (!isVideo) openFs(); }}
       >
         <AnimatePresence mode="wait">
-          <motion.div
-            key={activeIdx}
-            initial={{ opacity: 0, scale: 1.04 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute inset-0"
-          >
-            <Image
-              src={current}
-              alt={`${title} screenshot ${activeIdx + 1}`}
-              fill unoptimized
-              className="object-cover transition-transform duration-700 group-hover:scale-[1.02]"
+          {isYouTube ? (
+            <motion.iframe
+              key={`yt-${activeIdx}`}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              src={currentSrc}
+              className="absolute inset-0 w-full h-full"
+              allow="autoplay; fullscreen" allowFullScreen
+              style={{ border: 'none' }}
             />
-          </motion.div>
+          ) : isVideo ? (
+            <motion.div
+              key={`v-${activeIdx}`}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0"
+            >
+              <InlineVideo encoded={currentEncoded} />
+            </motion.div>
+          ) : (
+            <motion.div
+              key={activeIdx}
+              initial={{ opacity: 0, scale: 1.04 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              className="absolute inset-0"
+            >
+              <Image
+                src={currentSrc}
+                alt={`${title} screenshot ${activeIdx + 1}`}
+                fill unoptimized
+                className="object-cover transition-transform duration-700 group-hover:scale-[1.02]"
+              />
+            </motion.div>
+          )}
         </AnimatePresence>
 
-        {/* Gradient */}
-        <div className="absolute inset-0 pointer-events-none" style={{
-          background: 'linear-gradient(to top, rgba(4,4,10,0.55) 0%, transparent 40%)',
-        }} />
+        {/* Video badge */}
+        {isVideo && (
+          <div className="absolute top-4 left-4 font-pixel flex items-center gap-1.5 pointer-events-none" style={{
+            fontSize: '9px', letterSpacing: '0.08em',
+            padding: '5px 12px', borderRadius: '8px',
+            background: 'linear-gradient(135deg, #EF4444, #F97316)', color: '#fff',
+            boxShadow: '0 0 16px rgba(239,68,68,0.5)',
+          }}>
+            ▶ ТРЕЙЛЕР
+          </div>
+        )}
+
+        {/* Gradient overlay */}
+        {!isVideo && (
+          <div className="absolute inset-0 pointer-events-none" style={{
+            background: 'linear-gradient(to top, rgba(4,4,10,0.55) 0%, transparent 40%)',
+          }} />
+        )}
 
         {/* Counter */}
-        <div className="absolute bottom-4 left-4 font-body" style={{
+        <div className="absolute bottom-4 left-4 font-body pointer-events-none" style={{
           fontSize: '11px', color: '#6B7280',
           background: 'rgba(4,4,10,0.7)', backdropFilter: 'blur(8px)',
           padding: '4px 10px', borderRadius: '8px',
@@ -87,13 +191,15 @@ function GallerySection({ screenshots, title }: { screenshots: string[]; title: 
           {activeIdx + 1} / {screenshots.length}
         </div>
 
-        {/* Fullscreen btn */}
-        <div className="absolute bottom-4 right-4 w-10 h-10 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200" style={{
-          background: 'rgba(4,4,10,0.75)', backdropFilter: 'blur(8px)',
-          border: '1px solid rgba(255,255,255,0.1)',
-        }}>
-          <Maximize2 style={{ width: '16px', height: '16px', color: '#fff' }} />
-        </div>
+        {/* Fullscreen btn (images only) */}
+        {!isVideo && (
+          <div className="absolute bottom-4 right-4 w-10 h-10 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none" style={{
+            background: 'rgba(4,4,10,0.75)', backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255,255,255,0.1)',
+          }}>
+            <Maximize2 style={{ width: '16px', height: '16px', color: '#fff' }} />
+          </div>
+        )}
 
         {/* Arrows */}
         {screenshots.length > 1 && (
@@ -121,35 +227,55 @@ function GallerySection({ screenshots, title }: { screenshots: string[]; title: 
       </div>
 
       {/* Thumbnail rail */}
-      <div
-        className="flex gap-2.5 overflow-x-auto pb-2"
-        style={{ scrollbarWidth: 'thin' }}
-      >
-        {screenshots.map((src, i) => (
-          <motion.button
-            key={i}
-            onClick={() => setActiveIdx(i)}
-            whileHover={{ y: -2 }}
-            whileTap={{ scale: 0.96 }}
-            className="flex-shrink-0 relative rounded-xl overflow-hidden"
-            style={{
-              width: '140px', height: '80px',
-              border: `2px solid ${i === activeIdx ? '#7C3AED' : 'rgba(255,255,255,0.06)'}`,
-              boxShadow: i === activeIdx ? '0 0 18px rgba(124,58,237,0.55)' : 'none',
-              background: '#05050E',
-            }}
-          >
-            <Image
-              src={src} alt=""
-              fill unoptimized
-              className="object-cover transition-all duration-300"
+      <div className="flex gap-2.5 overflow-x-auto pb-2" style={{ scrollbarWidth: 'thin' }}>
+        {screenshots.map((encoded, i) => {
+          const isVid = isVideoMedia(encoded);
+          const { src, thumb } = parseMedia(encoded);
+          const thumbSrc = isVid ? (thumb ?? null) : src;
+          return (
+            <motion.button
+              key={i}
+              onClick={() => setActiveIdx(i)}
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.96 }}
+              className="flex-shrink-0 relative rounded-xl overflow-hidden"
               style={{
-                opacity: i === activeIdx ? 1 : 0.4,
-                filter: i === activeIdx ? 'none' : 'saturate(0.6)',
+                width: '140px', height: '80px',
+                border: `2px solid ${i === activeIdx ? (isVid ? '#EF4444' : '#7C3AED') : 'rgba(255,255,255,0.06)'}`,
+                boxShadow: i === activeIdx ? (isVid ? '0 0 18px rgba(239,68,68,0.5)' : '0 0 18px rgba(124,58,237,0.55)') : 'none',
+                background: '#05050E',
               }}
-            />
-          </motion.button>
-        ))}
+            >
+              {thumbSrc ? (
+                <>
+                  <Image
+                    src={thumbSrc} alt=""
+                    fill unoptimized
+                    className="object-cover transition-all duration-300"
+                    style={{
+                      opacity: i === activeIdx ? 1 : 0.4,
+                      filter: i === activeIdx ? 'none' : 'saturate(0.6)',
+                    }}
+                  />
+                  {isVid && (
+                    <div className="absolute inset-0 flex items-center justify-center"
+                         style={{ background: 'rgba(0,0,0,0.3)' }}>
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center"
+                           style={{ background: i === activeIdx ? 'rgba(239,68,68,0.85)' : 'rgba(239,68,68,0.5)' }}>
+                        <Play style={{ width: '14px', height: '14px', color: '#fff', marginLeft: '2px' }} />
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center"
+                     style={{ background: i === activeIdx ? 'rgba(239,68,68,0.18)' : 'rgba(239,68,68,0.07)' }}>
+                  <Play style={{ width: '22px', height: '22px', color: i === activeIdx ? '#F87171' : '#4B5563', fill: i === activeIdx ? '#F87171' : '#4B5563' }} />
+                </div>
+              )}
+            </motion.button>
+          );
+        })}
       </div>
 
       <AnimatePresence>
