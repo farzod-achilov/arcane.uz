@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { hash } from 'bcryptjs';
 import crypto from 'crypto';
+import { nanoid } from 'nanoid';
 import { prisma } from '@/lib/prisma';
 
 export async function POST(req: NextRequest) {
@@ -36,16 +37,34 @@ export async function POST(req: NextRequest) {
     const hashedPassword = await hash(password, 12);
     const now            = new Date();
 
-    const user = await prisma.users.create({
-      data: {
-        id:        crypto.randomUUID(),
-        email:     normalEmail,
-        username:  normalUsername,
-        password:  hashedPassword,
-        arcCoins:  500,
-        updatedAt: now,
-      },
-      select: { id: true, email: true, username: true },
+    const userId = crypto.randomUUID();
+
+    const user = await prisma.$transaction(async (tx) => {
+      const created = await tx.users.create({
+        data: {
+          id:        userId,
+          email:     normalEmail,
+          username:  normalUsername,
+          password:  hashedPassword,
+          arcCoins:  500,
+          updatedAt: now,
+        },
+        select: { id: true, email: true, username: true },
+      });
+
+      await tx.transactions.create({
+        data: {
+          id:            nanoid(),
+          userId,
+          type:          'ADMIN_GRANT',
+          amount:        500,
+          balanceBefore: 0,
+          balanceAfter:  500,
+          description:   'Приветственный бонус за регистрацию',
+        },
+      });
+
+      return created;
     });
 
     return NextResponse.json({ success: true, user }, { status: 201 });
