@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Star, Zap, Package, Monitor, Apple, Terminal } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import type { GameListItem } from '@/lib/db/games';
+import WishlistButton from '@/components/ui/WishlistButton';
 
 function PlatformDot({ p }: { p: string }) {
   if (p === 'Mac')   return <Apple   className="w-2.5 h-2.5" />;
@@ -76,6 +77,11 @@ export default function GameCard({ game, index = 0 }: Props) {
                 НЕТ В НАЛИЧИИ
               </div>
             )}
+
+            {/* Wishlist button */}
+            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <WishlistButton gameId={game.id} size="sm" />
+            </div>
 
             {/* Platforms overlay */}
             <div className="absolute bottom-2 left-2 flex gap-1">

@@ -120,6 +120,8 @@ model games {
   game_keys         game_keys[]
   game_pricing      game_pricing?
   order_items       order_items[]
+  wishlists         wishlists[]
+  reviews           reviews[]
 
   @@unique([externalId, source])
   @@index([slug])
@@ -246,6 +248,8 @@ model users {
   sessions         sessions[]
   transactions     transactions[]
   orders           orders[]
+  wishlists        wishlists[]
+  reviews          reviews[]
 
   @@index([email])
   @@index([username])
@@ -507,6 +511,38 @@ model order_items {
   game  games  @relation(fields: [gameId], references: [id])
 
   @@index([orderId])
+}
+
+model wishlists {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  gameId    String   @map("game_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user users @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game games @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, gameId])
+  @@index([userId])
+  @@index([gameId])
+}
+
+model reviews {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  gameId    String   @map("game_id")
+  rating    Int
+  body      String?
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user users @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game games @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, gameId])
+  @@index([gameId])
+  @@index([rating])
 }
 
 model delivery_logs {

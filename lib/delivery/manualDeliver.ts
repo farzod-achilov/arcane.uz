@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { auditLog } from './audit';
-import { notifyNewManualOrder, notifyOrderCompleted } from './notify';
+import { notifyNewManualOrder, notifyOrderCompleted, notifyUserOrderComplete } from './notify';
 import { DeliveryError } from './types';
 import type { DeliveryContext, ManualDeliveryResult, ManualCompleteInput } from './types';
 
@@ -82,14 +82,24 @@ export async function completeManual(input: ManualCompleteInput) {
     { actorName, keyProvided: !!keyValue },
   );
 
+  const gameTitle = order.items[0]?.game?.title ?? '—';
   notifyOrderCompleted({
     orderId,
     username:  order.user?.username ?? '—',
     email:     order.user?.email    ?? '—',
-    gameTitle: order.items[0]?.game?.title ?? '—',
+    gameTitle,
     method:    'MANUAL',
     actorName,
   }).catch(() => null);
+
+  if (order.user?.id) {
+    notifyUserOrderComplete({
+      userId:    order.user.id,
+      orderId,
+      gameTitle,
+      keyValue,
+    }).catch(() => null);
+  }
 
   return prisma.orders.findUnique({
     where:   { id: orderId },

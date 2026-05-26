@@ -8,6 +8,8 @@ import {
 import { getGameBySlug, getSimilarGames } from '@/lib/db/games';
 import { formatPrice } from '@/lib/utils';
 import GameCard from '@/components/catalog/GameCard';
+import WishlistButton from '@/components/ui/WishlistButton';
+import ReviewSection from '@/components/game/ReviewSection';
 import type { Metadata } from 'next';
 
 interface Props { params: { slug: string } }
@@ -154,6 +156,11 @@ export default async function GamePage({ params }: Props) {
                 <span className="font-body" style={{ fontSize: '12px', color: '#4B5563' }}>
                   Мгновенная доставка ключа на email
                 </span>
+              </div>
+
+              {/* Wishlist */}
+              <div className="pt-1" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                <WishlistButton gameId={game.id} size="md" className="w-full justify-center gap-2 rounded-xl py-2" />
               </div>
             </div>
           </div>
@@ -304,6 +311,9 @@ export default async function GamePage({ params }: Props) {
             )}
           </div>
         </div>
+
+        {/* Reviews */}
+        <ReviewSection slug={game.slug} />
 
         {/* Similar games */}
         {similar.length > 0 && (
