@@ -16,6 +16,7 @@ model drop_history {
   jackpotContrib Int           @default(0)
   createdAt      DateTime      @default(now())
   drop_machines  drop_machines @relation(fields: [dropId], references: [id])
+  drop_rewards   drop_rewards  @relation(fields: [rewardId], references: [id])
   users          users         @relation(fields: [userId], references: [id])
 
   @@index([createdAt])
@@ -58,6 +59,7 @@ model drop_rewards {
   drop_machines drop_machines @relation(fields: [dropId], references: [id], onDelete: Cascade)
   games         games?        @relation(fields: [gameId], references: [id])
   inventory     inventory[]
+  drop_history  drop_history[]
 
   @@index([dropId])
   @@index([rarity])
@@ -238,6 +240,22 @@ model transactions {
   @@index([userId])
 }
 
+model deposit_requests {
+  id        String        @id
+  userId    String
+  amount    Int
+  method    String
+  status    DepositStatus @default(PENDING)
+  comment   String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime
+  users     users         @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
 model users {
   id               String             @id
   email            String             @unique
@@ -266,6 +284,7 @@ model users {
   live_drops       live_drops[]
   sessions         sessions[]
   transactions     transactions[]
+  deposit_requests deposit_requests[]
   orders           orders[]
   wishlists        wishlists[]
   reviews          reviews[]
@@ -326,6 +345,12 @@ enum TransactionType {
   ADMIN_GRANT
   REFERRAL_BONUS
   STORE_PURCHASE
+}
+
+enum DepositStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 // ═══════════════════════════════════════════════════════

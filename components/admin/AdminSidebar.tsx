@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Package, ShoppingBag, Users, Tag,
   Zap, Gift, MessageSquare, BarChart2, Settings,
-  ChevronLeft, ChevronRight, Shield, LogOut, KeyRound, TrendingUp, Gamepad2, Truck,
+  ChevronLeft, ChevronRight, Shield, LogOut, KeyRound, TrendingUp, Gamepad2, Truck, Wallet,
 } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 
@@ -30,6 +30,7 @@ export default function AdminSidebar({
     { href: '/admin/discounts',           label: t.nav.discounts,    icon: Tag,             color: '#EF4444' },
     { href: '/admin/coins',               label: t.nav.coins,        icon: Zap,             color: '#F59E0B' },
     { href: '/admin/cases',               label: t.nav.cases,        icon: Gift,            color: '#9D60FA' },
+    { href: '/admin/deposits',            label: 'Пополнения',       icon: Wallet,          color: '#06B6D4' },
     { href: '/admin/price-control',       label: t.nav.priceControl, icon: TrendingUp,      color: '#22C55E' },
     { href: '/admin/smart-pricing',       label: t.nav.smartPricing, icon: BarChart2,       color: '#F59E0B' },
     { href: '/admin/smart-pricing/games', label: t.nav.gamePricing,  icon: Gamepad2,        color: '#9D60FA' },

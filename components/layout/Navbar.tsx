@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Search, Bell, User, Menu, X, LogOut, TrendingUp, TrendingDown, Heart } from 'lucide-react';
+import { ShoppingCart, Search, Bell, User, Menu, X, LogOut, TrendingUp, TrendingDown, Heart, Wallet } from 'lucide-react';
 import SearchOverlay from '@/components/ui/SearchOverlay';
 import NotificationDropdown from '@/components/user/NotificationDropdown';
 import { useUser } from '@/lib/userContext';
@@ -639,6 +639,24 @@ export default function Navbar() {
               {/* ── LOGIN / USER BUTTON ── */}
               {isLoggedIn && user ? (
                 <div className="hidden sm:flex items-center gap-1.5">
+                  {/* Deposit link */}
+                  <Link
+                    href="/deposit"
+                    className="group relative flex items-center gap-1.5 rounded-xl transition-all duration-200 px-3 py-2"
+                    title="Пополнить баланс"
+                    style={{
+                      background: 'rgba(6,182,212,0.08)',
+                      border: '1px solid rgba(6,182,212,0.2)',
+                      color: '#06B6D4',
+                    }}
+                  >
+                    <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                         style={{ background: 'rgba(6,182,212,0.12)' }} />
+                    <Wallet className="relative z-10 w-[14px] h-[14px]" />
+                    <span className="relative z-10 font-heading font-semibold hidden lg:block" style={{ fontSize: '12px' }}>
+                      Пополнить
+                    </span>
+                  </Link>
                   {/* Wishlist link */}
                   <Link
                     href="/wishlist"
