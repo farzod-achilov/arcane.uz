@@ -163,7 +163,9 @@ export default function AdminOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [search,  setSearch]  = useState('');
   const [tab,     setTab]     = useState<StatusFilter>('ALL');
-  const [completing, setCompleting] = useState<AdminOrder | null>(null);
+  const [completing,    setCompleting]    = useState<AdminOrder | null>(null);
+  const [openStatusId,  setOpenStatusId]  = useState<string | null>(null);
+  const [dropRect,      setDropRect]      = useState<DOMRect | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -185,6 +187,7 @@ export default function AdminOrdersPage() {
   useEffect(() => { load(); }, [load]);
 
   const updateStatus = async (id: string, status: string) => {
+    setOpenStatusId(null);
     await fetch(`/api/admin/orders/${id}`, {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -192,6 +195,20 @@ export default function AdminOrdersPage() {
     });
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
   };
+
+  const toggleStatusDrop = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (openStatusId === id) { setOpenStatusId(null); return; }
+    setDropRect((e.currentTarget as HTMLElement).getBoundingClientRect());
+    setOpenStatusId(id);
+  };
+
+  useEffect(() => {
+    if (!openStatusId) return;
+    const close = () => setOpenStatusId(null);
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [openStatusId]);
 
   const totalCount = Object.values(counts).reduce((s, v) => s + v, 0);
 
@@ -205,6 +222,48 @@ export default function AdminOrdersPage() {
             onClose={() => setCompleting(null)}
             onDone={() => { setCompleting(null); load(); }}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Status dropdown — fixed to avoid overflow clipping */}
+      <AnimatePresence>
+        {openStatusId && dropRect && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.96 }}
+            transition={{ duration: 0.12 }}
+            onMouseDown={e => e.stopPropagation()}
+            style={{
+              position:  'fixed',
+              top:       dropRect.bottom + 4,
+              left:      dropRect.left,
+              zIndex:    9999,
+              width:     '160px',
+              background: '#0D0D1A',
+              border:    '1px solid rgba(255,255,255,0.12)',
+              borderRadius: '12px',
+              overflow:  'hidden',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
+            }}
+          >
+            {ALL_STATUSES.map(s => {
+              const cfg     = STATUS_CFG[s];
+              const current = orders.find(o => o.id === openStatusId)?.status === s;
+              return (
+                <button
+                  key={s}
+                  onClick={() => updateStatus(openStatusId, s)}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-white/[0.04]"
+                  style={{ color: current ? cfg.color : '#6B7280', fontSize: '12px' }}
+                >
+                  <cfg.icon style={{ width: '10px', height: '10px', color: cfg.color, flexShrink: 0 }} />
+                  <span className="font-body">{cfg.label}</span>
+                  {current && <span className="ml-auto font-body" style={{ fontSize: '10px', color: cfg.color }}>✓</span>}
+                </button>
+              );
+            })}
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -380,38 +439,16 @@ export default function AdminOrdersPage() {
 
                     {/* Status */}
                     <td className="px-4 py-3">
-                      <div className="relative group/status">
-                        <div
-                          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 cursor-pointer"
-                          style={{ background: sc.bg, border: `1px solid ${sc.border}` }}
-                        >
-                          <sc.icon style={{ width: '9px', height: '9px', color: sc.color }} />
-                          <span className="font-body" style={{ fontSize: '10.5px', color: sc.color }}>{sc.label}</span>
-                          <ChevronDown style={{ width: '9px', height: '9px', color: sc.color }} />
-                        </div>
-                        {/* Status dropdown */}
-                        <div
-                          className="absolute top-full left-0 mt-1 w-40 rounded-xl overflow-hidden z-10 opacity-0 pointer-events-none group-hover/status:opacity-100 group-hover/status:pointer-events-auto transition-opacity"
-                          style={{ background: '#0D0D1A', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
-                        >
-                          {ALL_STATUSES.map(s => {
-                            const cfg = STATUS_CFG[s];
-                            return (
-                              <button
-                                key={s}
-                                onClick={() => updateStatus(order.id, s)}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-left transition-colors"
-                                style={{ color: s === order.status ? cfg.color : '#6B7280', fontSize: '12px' }}
-                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${cfg.color}08`; }}
-                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                              >
-                                <cfg.icon style={{ width: '10px', height: '10px', color: cfg.color }} />
-                                <span className="font-body">{cfg.label}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
+                      <button
+                        onClick={e => toggleStatusDrop(e, order.id)}
+                        className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 cursor-pointer transition-opacity hover:opacity-80"
+                        style={{ background: sc.bg, border: `1px solid ${sc.border}` }}
+                      >
+                        <sc.icon style={{ width: '9px', height: '9px', color: sc.color }} />
+                        <span className="font-body" style={{ fontSize: '10.5px', color: sc.color }}>{sc.label}</span>
+                        <ChevronDown style={{ width: '9px', height: '9px', color: sc.color,
+                          transform: openStatusId === order.id ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+                      </button>
                     </td>
 
                     {/* Date */}
