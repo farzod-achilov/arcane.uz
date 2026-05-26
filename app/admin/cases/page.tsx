@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Gift, Star, Zap, TrendingUp, Crown, Sparkles,
-  X, Plus, ToggleLeft, ToggleRight, RefreshCw, Loader2, Wand2,
+  X, Plus, ToggleLeft, ToggleRight, RefreshCw, Loader2, Wand2, Trash2, AlertTriangle,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 
@@ -313,12 +313,14 @@ function AddRewardModal({
 
 /* ── Case card ──────────────────────────────────────────── */
 function CaseCard({
-  item, toggling, onToggle, onAddReward,
+  item, toggling, deleting, onToggle, onAddReward, onDelete,
 }: {
-  item: DBCase; toggling: boolean;
+  item: DBCase; toggling: boolean; deleting: boolean;
   onToggle: () => void;
   onAddReward: (c: DBCase) => void;
+  onDelete: (c: DBCase) => void;
 }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const rarityKey = themeToRarity(item.theme);
   const meta      = RARITY_META[rarityKey];
   const RarityIcon = meta.icon;
@@ -364,22 +366,31 @@ function CaseCard({
             </div>
           </div>
 
-          <button
-            onClick={onToggle} disabled={toggling}
-            title={item.isActive ? 'Деактивировать' : 'Активировать'}
-            className="flex items-center gap-1 rounded-xl px-2.5 py-1.5 transition-all disabled:opacity-50 flex-shrink-0"
-            style={{
-              background: item.isActive ? 'rgba(34,197,94,0.1)' : 'rgba(107,114,128,0.1)',
-              border: item.isActive ? '1px solid rgba(34,197,94,0.25)' : '1px solid rgba(107,114,128,0.2)',
-              color:  item.isActive ? '#22C55E' : '#6B7280',
-            }}>
-            {toggling
-              ? <Loader2 style={{ width: '12px', height: '12px' }} className="animate-spin" />
-              : item.isActive
-                ? <ToggleRight style={{ width: '14px', height: '14px' }} />
-                : <ToggleLeft  style={{ width: '14px', height: '14px' }} />}
-            <span className="font-body" style={{ fontSize: '10px' }}>{item.isActive ? 'Активен' : 'Выкл'}</span>
-          </button>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <button
+              onClick={onToggle} disabled={toggling}
+              title={item.isActive ? 'Деактивировать' : 'Активировать'}
+              className="flex items-center gap-1 rounded-xl px-2.5 py-1.5 transition-all disabled:opacity-50"
+              style={{
+                background: item.isActive ? 'rgba(34,197,94,0.1)' : 'rgba(107,114,128,0.1)',
+                border: item.isActive ? '1px solid rgba(34,197,94,0.25)' : '1px solid rgba(107,114,128,0.2)',
+                color:  item.isActive ? '#22C55E' : '#6B7280',
+              }}>
+              {toggling
+                ? <Loader2 style={{ width: '12px', height: '12px' }} className="animate-spin" />
+                : item.isActive
+                  ? <ToggleRight style={{ width: '14px', height: '14px' }} />
+                  : <ToggleLeft  style={{ width: '14px', height: '14px' }} />}
+              <span className="font-body" style={{ fontSize: '10px' }}>{item.isActive ? 'Активен' : 'Выкл'}</span>
+            </button>
+            <button
+              onClick={() => setConfirmDelete(true)}
+              title="Удалить кейс"
+              className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:opacity-90"
+              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444' }}>
+              <Trash2 style={{ width: '12px', height: '12px' }} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -449,6 +460,39 @@ function CaseCard({
           <Plus style={{ width: '11px', height: '11px' }} />
           Добавить награду
         </button>
+
+        {/* Delete confirmation */}
+        <AnimatePresence>
+          {confirmDelete && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden mt-3"
+            >
+              <div className="rounded-xl p-3 flex items-center gap-3"
+                   style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                <AlertTriangle style={{ width: '14px', height: '14px', color: '#EF4444', flexShrink: 0 }} />
+                <p className="font-body text-[#FCA5A5] flex-1" style={{ fontSize: '11px' }}>
+                  Удалить кейс и все его награды?
+                </p>
+                <div className="flex gap-1.5">
+                  <button onClick={() => setConfirmDelete(false)}
+                    className="rounded-lg px-2.5 py-1 font-body transition-all"
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#6B7280', fontSize: '11px' }}>
+                    Нет
+                  </button>
+                  <button
+                    onClick={() => { setConfirmDelete(false); onDelete(item); }}
+                    disabled={deleting}
+                    className="rounded-lg px-2.5 py-1 font-body transition-all disabled:opacity-50 flex items-center gap-1"
+                    style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.35)', color: '#EF4444', fontSize: '11px' }}>
+                    {deleting ? <Loader2 style={{ width: '10px', height: '10px' }} className="animate-spin" /> : null}
+                    Удалить
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   );
@@ -462,6 +506,7 @@ export default function AdminCasesPage() {
   const [showCreate,  setShowCreate] = useState(false);
   const [addRewardTo, setAddRewardTo]= useState<DBCase | null>(null);
   const [seeding,     setSeeding]    = useState(false);
+  const [deleting,    setDeleting]   = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -492,6 +537,14 @@ export default function AdminCasesPage() {
       await fetch('/api/admin/cases/seed', { method: 'POST' });
       await load();
     } finally { setSeeding(false); }
+  }
+
+  async function deleteCase(c: DBCase) {
+    setDeleting(c.id);
+    try {
+      await fetch(`/api/admin/cases/${c.id}`, { method: 'DELETE' });
+      setCases(prev => prev.filter(x => x.id !== c.id));
+    } finally { setDeleting(null); }
   }
 
   function handleCreated(newCase: DBCase) {
@@ -605,8 +658,10 @@ export default function AdminCasesPage() {
                 <CaseCard
                   item={item}
                   toggling={toggling === item.id}
+                  deleting={deleting === item.id}
                   onToggle={() => toggleActive(item)}
                   onAddReward={setAddRewardTo}
+                  onDelete={deleteCase}
                 />
               </motion.div>
             ))}
