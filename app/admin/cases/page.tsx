@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Gift, Star, Zap, TrendingUp, Crown, Sparkles,
-  X, Plus, ToggleLeft, ToggleRight, RefreshCw, Loader2, Trash2,
+  X, Plus, ToggleLeft, ToggleRight, RefreshCw, Loader2, Wand2,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 
@@ -461,6 +461,7 @@ export default function AdminCasesPage() {
   const [toggling,    setToggling]   = useState<string | null>(null);
   const [showCreate,  setShowCreate] = useState(false);
   const [addRewardTo, setAddRewardTo]= useState<DBCase | null>(null);
+  const [seeding,     setSeeding]    = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -483,6 +484,14 @@ export default function AdminCasesPage() {
       const data = await res.json();
       if (data.ok) setCases(prev => prev.map(x => x.id === c.id ? { ...x, isActive: data.case.isActive } : x));
     } finally { setToggling(null); }
+  }
+
+  async function seedDefaults() {
+    setSeeding(true);
+    try {
+      await fetch('/api/admin/cases/seed', { method: 'POST' });
+      await load();
+    } finally { setSeeding(false); }
   }
 
   function handleCreated(newCase: DBCase) {
@@ -515,6 +524,14 @@ export default function AdminCasesPage() {
             className="flex items-center gap-2 rounded-xl px-3 py-2 font-heading font-semibold text-sm transition-all disabled:opacity-50"
             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#6B7280' }}>
             <RefreshCw style={{ width: '13px', height: '13px' }} className={loading ? 'animate-spin' : ''} />
+          </button>
+          <button onClick={seedDefaults} disabled={seeding || loading}
+            className="flex items-center gap-2 rounded-xl px-4 py-2.5 font-heading font-semibold transition-all disabled:opacity-50"
+            style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: '#F59E0B', fontSize: '13px' }}>
+            {seeding
+              ? <Loader2 style={{ width: '13px', height: '13px' }} className="animate-spin" />
+              : <Wand2 style={{ width: '13px', height: '13px' }} />}
+            Дефолт кейсы
           </button>
           <button onClick={() => setShowCreate(true)}
             className="flex items-center gap-2 rounded-xl px-4 py-2.5 font-heading font-semibold text-white transition-all"
@@ -563,12 +580,22 @@ export default function AdminCasesPage() {
             <p className="font-heading font-bold text-white mb-1" style={{ fontSize: '16px' }}>Кейсов нет</p>
             <p className="font-body text-[#374151]" style={{ fontSize: '13px' }}>Создайте первый Mystery Case</p>
           </div>
-          <button onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 rounded-xl px-5 py-2.5 font-heading font-semibold text-white transition-all"
-            style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', fontSize: '13px' }}>
-            <Plus style={{ width: '14px', height: '14px' }} />
-            Создать кейс
-          </button>
+          <div className="flex items-center gap-3">
+            <button onClick={seedDefaults} disabled={seeding}
+              className="flex items-center gap-2 rounded-xl px-5 py-2.5 font-heading font-semibold transition-all disabled:opacity-50"
+              style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: '#F59E0B', fontSize: '13px' }}>
+              {seeding
+                ? <Loader2 style={{ width: '14px', height: '14px' }} className="animate-spin" />
+                : <Wand2 style={{ width: '14px', height: '14px' }} />}
+              {seeding ? 'Создание...' : 'Дефолт кейсы'}
+            </button>
+            <button onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 rounded-xl px-5 py-2.5 font-heading font-semibold text-white transition-all"
+              style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', fontSize: '13px' }}>
+              <Plus style={{ width: '14px', height: '14px' }} />
+              Создать кейс
+            </button>
+          </div>
         </div>
       ) : (
         <div className="grid lg:grid-cols-3 gap-5">
