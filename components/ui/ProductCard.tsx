@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Star, ShoppingCart, Heart, Zap, Check } from 'lucide-react';
+import { Star, ShoppingCart, Heart, Zap, Check, X } from 'lucide-react';
 import { Product } from '@/lib/types';
 import { formatPrice } from '@/lib/utils';
 import { useUser } from '@/lib/userContext';
@@ -28,8 +27,7 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
   const badge = product.badge ? badgeCfg[product.badge] : null;
   const { isLoggedIn, isInWishlist, addToWishlist, removeFromWishlist } = useUser();
   const wishlisted = isInWishlist(product.id);
-  const { addGame, has } = useCart();
-  const router = useRouter();
+  const { addGame, removeGame, has } = useCart();
   const [justAdded, setJustAdded] = useState(false);
   const inCart = has(product.id);
 
@@ -42,7 +40,7 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
   const handleCart = (e: React.MouseEvent) => {
     e.preventDefault();
     if (inCart) {
-      router.push('/checkout');
+      removeGame(product.id);
       return;
     }
     addGame(product.id);
@@ -276,25 +274,48 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
               </div>
 
               {/* Cart button — appears on hover */}
-              <motion.button
-                onClick={handleCart}
-                whileTap={{ scale: 0.9 }}
-                className="w-8 h-8 flex items-center justify-center rounded-lg flex-shrink-0 transition-all duration-200 opacity-0 group-hover:opacity-100"
-                style={{
-                  background: justAdded || inCart
-                    ? 'linear-gradient(135deg, #22C55E, #16A34A)'
-                    : 'linear-gradient(135deg, #7C3AED, #5B21B6)',
-                  boxShadow: justAdded || inCart
-                    ? '0 0 12px rgba(34,197,94,0.5)'
-                    : '0 0 0 1px rgba(124,58,237,0.35)',
-                  color: '#fff',
-                }}
-                title={inCart ? 'Перейти в корзину' : 'Добавить в корзину'}
-              >
-                {justAdded || inCart
-                  ? <Check className="w-3.5 h-3.5" />
-                  : <ShoppingCart className="w-3.5 h-3.5" />}
-              </motion.button>
+              {inCart ? (
+                <motion.button
+                  onClick={handleCart}
+                  whileTap={{ scale: 0.9 }}
+                  className="cart-btn w-8 h-8 flex items-center justify-center rounded-lg flex-shrink-0 opacity-0 group-hover:opacity-100"
+                  style={{ color: '#fff' }}
+                  title="Убрать из корзины"
+                >
+                  <span className="cart-btn-default" style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: '100%', height: '100%', borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #22C55E, #16A34A)',
+                    boxShadow: '0 0 10px rgba(34,197,94,0.4)',
+                    transition: 'all 0.15s ease',
+                  }}>
+                    <Check className="w-3.5 h-3.5" />
+                  </span>
+                  <span className="cart-btn-hover" style={{
+                    display: 'none', alignItems: 'center', justifyContent: 'center',
+                    width: '100%', height: '100%', borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #EF4444, #B91C1C)',
+                    boxShadow: '0 0 10px rgba(239,68,68,0.4)',
+                  }}>
+                    <X className="w-3.5 h-3.5" />
+                  </span>
+                  <style>{`.cart-btn:hover .cart-btn-default{display:none!important}.cart-btn:hover .cart-btn-hover{display:flex!important}`}</style>
+                </motion.button>
+              ) : (
+                <motion.button
+                  onClick={handleCart}
+                  whileTap={{ scale: 0.9 }}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg flex-shrink-0 transition-all duration-200 opacity-0 group-hover:opacity-100"
+                  style={{
+                    background: justAdded ? 'linear-gradient(135deg, #22C55E, #16A34A)' : 'linear-gradient(135deg, #7C3AED, #5B21B6)',
+                    boxShadow: justAdded ? '0 0 12px rgba(34,197,94,0.5)' : '0 0 0 1px rgba(124,58,237,0.35)',
+                    color: '#fff',
+                  }}
+                  title="Добавить в корзину"
+                >
+                  {justAdded ? <Check className="w-3.5 h-3.5" /> : <ShoppingCart className="w-3.5 h-3.5" />}
+                </motion.button>
+              )}
             </div>
           </div>
         </div>
