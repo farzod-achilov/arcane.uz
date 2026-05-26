@@ -10,16 +10,33 @@ export async function GET(req: Request) {
   if (!session?.user?.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const { searchParams } = new URL(req.url);
-  const q        = searchParams.get('q')        ?? '';
-  const page     = Math.max(1, parseInt(searchParams.get('page') ?? '1'));
-  const limit    = 20;
+  const q            = searchParams.get('q')            ?? '';
+  const status       = searchParams.get('status')       ?? 'ALL';   // ALL | ACTIVE | HIDDEN
+  const delivery     = searchParams.get('delivery')     ?? 'ALL';   // ALL | AUTO | MANUAL
+  const stock        = searchParams.get('stock')        ?? 'ALL';   // ALL | IN | OUT
+  const sortBy       = searchParams.get('sortBy')       ?? 'createdAt';
+  const sortDir      = searchParams.get('sortDir')      === 'asc' ? 'asc' : 'desc';
+  const page         = Math.max(1, parseInt(searchParams.get('page') ?? '1'));
+  const limit        = 20;
 
-  const where = q ? {
-    OR: [
-      { title:  { contains: q, mode: 'insensitive' as const } },
-      { developer: { contains: q, mode: 'insensitive' as const } },
-    ],
-  } : {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const where: any = {};
+  if (q) {
+    where.OR = [
+      { title:     { contains: q, mode: 'insensitive' } },
+      { developer: { contains: q, mode: 'insensitive' } },
+    ];
+  }
+  if (status   === 'ACTIVE') where.isActive     = true;
+  if (status   === 'HIDDEN') where.isActive     = false;
+  if (delivery === 'AUTO')   where.deliveryType = 'AUTO';
+  if (delivery === 'MANUAL') where.deliveryType = 'MANUAL';
+  if (stock    === 'IN')     where.stockStore   = { gt: 0 };
+  if (stock    === 'OUT')    where.stockStore   = 0;
+
+  const orderBy = sortBy === 'priceUzs'    ? { priceUzs:   sortDir as 'asc'|'desc' }
+                : sortBy === 'stockStore'  ? { stockStore:  sortDir as 'asc'|'desc' }
+                :                           { createdAt:    sortDir as 'asc'|'desc' };
 
   const [games, total] = await Promise.all([
     prisma.games.findMany({
@@ -32,7 +49,7 @@ export async function GET(req: Request) {
         createdAt: true,
         _count: { select: { order_items: true, game_keys: true } },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy,
       skip:    (page - 1) * limit,
       take:    limit,
     }),

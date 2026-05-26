@@ -6,6 +6,7 @@ import Image from 'next/image';
 import {
   Search, Plus, Eye, EyeOff, Edit2, RefreshCw, Wifi, WifiOff,
   CheckCircle2, AlertCircle, Clock, Zap, Hand, Package, X, Save, Loader2, Trash2,
+  ArrowUpDown, SlidersHorizontal,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import AddGameModal from '@/components/admin/keys/AddGameModal';
@@ -265,6 +266,35 @@ function NukeModal({ total, onClose, onDone }: { total: number; onClose: () => v
   );
 }
 
+type StatusFilter   = 'ALL' | 'ACTIVE' | 'HIDDEN';
+type DeliveryFilter = 'ALL' | 'AUTO' | 'MANUAL';
+type StockFilter    = 'ALL' | 'IN' | 'OUT';
+type SortOption     = 'date_desc' | 'date_asc' | 'price_desc' | 'price_asc' | 'stock_desc' | 'stock_asc';
+
+const STATUS_TABS:   { id: StatusFilter;   label: string }[] = [
+  { id: 'ALL',    label: 'Все'      },
+  { id: 'ACTIVE', label: 'Активные' },
+  { id: 'HIDDEN', label: 'Скрытые'  },
+];
+const DELIVERY_TABS: { id: DeliveryFilter; label: string }[] = [
+  { id: 'ALL',    label: 'Все'      },
+  { id: 'AUTO',   label: 'Авто'     },
+  { id: 'MANUAL', label: 'Ручная'   },
+];
+const STOCK_TABS:    { id: StockFilter;    label: string }[] = [
+  { id: 'ALL', label: 'Все'          },
+  { id: 'IN',  label: 'Есть ключи'  },
+  { id: 'OUT', label: 'Нет ключей'  },
+];
+const SORT_OPTIONS:  { id: SortOption; label: string }[] = [
+  { id: 'date_desc',  label: 'Дата ↓'   },
+  { id: 'date_asc',   label: 'Дата ↑'   },
+  { id: 'price_desc', label: 'Цена ↓'   },
+  { id: 'price_asc',  label: 'Цена ↑'   },
+  { id: 'stock_desc', label: 'Склад ↓'  },
+  { id: 'stock_asc',  label: 'Склад ↑'  },
+];
+
 /* ── Page ───────────────────────────────────────────────────── */
 export default function AdminProductsPage() {
   const [games, setGames]         = useState<GameRow[]>([]);
@@ -277,20 +307,33 @@ export default function AdminProductsPage() {
   const [showAdd, setShowAdd]     = useState(false);
   const [showNuke, setShowNuke]   = useState(false);
   const [toggling, setToggling]   = useState<string | null>(null);
+  const [statusFilter,   setStatusFilter]   = useState<StatusFilter>('ALL');
+  const [deliveryFilter, setDeliveryFilter] = useState<DeliveryFilter>('ALL');
+  const [stockFilter,    setStockFilter]    = useState<StockFilter>('ALL');
+  const [sort,           setSort]           = useState<SortOption>('date_desc');
 
-  const load = useCallback(async (p = page, q = search) => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(p), ...(q ? { q } : {}) });
+      const [sortBy, sortDir] = sort.startsWith('price') ? ['priceUzs', sort.endsWith('asc') ? 'asc' : 'desc']
+                              : sort.startsWith('stock') ? ['stockStore', sort.endsWith('asc') ? 'asc' : 'desc']
+                              :                            ['createdAt',  sort.endsWith('asc') ? 'asc' : 'desc'];
+      const params = new URLSearchParams({
+        page:    String(page),
+        sortBy,  sortDir,
+        status:   statusFilter,
+        delivery: deliveryFilter,
+        stock:    stockFilter,
+        ...(search ? { q: search } : {}),
+      });
       const data = await fetch(`/api/admin/games?${params}`).then(r => r.json());
       setGames(data.games ?? []);
       setTotal(data.total ?? 0);
       setPages(data.pages ?? 1);
     } finally { setLoading(false); }
-  }, [page, search]);
+  }, [page, search, statusFilter, deliveryFilter, stockFilter, sort]);
 
-  useEffect(() => { load(1, search); }, [search]); // eslint-disable-line
-  useEffect(() => { load(page, search); }, [page]); // eslint-disable-line
+  useEffect(() => { load(); }, [load]); // eslint-disable-line
 
   async function toggleActive(game: GameRow) {
     setToggling(game.id);
@@ -350,6 +393,98 @@ export default function AdminProductsPage() {
           className="w-full rounded-xl pl-11 pr-4 py-3 font-body text-sm text-white outline-none"
           style={{ background: '#0D0D1A', border: '1px solid rgba(255,255,255,0.07)' }}
         />
+      </div>
+
+      {/* Filters row */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        {/* Status */}
+        <div className="flex items-center gap-1.5">
+          <Eye style={{ width: '11px', height: '11px', color: '#374151' }} />
+          <span className="font-body text-[#374151]" style={{ fontSize: '11px' }}>Статус:</span>
+          {STATUS_TABS.map(t => (
+            <button key={t.id} onClick={() => { setStatusFilter(t.id); setPage(1); }}
+              className="rounded-lg px-2.5 py-1 font-body transition-all duration-150"
+              style={{
+                fontSize: '11px',
+                background: statusFilter === t.id ? 'rgba(34,197,94,0.1)'  : 'rgba(255,255,255,0.03)',
+                border:    `1px solid ${statusFilter === t.id ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.06)'}`,
+                color:      statusFilter === t.id ? '#22C55E' : '#4B5563',
+              }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="h-3.5 w-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
+
+        {/* Delivery */}
+        <div className="flex items-center gap-1.5">
+          <Zap style={{ width: '11px', height: '11px', color: '#374151' }} />
+          <span className="font-body text-[#374151]" style={{ fontSize: '11px' }}>Доставка:</span>
+          {DELIVERY_TABS.map(t => (
+            <button key={t.id} onClick={() => { setDeliveryFilter(t.id); setPage(1); }}
+              className="rounded-lg px-2.5 py-1 font-body transition-all duration-150"
+              style={{
+                fontSize: '11px',
+                background: deliveryFilter === t.id ? 'rgba(6,182,212,0.1)'  : 'rgba(255,255,255,0.03)',
+                border:    `1px solid ${deliveryFilter === t.id ? 'rgba(6,182,212,0.3)' : 'rgba(255,255,255,0.06)'}`,
+                color:      deliveryFilter === t.id ? '#06B6D4' : '#4B5563',
+              }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="h-3.5 w-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
+
+        {/* Stock */}
+        <div className="flex items-center gap-1.5">
+          <Package style={{ width: '11px', height: '11px', color: '#374151' }} />
+          <span className="font-body text-[#374151]" style={{ fontSize: '11px' }}>Склад:</span>
+          {STOCK_TABS.map(t => (
+            <button key={t.id} onClick={() => { setStockFilter(t.id); setPage(1); }}
+              className="rounded-lg px-2.5 py-1 font-body transition-all duration-150"
+              style={{
+                fontSize: '11px',
+                background: stockFilter === t.id ? 'rgba(245,158,11,0.1)'  : 'rgba(255,255,255,0.03)',
+                border:    `1px solid ${stockFilter === t.id ? 'rgba(245,158,11,0.3)' : 'rgba(255,255,255,0.06)'}`,
+                color:      stockFilter === t.id ? '#F59E0B' : '#4B5563',
+              }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="h-3.5 w-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
+
+        {/* Sort */}
+        <div className="flex items-center gap-1.5">
+          <ArrowUpDown style={{ width: '11px', height: '11px', color: '#374151' }} />
+          <span className="font-body text-[#374151]" style={{ fontSize: '11px' }}>Сортировка:</span>
+          <select
+            value={sort}
+            onChange={e => { setSort(e.target.value as SortOption); setPage(1); }}
+            className="rounded-lg px-2.5 py-1 font-body outline-none cursor-pointer"
+            style={{
+              fontSize: '11px', background: '#0D0D1A',
+              border: '1px solid rgba(124,58,237,0.25)', color: '#9D60FA',
+            }}
+          >
+            {SORT_OPTIONS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+          </select>
+        </div>
+
+        {/* Reset */}
+        {(statusFilter !== 'ALL' || deliveryFilter !== 'ALL' || stockFilter !== 'ALL' || sort !== 'date_desc') && (
+          <button
+            onClick={() => { setStatusFilter('ALL'); setDeliveryFilter('ALL'); setStockFilter('ALL'); setSort('date_desc'); setPage(1); }}
+            className="ml-auto flex items-center gap-1.5 rounded-lg px-2.5 py-1 font-body transition-all hover:opacity-80"
+            style={{ fontSize: '11px', color: '#EF4444', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.15)' }}
+          >
+            <X style={{ width: '10px', height: '10px' }} />
+            Сбросить
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -500,7 +635,7 @@ export default function AdminProductsPage() {
       {showAdd && (
         <AddGameModal
           onClose={() => setShowAdd(false)}
-          onSuccess={() => { setShowAdd(false); load(1, search); }}
+          onSuccess={() => { setShowAdd(false); load(); }}
         />
       )}
     </div>
