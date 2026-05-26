@@ -6,7 +6,7 @@ import Image from 'next/image';
 import {
   Search, Clock, CheckCircle2, RefreshCw, X,
   ChevronDown, Send, Key, Package, AlertCircle, Check,
-  Hourglass, Ban,
+  Hourglass, Ban, Calendar, ArrowUpDown,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 
@@ -28,6 +28,33 @@ interface AdminOrder {
 }
 
 type StatusFilter = 'ALL' | 'PENDING' | 'PAID' | 'WAITING_MANUAL' | 'COMPLETED' | 'CANCELLED';
+type DatePreset   = 'ALL' | 'TODAY' | 'WEEK' | 'MONTH';
+type SortOption   = 'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc';
+
+const DATE_PRESETS: { id: DatePreset; label: string }[] = [
+  { id: 'ALL',   label: 'Всё время' },
+  { id: 'TODAY', label: 'Сегодня'   },
+  { id: 'WEEK',  label: '7 дней'    },
+  { id: 'MONTH', label: '30 дней'   },
+];
+
+const SORT_OPTIONS: { id: SortOption; label: string }[] = [
+  { id: 'date_desc',   label: 'Дата ↓'   },
+  { id: 'date_asc',    label: 'Дата ↑'   },
+  { id: 'amount_desc', label: 'Сумма ↓'  },
+  { id: 'amount_asc',  label: 'Сумма ↑'  },
+];
+
+function getDateRange(preset: DatePreset): { dateFrom: string; dateTo: string } {
+  if (preset === 'ALL') return { dateFrom: '', dateTo: '' };
+  const now   = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (preset === 'TODAY') {
+    return { dateFrom: today.toISOString(), dateTo: new Date(today.getTime() + 86400000).toISOString() };
+  }
+  const days = preset === 'WEEK' ? 7 : 30;
+  return { dateFrom: new Date(today.getTime() - days * 86400000).toISOString(), dateTo: '' };
+}
 
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string; border: string; icon: React.ElementType }> = {
   PENDING:        { label: 'Ожидает',      color: '#F59E0B', bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.22)',  icon: Clock          },
@@ -160,9 +187,11 @@ export default function AdminOrdersPage() {
   const [total,   setTotal]   = useState(0);
   const [pages,   setPages]   = useState(1);
   const [page,    setPage]    = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [search,  setSearch]  = useState('');
-  const [tab,     setTab]     = useState<StatusFilter>('ALL');
+  const [loading,    setLoading]    = useState(true);
+  const [search,     setSearch]     = useState('');
+  const [tab,        setTab]        = useState<StatusFilter>('ALL');
+  const [datePreset, setDatePreset] = useState<DatePreset>('ALL');
+  const [sort,       setSort]       = useState<SortOption>('date_desc');
   const [completing,    setCompleting]    = useState<AdminOrder | null>(null);
   const [openStatusId,  setOpenStatusId]  = useState<string | null>(null);
   const [dropRect,      setDropRect]      = useState<DOMRect | null>(null);
@@ -170,10 +199,16 @@ export default function AdminOrdersPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      const { dateFrom, dateTo } = getDateRange(datePreset);
+      const [sortBy, sortDir]    = sort.includes('amount') ? ['totalPrice', sort.endsWith('asc') ? 'asc' : 'desc'] : ['createdAt', sort.endsWith('asc') ? 'asc' : 'desc'];
       const qs = new URLSearchParams({
-        page:   String(page),
-        ...(tab    !== 'ALL' ? { status: tab }    : {}),
-        ...(search.trim()   ? { q:      search }  : {}),
+        page:    String(page),
+        sortBy,
+        sortDir,
+        ...(tab    !== 'ALL'  ? { status:   tab      } : {}),
+        ...(search.trim()     ? { q:        search   } : {}),
+        ...(dateFrom          ? { dateFrom            } : {}),
+        ...(dateTo            ? { dateTo              } : {}),
       });
       const res  = await fetch(`/api/admin/orders?${qs}`);
       const data = await res.json();
@@ -182,7 +217,7 @@ export default function AdminOrdersPage() {
       setTotal(data.total    ?? 0);
       setPages(data.pages    ?? 1);
     } finally { setLoading(false); }
-  }, [page, tab, search]);
+  }, [page, tab, search, datePreset, sort]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -344,6 +379,68 @@ export default function AdminOrdersPage() {
             </button>
           )}
         </div>
+      </motion.div>
+
+      {/* Date + Sort filters */}
+      <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+        className="flex flex-wrap items-center gap-2">
+
+        {/* Date presets */}
+        <div className="flex items-center gap-1.5">
+          <Calendar style={{ width: '12px', height: '12px', color: '#374151', flexShrink: 0 }} />
+          <span className="font-body text-[#374151]" style={{ fontSize: '11px' }}>Период:</span>
+          {DATE_PRESETS.map(d => (
+            <button
+              key={d.id}
+              onClick={() => { setDatePreset(d.id); setPage(1); }}
+              className="rounded-lg px-2.5 py-1 font-body transition-all duration-150"
+              style={{
+                fontSize: '11px',
+                background: datePreset === d.id ? 'rgba(6,182,212,0.12)' : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${datePreset === d.id ? 'rgba(6,182,212,0.3)' : 'rgba(255,255,255,0.06)'}`,
+                color: datePreset === d.id ? '#06B6D4' : '#4B5563',
+              }}
+            >
+              {d.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Divider */}
+        <div className="h-4 w-px mx-1" style={{ background: 'rgba(255,255,255,0.07)' }} />
+
+        {/* Sort */}
+        <div className="flex items-center gap-1.5">
+          <ArrowUpDown style={{ width: '12px', height: '12px', color: '#374151', flexShrink: 0 }} />
+          <span className="font-body text-[#374151]" style={{ fontSize: '11px' }}>Сортировка:</span>
+          {SORT_OPTIONS.map(s => (
+            <button
+              key={s.id}
+              onClick={() => { setSort(s.id); setPage(1); }}
+              className="rounded-lg px-2.5 py-1 font-body transition-all duration-150"
+              style={{
+                fontSize: '11px',
+                background: sort === s.id ? 'rgba(124,58,237,0.12)' : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${sort === s.id ? 'rgba(124,58,237,0.3)' : 'rgba(255,255,255,0.06)'}`,
+                color: sort === s.id ? '#9D60FA' : '#4B5563',
+              }}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Active filters summary */}
+        {(datePreset !== 'ALL' || sort !== 'date_desc') && (
+          <button
+            onClick={() => { setDatePreset('ALL'); setSort('date_desc'); setPage(1); }}
+            className="ml-auto flex items-center gap-1.5 rounded-lg px-2.5 py-1 font-body transition-all hover:opacity-80"
+            style={{ fontSize: '11px', color: '#EF4444', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.15)' }}
+          >
+            <X style={{ width: '10px', height: '10px' }} />
+            Сбросить фильтры
+          </button>
+        )}
       </motion.div>
 
       {/* Table */}

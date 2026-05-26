@@ -10,10 +10,14 @@ export async function GET(req: Request) {
   if (!session?.user?.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const { searchParams } = new URL(req.url);
-  const q      = searchParams.get('q')      ?? '';
-  const status = searchParams.get('status') ?? '';
-  const page   = Math.max(1, parseInt(searchParams.get('page') ?? '1'));
-  const limit  = 25;
+  const q        = searchParams.get('q')        ?? '';
+  const status   = searchParams.get('status')   ?? '';
+  const dateFrom = searchParams.get('dateFrom') ?? '';
+  const dateTo   = searchParams.get('dateTo')   ?? '';
+  const sortBy   = searchParams.get('sortBy')   ?? 'createdAt';
+  const sortDir  = searchParams.get('sortDir')  === 'asc' ? 'asc' : 'desc';
+  const page     = Math.max(1, parseInt(searchParams.get('page') ?? '1'));
+  const limit    = 25;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = {};
@@ -26,6 +30,16 @@ export async function GET(req: Request) {
       { items: { some: { game: { title: { contains: q, mode: 'insensitive' } } } } },
     ];
   }
+  if (dateFrom || dateTo) {
+    where.createdAt = {
+      ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
+      ...(dateTo   ? { lte: new Date(dateTo)   } : {}),
+    };
+  }
+
+  const orderBy = sortBy === 'totalPrice'
+    ? { totalPrice: sortDir as 'asc' | 'desc' }
+    : { createdAt:  sortDir as 'asc' | 'desc' };
 
   const [orders, total, statusGroups] = await Promise.all([
     prisma.orders.findMany({
@@ -50,7 +64,7 @@ export async function GET(req: Request) {
           },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy,
       skip: (page - 1) * limit,
       take: limit,
     }),
