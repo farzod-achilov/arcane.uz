@@ -1,281 +1,242 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, DollarSign, ShoppingBag, Users, Zap } from 'lucide-react';
-import { ANALYTICS_DAILY, ADMIN_ORDERS, ADMIN_PRODUCTS } from '@/lib/admin/mockAdminData';
+import { TrendingUp, DollarSign, ShoppingBag, Users, Package, Gamepad2, RefreshCw } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 
-/* ── Animated Bar Chart ──────────────────────────────── */
-function BarChart({
-  data, color = '#7C3AED', height = 160,
-}: {
+/* ── Types ─────────────────────────────────────────────────────── */
+interface DayData   { label: string; date: string; revenue: number; orders: number; newUsers: number }
+interface TopGame   { gameId: string; title: string; cover: string | null; slug: string; sales: number; revenue: number }
+interface Analytics {
+  kpis:       { revenue7: number; orders7: number; newUsers7: number; totalRevenue: number; totalGames: number; totalUsers: number };
+  daily:      DayData[];
+  topGames:   TopGame[];
+  statusDist: Record<string, number>;
+}
+
+/* ── Bar Chart ─────────────────────────────────────────────────── */
+function BarChart({ data, color, height = 160, format }: {
   data: { label: string; value: number }[];
-  color?: string;
+  color: string;
   height?: number;
+  format?: (v: number) => string;
 }) {
-  const max = Math.max(...data.map(d => d.value));
+  const max = Math.max(...data.map(d => d.value), 1);
+  const fmt = format ?? (v => v > 999999 ? `${(v/1000000).toFixed(1)}M` : v > 999 ? `${(v/1000).toFixed(0)}K` : String(v));
   return (
-    <div className="flex items-end gap-2 w-full" style={{ height }}>
+    <div className="flex items-end gap-1.5 w-full" style={{ height }}>
       {data.map((d, i) => (
         <div key={d.label} className="flex-1 flex flex-col items-center gap-1.5">
-          <span className="font-body text-[#374151]" style={{ fontSize: '9.5px' }}>
-            {d.value > 1000000
-              ? `${(d.value / 1000000).toFixed(1)}M`
-              : d.value > 999 ? `${(d.value / 1000).toFixed(0)}K` : d.value}
-          </span>
+          <span className="font-body text-[#374151]" style={{ fontSize: '9px' }}>{d.value > 0 ? fmt(d.value) : ''}</span>
           <motion.div
             initial={{ height: 0 }}
-            animate={{ height: `${Math.round((d.value / max) * (height - 28))}px` }}
-            transition={{ delay: i * 0.07, duration: 0.65, ease: 'easeOut' }}
+            animate={{ height: `${Math.max(4, Math.round((d.value / max) * (height - 32)))}px` }}
+            transition={{ delay: i * 0.06, duration: 0.6, ease: 'easeOut' }}
             className="w-full rounded-t-lg"
-            style={{
-              background: `linear-gradient(180deg, ${color}, ${color}60)`,
-              boxShadow: `0 0 8px ${color}30`,
-              minHeight: '4px',
-            }}
+            style={{ background: `linear-gradient(180deg, ${color}, ${color}55)`, boxShadow: `0 0 8px ${color}30`, minHeight: '4px' }}
           />
-          <span className="font-body text-[#2D2D44]" style={{ fontSize: '9px' }}>
-            {d.label.split(' ')[0]}
-          </span>
+          <span className="font-body text-[#374151]" style={{ fontSize: '9px' }}>{d.label}</span>
         </div>
       ))}
     </div>
   );
 }
 
-/* ── Horizontal Bar ──────────────────────────────────── */
-function HBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <p className="font-body text-[#6B7280] w-28 truncate flex-shrink-0" style={{ fontSize: '12px' }}>{label}</p>
-      <div className="flex-1 h-2 rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }}>
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${(value / max) * 100}%` }}
-          transition={{ duration: 0.8, ease: 'easeOut' }}
-          className="h-full rounded-full"
-          style={{ background: color, boxShadow: `0 0 6px ${color}50` }}
-        />
-      </div>
-      <p className="font-heading font-semibold w-10 text-right" style={{ fontSize: '12px', color }}>{value}</p>
-    </div>
-  );
-}
-
-/* ── Donut Chart ─────────────────────────────────────── */
-function DonutChart({ segments }: {
-  segments: { label: string; value: number; color: string }[];
-}) {
-  const total = segments.reduce((s, d) => s + d.value, 0);
-  const size = 120;
-  const r = 45;
-  const cx = size / 2;
-  const cy = size / 2;
-  const circumference = 2 * Math.PI * r;
-
-  let offset = 0;
-  return (
-    <div className="flex items-center gap-6">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="flex-shrink-0">
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="12" />
-        {segments.map((seg, i) => {
-          const pct = seg.value / total;
-          const dashArray = `${circumference * pct} ${circumference * (1 - pct)}`;
-          const dashOffset = -offset * circumference;
-          offset += pct;
-          return (
-            <motion.circle
-              key={seg.label}
-              cx={cx} cy={cy} r={r}
-              fill="none"
-              stroke={seg.color}
-              strokeWidth="12"
-              strokeDasharray={`0 ${circumference}`}
-              animate={{ strokeDasharray: dashArray, strokeDashoffset: dashOffset }}
-              transition={{ duration: 0.8, delay: i * 0.1, ease: 'easeOut' }}
-              strokeLinecap="round"
-              transform={`rotate(-90 ${cx} ${cy})`}
-            />
-          );
-        })}
-        <text x={cx} y={cy + 4} textAnchor="middle" fill="white" fontSize="14" fontFamily="'Space Grotesk'" fontWeight="700">
-          {total}
-        </text>
-      </svg>
-      <div className="space-y-2">
-        {segments.map(seg => (
-          <div key={seg.label} className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: seg.color }} />
-            <span className="font-body text-[#6B7280]" style={{ fontSize: '11.5px' }}>{seg.label}</span>
-            <span className="font-heading font-semibold ml-1" style={{ fontSize: '11.5px', color: seg.color }}>{seg.value}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+/* ── Status badge ──────────────────────────────────────────────── */
+const STATUS_CFG: Record<string, { label: string; color: string }> = {
+  PENDING:        { label: 'Ожидает',    color: '#6B7280' },
+  PAID:           { label: 'Оплачен',    color: '#F59E0B' },
+  WAITING_MANUAL: { label: 'Ждёт доставки', color: '#FB923C' },
+  COMPLETED:      { label: 'Выполнен',   color: '#22C55E' },
+  CANCELLED:      { label: 'Отменён',    color: '#EF4444' },
+};
 
 export default function AdminAnalyticsPage() {
-  const totalRev   = ANALYTICS_DAILY.reduce((s, d) => s + d.revenue, 0);
-  const totalOrders= ANALYTICS_DAILY.reduce((s, d) => s + d.orders, 0);
-  const totalUsers = ANALYTICS_DAILY.reduce((s, d) => s + d.newUsers, 0);
-  const totalCoins = ANALYTICS_DAILY.reduce((s, d) => s + d.coinsEarned, 0);
+  const [data, setData]       = useState<Analytics | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  /* Top products by sales from ADMIN_PRODUCTS */
-  const topProducts = [...ADMIN_PRODUCTS].sort((a, b) => b.totalSales - a.totalSales).slice(0, 5);
-  const maxSales    = topProducts[0]?.totalSales ?? 1;
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/analytics');
+      setData(await res.json());
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  /* Platform distribution */
-  const platformCount = ADMIN_ORDERS.reduce((acc, o) => ({ ...acc, [o.platform]: (acc[o.platform] ?? 0) + 1 }), {} as Record<string, number>);
-  const totalOrdersAll = ADMIN_ORDERS.length;
+  useEffect(() => { load(); }, []);
 
-  /* Order status distribution */
-  const statusCounts = ADMIN_ORDERS.reduce((acc, o) => ({ ...acc, [o.status]: (acc[o.status] ?? 0) + 1 }), {} as Record<string, number>);
+  if (loading || !data) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center gap-2 text-[#4B5563] mb-6">
+          <RefreshCw className="w-4 h-4 animate-spin" />
+          <span className="font-body text-sm">Загрузка данных…</span>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="rounded-2xl h-24 animate-pulse" style={{ background: '#0D0D1A' }} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const { kpis, daily, topGames, statusDist } = data;
+  const maxSales = Math.max(...topGames.map(g => g.sales), 1);
+  const totalStatusOrders = Object.values(statusDist).reduce((s, v) => s + v, 0);
 
   return (
     <div className="p-6 space-y-5">
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-        <p className="font-pixel mb-1" style={{ fontSize: '8px', color: '#7C3AED', letterSpacing: '0.14em' }}>АНАЛИТИКА</p>
-        <h1 className="font-heading font-bold text-white" style={{ fontSize: '22px' }}>Аналитика</h1>
-        <p className="font-body text-[#4B5563]" style={{ fontSize: '12px' }}>За последние 7 дней</p>
-      </motion.div>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="font-pixel mb-1" style={{ fontSize: '8px', color: '#7C3AED', letterSpacing: '0.14em' }}>АНАЛИТИКА</p>
+          <h1 className="font-heading font-bold text-white" style={{ fontSize: '22px' }}>Аналитика</h1>
+          <p className="font-body text-[#4B5563]" style={{ fontSize: '12px' }}>За последние 7 дней · реальные данные</p>
+        </div>
+        <button
+          onClick={load}
+          className="flex items-center gap-2 rounded-xl px-4 py-2 font-heading font-semibold text-sm transition-all"
+          style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.25)', color: '#A78BFA' }}
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          Обновить
+        </button>
+      </div>
 
-      {/* Summary row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         {[
-          { label: 'Выручка',  value: formatPrice(totalRev),                color: '#22C55E', icon: DollarSign, change: '+18.4%' },
-          { label: 'Заказы',   value: String(totalOrders),                   color: '#7C3AED', icon: ShoppingBag,change: '+22.1%' },
-          { label: 'Новые user',value: String(totalUsers),                   color: '#06B6D4', icon: Users,      change: '+9.6%'  },
-          { label: 'Coins',    value: `${(totalCoins / 1000).toFixed(1)}K`, color: '#F59E0B', icon: Zap,         change: '+15.2%' },
+          { label: 'Выручка (7д)',   value: formatPrice(kpis.revenue7),    color: '#22C55E', icon: DollarSign  },
+          { label: 'Заказов (7д)',   value: String(kpis.orders7),           color: '#7C3AED', icon: ShoppingBag },
+          { label: 'Новых юзеров',   value: String(kpis.newUsers7),         color: '#06B6D4', icon: Users       },
+          { label: 'Выручка всего',  value: formatPrice(kpis.totalRevenue), color: '#F59E0B', icon: TrendingUp  },
+          { label: 'Игр в каталоге', value: String(kpis.totalGames),        color: '#9D60FA', icon: Gamepad2    },
+          { label: 'Пользователей',  value: String(kpis.totalUsers),        color: '#FB923C', icon: Package     },
         ].map((s, i) => (
           <motion.div
             key={s.label}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.08 }}
+            transition={{ delay: i * 0.06 }}
             className="rounded-2xl p-4 relative overflow-hidden"
             style={{ background: '#0D0D1A', border: `1px solid ${s.color}15` }}
           >
-            <div className="absolute top-0 right-0 w-24 h-24 pointer-events-none"
-                 style={{ background: `radial-gradient(circle at top right, ${s.color}0E, transparent 70%)` }} />
-            <div className="flex items-center justify-between mb-3">
-              <s.icon style={{ width: '15px', height: '15px', color: s.color }} />
-              <div className="flex items-center gap-1 rounded-lg px-2 py-0.5"
-                   style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)' }}>
-                <TrendingUp style={{ width: '9px', height: '9px', color: '#22C55E' }} />
-                <span className="font-body text-[#22C55E]" style={{ fontSize: '9.5px' }}>{s.change}</span>
-              </div>
-            </div>
-            <p className="font-pixel text-white mb-0.5" style={{ fontSize: '14px', color: s.color }}>{s.value}</p>
-            <p className="font-body text-[#4B5563]" style={{ fontSize: '11px' }}>{s.label}</p>
+            <div className="absolute top-0 right-0 w-20 h-20 pointer-events-none"
+                 style={{ background: `radial-gradient(circle at top right, ${s.color}12, transparent 70%)` }} />
+            <s.icon style={{ width: '14px', height: '14px', color: s.color, marginBottom: '8px' }} />
+            <p className="font-heading font-bold" style={{ fontSize: '17px', color: s.color, lineHeight: 1 }}>{s.value}</p>
+            <p className="font-body text-[#4B5563] mt-1" style={{ fontSize: '10.5px' }}>{s.label}</p>
           </motion.div>
         ))}
       </div>
 
       {/* Revenue + Orders charts */}
       <div className="grid lg:grid-cols-2 gap-4">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="rounded-2xl p-5"
-          style={{ background: '#0D0D1A', border: '1px solid rgba(255,255,255,0.06)' }}
-        >
-          <p className="font-heading font-semibold text-white mb-1" style={{ fontSize: '13px' }}>Выручка по дням</p>
-          <p className="font-body text-[#4B5563] mb-4" style={{ fontSize: '11px' }}>4–10 мая 2025</p>
-          <BarChart data={ANALYTICS_DAILY.map(d => ({ label: d.date, value: d.revenue }))} color="#22C55E" />
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
-          className="rounded-2xl p-5"
-          style={{ background: '#0D0D1A', border: '1px solid rgba(255,255,255,0.06)' }}
-        >
-          <p className="font-heading font-semibold text-white mb-1" style={{ fontSize: '13px' }}>Заказы по дням</p>
-          <p className="font-body text-[#4B5563] mb-4" style={{ fontSize: '11px' }}>4–10 мая 2025</p>
-          <BarChart data={ANALYTICS_DAILY.map(d => ({ label: d.date, value: d.orders }))} color="#7C3AED" height={160} />
-        </motion.div>
+        {[
+          { title: 'Выручка по дням', data: daily.map(d => ({ label: d.label, value: d.revenue })), color: '#22C55E', format: (v: number) => formatPrice(v) },
+          { title: 'Заказы по дням',  data: daily.map(d => ({ label: d.label, value: d.orders  })), color: '#7C3AED' },
+        ].map((chart, i) => (
+          <motion.div
+            key={chart.title}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 + i * 0.08 }}
+            className="rounded-2xl p-5"
+            style={{ background: '#0D0D1A', border: '1px solid rgba(255,255,255,0.06)' }}
+          >
+            <p className="font-heading font-semibold text-white mb-4" style={{ fontSize: '13px' }}>{chart.title}</p>
+            <BarChart data={chart.data} color={chart.color} format={chart.format} />
+          </motion.div>
+        ))}
       </div>
 
-      {/* Bottom row: Top products + Distribution */}
+      {/* Top games + Status distribution */}
       <div className="grid lg:grid-cols-3 gap-4">
-        {/* Top Products */}
+        {/* Top games */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
+          initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
           className="lg:col-span-2 rounded-2xl p-5"
           style={{ background: '#0D0D1A', border: '1px solid rgba(255,255,255,0.06)' }}
         >
-          <p className="font-heading font-semibold text-white mb-4" style={{ fontSize: '13px' }}>Топ продуктов по продажам</p>
-          <div className="space-y-3">
-            {topProducts.map((p, i) => (
-              <div key={p.id} className="flex items-center gap-3">
-                <span className="font-pixel text-[#374151] w-4 text-center flex-shrink-0" style={{ fontSize: '9px' }}>
-                  {i + 1}
-                </span>
-                <div className="flex-1">
-                  <p className="font-body text-[#9CA3AF] mb-1" style={{ fontSize: '12px' }}>{p.title}</p>
-                  <div className="h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(p.totalSales / maxSales) * 100}%` }}
-                      transition={{ duration: 0.7, delay: 0.4 + i * 0.08, ease: 'easeOut' }}
-                      className="h-full rounded-full"
-                      style={{
-                        background: i === 0 ? 'linear-gradient(90deg, #F59E0B, #F97316)' : i === 1 ? '#7C3AED' : '#06B6D4',
-                        boxShadow: `0 0 6px ${i === 0 ? '#F59E0B' : i === 1 ? '#7C3AED' : '#06B6D4'}40`,
-                      }}
-                    />
+          <p className="font-heading font-semibold text-white mb-4" style={{ fontSize: '13px' }}>
+            Топ игр по продажам <span className="font-body text-[#374151] text-xs">(30 дней)</span>
+          </p>
+          {topGames.length === 0 ? (
+            <p className="font-body text-[#374151] text-sm text-center py-6">Пока нет продаж</p>
+          ) : (
+            <div className="space-y-3">
+              {topGames.map((g, i) => (
+                <div key={g.gameId} className="flex items-center gap-3">
+                  <span className="font-pixel text-[#374151] w-4 text-center flex-shrink-0" style={{ fontSize: '9px' }}>{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-body text-[#9CA3AF] truncate mb-1" style={{ fontSize: '12px' }}>{g.title}</p>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(g.sales / maxSales) * 100}%` }}
+                        transition={{ duration: 0.7, delay: 0.4 + i * 0.08 }}
+                        className="h-full rounded-full"
+                        style={{ background: ['linear-gradient(90deg,#F59E0B,#F97316)', '#7C3AED', '#06B6D4', '#22C55E', '#9D60FA'][i] }}
+                      />
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="font-heading font-bold" style={{ fontSize: '12px', color: i === 0 ? '#F59E0B' : '#9CA3AF' }}>{g.sales} шт.</p>
+                    <p className="font-body text-[#374151]" style={{ fontSize: '10px' }}>{formatPrice(g.revenue)}</p>
                   </div>
                 </div>
-                <span className="font-heading font-bold w-10 text-right flex-shrink-0"
-                      style={{ fontSize: '12px', color: i === 0 ? '#F59E0B' : '#9CA3AF' }}>
-                  {p.totalSales}
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </motion.div>
 
-        {/* Distributions */}
+        {/* Order status distribution */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.45 }}
-          className="rounded-2xl p-5 space-y-5"
+          initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
+          className="rounded-2xl p-5"
           style={{ background: '#0D0D1A', border: '1px solid rgba(255,255,255,0.06)' }}
         >
-          {/* Order status */}
-          <div>
-            <p className="font-heading font-semibold text-white mb-3" style={{ fontSize: '13px' }}>Статусы заказов</p>
-            <DonutChart segments={[
-              { label: 'Выполнен',  value: statusCounts.completed ?? 0,  color: '#22C55E' },
-              { label: 'Доставлен', value: statusCounts.delivered ?? 0,  color: '#7C3AED' },
-              { label: 'Обработка', value: statusCounts.processing ?? 0, color: '#9D60FA' },
-              { label: 'Ожидание',  value: statusCounts.pending ?? 0,    color: '#F59E0B' },
-            ].filter(s => s.value > 0)} />
-          </div>
-
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px' }}>
-            <p className="font-heading font-semibold text-white mb-3" style={{ fontSize: '13px' }}>По платформам</p>
-            <div className="space-y-2">
-              {Object.entries(platformCount)
+          <p className="font-heading font-semibold text-white mb-4" style={{ fontSize: '13px' }}>Статусы заказов</p>
+          {totalStatusOrders === 0 ? (
+            <p className="font-body text-[#374151] text-sm text-center py-6">Заказов нет</p>
+          ) : (
+            <div className="space-y-3">
+              {Object.entries(statusDist)
                 .sort((a, b) => b[1] - a[1])
-                .slice(0, 4)
-                .map(([platform, count]) => (
-                  <HBar
-                    key={platform}
-                    label={platform}
-                    value={count}
-                    max={totalOrdersAll}
-                    color={platform === 'Steam' ? '#66C0F4' : platform === 'PS5' ? '#0070CC' : platform === 'EA App' ? '#FF4500' : '#7C3AED'}
-                  />
-                ))}
+                .map(([status, count]) => {
+                  const cfg = STATUS_CFG[status] ?? { label: status, color: '#6B7280' };
+                  return (
+                    <div key={status} className="flex items-center gap-3">
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: cfg.color }} />
+                      <div className="flex-1">
+                        <div className="flex justify-between mb-1">
+                          <span className="font-body text-[#6B7280]" style={{ fontSize: '11px' }}>{cfg.label}</span>
+                          <span className="font-heading font-semibold" style={{ fontSize: '11px', color: cfg.color }}>{count}</span>
+                        </div>
+                        <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${(count / totalStatusOrders) * 100}%` }}
+                            transition={{ duration: 0.7 }}
+                            className="h-full rounded-full"
+                            style={{ background: cfg.color }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
+          )}
+
+          <div className="mt-5 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            <p className="font-body text-[#374151] text-center" style={{ fontSize: '11px' }}>
+              Всего заказов: <span className="text-white font-semibold">{totalStatusOrders}</span>
+            </p>
           </div>
         </motion.div>
       </div>
