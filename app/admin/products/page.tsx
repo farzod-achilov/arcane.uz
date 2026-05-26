@@ -307,6 +307,8 @@ export default function AdminProductsPage() {
   const [showAdd, setShowAdd]     = useState(false);
   const [showNuke, setShowNuke]   = useState(false);
   const [toggling, setToggling]   = useState<string | null>(null);
+  const [deleting, setDeleting]   = useState<string | null>(null); // confirm step
+  const [deleteErr, setDeleteErr] = useState<Record<string, string>>({});
   const [statusFilter,   setStatusFilter]   = useState<StatusFilter>('ALL');
   const [deliveryFilter, setDeliveryFilter] = useState<DeliveryFilter>('ALL');
   const [stockFilter,    setStockFilter]    = useState<StockFilter>('ALL');
@@ -345,6 +347,19 @@ export default function AdminProductsPage() {
       });
       setGames(prev => prev.map(g => g.id === game.id ? { ...g, isActive: !g.isActive } : g));
     } finally { setToggling(null); }
+  }
+
+  async function deleteGame(id: string) {
+    setDeleting(null);
+    const res  = await fetch(`/api/admin/games/${id}`, { method: 'DELETE' });
+    const data = await res.json() as { ok: boolean; error?: string };
+    if (data.ok) {
+      setGames(prev => prev.filter(g => g.id !== id));
+      setTotal(prev => prev - 1);
+    } else {
+      setDeleteErr(prev => ({ ...prev, [id]: data.error ?? 'Ошибка' }));
+      setTimeout(() => setDeleteErr(prev => { const n = { ...prev }; delete n[id]; return n; }), 3000);
+    }
   }
 
   function handleSaved(updated: Partial<GameRow>) {
@@ -589,6 +604,47 @@ export default function AdminProductsPage() {
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
+
+                  {/* Delete — inline confirm */}
+                  <AnimatePresence mode="wait">
+                    {deleting === game.id ? (
+                      <motion.div
+                        key="confirm"
+                        initial={{ opacity: 0, width: 0 }} animate={{ opacity: 1, width: 'auto' }} exit={{ opacity: 0, width: 0 }}
+                        className="flex items-center gap-1 overflow-hidden"
+                      >
+                        <button
+                          onClick={() => deleteGame(game.id)}
+                          className="h-7 px-2 rounded-lg font-body text-white transition-all"
+                          style={{ fontSize: '10px', background: 'rgba(239,68,68,0.85)', border: '1px solid rgba(239,68,68,0.5)', whiteSpace: 'nowrap' }}
+                        >
+                          Да
+                        </button>
+                        <button
+                          onClick={() => setDeleting(null)}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center transition-all text-[#6B7280] hover:text-white"
+                          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </motion.div>
+                    ) : (
+                      <motion.button
+                        key="delete"
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        onClick={() => { setDeleting(game.id); setDeleteErr(prev => { const n={...prev}; delete n[game.id]; return n; }); }}
+                        title={deleteErr[game.id] ?? 'Удалить'}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
+                        style={{
+                          background: deleteErr[game.id] ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${deleteErr[game.id] ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.07)'}`,
+                          color: deleteErr[game.id] ? '#EF4444' : '#374151',
+                        }}
+                      >
+                        <Trash2 className="w-3.5 h-3.5 hover:text-red-400 transition-colors" />
+                      </motion.button>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
             ))}

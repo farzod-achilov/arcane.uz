@@ -44,15 +44,22 @@ export async function PATCH(req: Request, { params }: Ctx) {
   return NextResponse.json({ ok: true, game });
 }
 
-// DELETE /api/admin/games/[id] — soft delete (set isActive=false)
+// DELETE /api/admin/games/[id] — hard delete
 export async function DELETE(_req: Request, { params }: Ctx) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-  await prisma.games.update({
-    where: { id: params.id },
-    data:  { isActive: false },
-  });
-
-  return NextResponse.json({ ok: true });
+  try {
+    // Remove related keys first, then the game
+    await prisma.$transaction([
+      prisma.game_keys.deleteMany({ where: { gameId: params.id } }),
+      prisma.games.delete({ where: { id: params.id } }),
+    ]);
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return NextResponse.json(
+      { ok: false, error: 'Нельзя удалить — есть связанные заказы' },
+      { status: 409 },
+    );
+  }
 }
