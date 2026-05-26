@@ -33,8 +33,10 @@ function PlatformIcon({ p }: { p: string }) {
 
 /* ── Inline HLS video player ── */
 function InlineVideo({ encoded }: { encoded: string }) {
-  const { src } = parseMedia(encoded);
-  const vidRef  = useRef<HTMLVideoElement>(null);
+  const { src: rawSrc } = parseMedia(encoded);
+  // Strip "video:" scheme prefix used in DB storage format
+  const src = rawSrc.replace(/^video:/, '');
+  const vidRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [muted,   setMuted]   = useState(false);
 

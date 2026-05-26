@@ -2,14 +2,17 @@
 
 import { useEffect, RefObject } from 'react';
 
+function cleanSrc(url: string): string {
+  // Remove "|thumb" suffix, then strip "video:" scheme prefix used in DB storage
+  return url.split('|')[0].replace(/^video:/, '');
+}
+
 export function isHlsUrl(url: string) {
-  // Strip optional "|thumb" suffix before checking
-  return url.split('|')[0].includes('.m3u8');
+  return cleanSrc(url).includes('.m3u8');
 }
 
 export function useHls(videoRef: RefObject<HTMLVideoElement>, src: string) {
-  // Use only the src part (before optional "|thumb")
-  const rawSrc = src.split('|')[0];
+  const rawSrc = cleanSrc(src);
 
   useEffect(() => {
     if (!rawSrc || !videoRef.current) return;
