@@ -7,8 +7,8 @@ const LIST_SELECT = {
   id: true, title: true, slug: true, cover: true,
   genres: true, platforms: true, rating: true,
   priceUzs: true, priceUsd: true,
-  stockStore: true, releaseDate: true,
-  developer: true, description: true,
+  stockStore: true, stockDrop: true, deliveryType: true,
+  releaseDate: true, developer: true, description: true,
 } as const;
 
 export type GameListItem = Prisma.gamesGetPayload<{ select: typeof LIST_SELECT }>;

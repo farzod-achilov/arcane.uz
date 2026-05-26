@@ -17,7 +17,8 @@ function PlatformDot({ p }: { p: string }) {
 interface Props { game: GameListItem; index?: number }
 
 export default function GameCard({ game, index = 0 }: Props) {
-  const inStock = game.stockStore > 0;
+  const inStock   = game.stockStore > 0;
+  const dropOnly  = !inStock && game.stockDrop > 0;
 
   return (
     <motion.div
@@ -71,12 +72,17 @@ export default function GameCard({ game, index = 0 }: Props) {
                  style={{ backgroundImage: 'repeating-linear-gradient(to bottom, transparent 0px, transparent 3px, rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px)' }} />
 
             {/* Stock badge */}
-            {!inStock && (
+            {dropOnly ? (
+              <div className="absolute top-2 left-2 font-pixel rounded px-2 py-0.5 text-white"
+                   style={{ fontSize: '7px', background: 'rgba(124,58,237,0.85)', letterSpacing: '0.06em' }}>
+                🎰 ТОЛЬКО ДРОП
+              </div>
+            ) : !inStock ? (
               <div className="absolute top-2 left-2 font-pixel rounded px-2 py-0.5 text-white"
                    style={{ fontSize: '7px', background: 'rgba(107,114,128,0.9)', letterSpacing: '0.06em' }}>
                 НЕТ В НАЛИЧИИ
               </div>
-            )}
+            ) : null}
 
             {/* Wishlist button */}
             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">

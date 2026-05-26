@@ -9,7 +9,8 @@ import type { GameListItem } from '@/lib/db/games';
 interface Props { game: GameListItem }
 
 export default function GameListCard({ game }: Props) {
-  const inStock = game.stockStore > 0;
+  const inStock  = game.stockStore > 0;
+  const dropOnly = !inStock && game.stockDrop > 0;
 
   return (
     <Link
@@ -72,12 +73,17 @@ export default function GameListCard({ game }: Props) {
                 <Zap style={{ width: '10px', height: '10px', color: '#22C55E', flexShrink: 0 }} />
                 <span className="font-body text-[#22C55E]" style={{ fontSize: '10.5px' }}>Мгновенно</span>
               </div>
-              {!inStock && (
+              {dropOnly ? (
+                <>
+                  <span style={{ color: '#1F2937', fontSize: '10px' }}>·</span>
+                  <span className="font-body text-[#7C3AED]" style={{ fontSize: '10.5px' }}>🎰 Только дроп</span>
+                </>
+              ) : !inStock ? (
                 <>
                   <span style={{ color: '#1F2937', fontSize: '10px' }}>·</span>
                   <span className="font-body text-[#6B7280]" style={{ fontSize: '10.5px' }}>Нет в наличии</span>
                 </>
-              )}
+              ) : null}
             </div>
 
             <div className="flex flex-wrap gap-1">
