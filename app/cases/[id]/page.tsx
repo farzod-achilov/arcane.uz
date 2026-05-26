@@ -539,7 +539,38 @@ function ArcadeMachine({ vis, phase, reward, alarmActive }: {
 }
 
 // ── Player panel ──────────────────────────────────────────────────────────────
+interface UserStats {
+  username: string; level: number; xp: number; arcCoins: number;
+  streak: number; totalDrops: number; legendaryDrops: number; gamesReceived: number;
+}
+
+function levelTitle(level: number) {
+  if (level <= 1)  return 'НОВИЧОК';
+  if (level <= 3)  return 'ИГРОК';
+  if (level <= 6)  return 'ЭЛИТА';
+  if (level <= 10) return 'ФАНТОМ';
+  return 'ARCANE';
+}
+
+function xpForLevel(level: number) { return level * 1000; }
+
 function PlayerPanel({ machineColor, arcBalance }: { machineColor: string; arcBalance: number }) {
+  const [stats, setStats] = useState<UserStats | null>(null);
+
+  useEffect(() => {
+    fetch('/api/user/stats').then(r => r.ok ? r.json() : null).then(d => {
+      if (d && !d.error) setStats(d);
+    }).catch(() => {});
+  }, []);
+
+  const level      = stats?.level ?? 1;
+  const xp         = stats?.xp ?? 0;
+  const nextLevelXp = xpForLevel(level);
+  const xpPct      = Math.min(100, Math.round((xp / nextLevelXp) * 100));
+  const streak     = stats?.streak ?? 0;
+  const streakMax  = 10;
+  const toBonus    = streakMax - (streak % streakMax);
+
   return (
     <motion.aside initial={{ opacity: 0, x: -28 }} animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
@@ -552,7 +583,6 @@ function PlayerPanel({ machineColor, arcBalance }: { machineColor: string; arcBa
         <div className="absolute inset-0 pointer-events-none"
           style={{ backgroundImage: 'linear-gradient(rgba(124,58,237,1) 1px,transparent 1px),linear-gradient(90deg,rgba(124,58,237,1) 1px,transparent 1px)',
             backgroundSize: '24px 24px', opacity: 0.02 }} />
-        {/* Top accent */}
         <div className="absolute top-0 inset-x-0 h-px"
           style={{ background: `linear-gradient(90deg, transparent, ${machineColor}50, transparent)` }} />
 
@@ -560,27 +590,37 @@ function PlayerPanel({ machineColor, arcBalance }: { machineColor: string; arcBa
           <div className="relative">
             <div className="w-12 h-12 rounded-xl flex items-center justify-center font-heading font-black text-white"
               style={{ background: `linear-gradient(135deg, ${machineColor}30, ${machineColor}10)`,
-                border: `1px solid ${machineColor}40`, fontSize: 15 }}>P1</div>
-            <motion.div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full flex items-center justify-center"
+                border: `1px solid ${machineColor}40`, fontSize: 15 }}>
+              {stats ? stats.username[0]?.toUpperCase() : 'P'}
+            </div>
+            <motion.div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full"
               style={{ background: '#22C55E', border: '2px solid #050816' }}
               animate={{ boxShadow: ['0 0 6px #22C55E', '0 0 14px #22C55E', '0 0 6px #22C55E'] }}
               transition={{ duration: 2, repeat: Infinity }} />
           </div>
           <div>
-            <p className="font-heading font-black text-white text-sm">PLAYER_ONE</p>
-            <p className="font-pixel" style={{ fontSize: 7, color: 'rgba(255,255,255,0.28)', letterSpacing: '0.1em' }}>АРКАДНЫЙ ОХОТНИК</p>
+            <p className="font-heading font-black text-white text-sm uppercase">
+              {stats?.username ?? '—'}
+            </p>
+            <p className="font-pixel" style={{ fontSize: 7, color: 'rgba(255,255,255,0.28)', letterSpacing: '0.1em' }}>
+              {levelTitle(level)}
+            </p>
           </div>
         </div>
 
         <div className="mb-3">
           <div className="flex justify-between mb-1.5">
-            <span className="font-pixel" style={{ fontSize: 7.5, color: machineColor, letterSpacing: '0.1em' }}>УРОВЕНЬ 24</span>
-            <span className="font-pixel" style={{ fontSize: 7.5, color: 'rgba(255,255,255,0.25)' }}>7,240 / 10K XP</span>
+            <span className="font-pixel" style={{ fontSize: 7.5, color: machineColor, letterSpacing: '0.1em' }}>
+              УРОВЕНЬ {level}
+            </span>
+            <span className="font-pixel" style={{ fontSize: 7.5, color: 'rgba(255,255,255,0.25)' }}>
+              {xp.toLocaleString('ru')} / {nextLevelXp.toLocaleString('ru')} XP
+            </span>
           </div>
           <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
             <motion.div className="h-full rounded-full"
-              style={{ background: `linear-gradient(90deg, ${machineColor}80, ${machineColor})`, width: '72%' }}
-              initial={{ width: 0 }} animate={{ width: '72%' }}
+              style={{ background: `linear-gradient(90deg, ${machineColor}80, ${machineColor})` }}
+              initial={{ width: 0 }} animate={{ width: `${xpPct}%` }}
               transition={{ duration: 1.4, delay: 0.5, ease: [0.22, 1, 0.36, 1] }} />
           </div>
         </div>
@@ -607,10 +647,10 @@ function PlayerPanel({ machineColor, arcBalance }: { machineColor: string; arcBa
           ◆ СТАТИСТИКА
         </p>
         {[
-          { label: 'Всего дропов', value: '142', icon: Zap, color: machineColor },
-          { label: 'Легендарных',  value: '3',   icon: Trophy, color: '#FFC857' },
-          { label: 'Серия',        value: '7',   icon: TrendingUp, color: '#22C55E' },
-          { label: 'Игр получено', value: '28',  icon: Star, color: '#A78BFA' },
+          { label: 'Всего дропов', value: stats?.totalDrops    ?? 0, icon: Zap,       color: machineColor },
+          { label: 'Легендарных',  value: stats?.legendaryDrops ?? 0, icon: Trophy,    color: '#FFC857'    },
+          { label: 'Серия',        value: streak,                    icon: TrendingUp, color: '#22C55E'    },
+          { label: 'Игр получено', value: stats?.gamesReceived  ?? 0, icon: Star,      color: '#A78BFA'    },
         ].map(s => (
           <div key={s.label} className="flex items-center justify-between py-2.5"
             style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
@@ -618,7 +658,9 @@ function PlayerPanel({ machineColor, arcBalance }: { machineColor: string; arcBa
               <s.icon className="w-3.5 h-3.5" style={{ color: s.color }} />
               <span className="font-body text-white/40 text-xs">{s.label}</span>
             </div>
-            <span className="font-heading font-bold text-white text-sm">{s.value}</span>
+            <span className="font-heading font-bold text-white text-sm">
+              {stats ? s.value.toLocaleString('ru') : '—'}
+            </span>
           </div>
         ))}
       </div>
@@ -631,20 +673,26 @@ function PlayerPanel({ machineColor, arcBalance }: { machineColor: string; arcBa
           <p className="font-pixel" style={{ fontSize: 7.5, color: 'rgba(255,200,87,0.55)', letterSpacing: '0.12em' }}>СЕРИЯ ДРОПОВ</p>
           <motion.span className="font-heading font-black text-amber-400" style={{ fontSize: 13 }}
             animate={{ textShadow: ['0 0 8px rgba(255,200,87,0)', '0 0 16px rgba(255,200,87,0.8)', '0 0 8px rgba(255,200,87,0)'] }}
-            transition={{ duration: 1.5, repeat: Infinity }}>🔥 ×7</motion.span>
+            transition={{ duration: 1.5, repeat: Infinity }}>
+            🔥 ×{streak}
+          </motion.span>
         </div>
         <div className="flex gap-1.5">
-          {Array.from({ length: 7 }, (_, i) => (
-            <motion.div key={i} className="flex-1 h-2 rounded-full"
-              style={{ background: '#FFC857', boxShadow: '0 0 6px rgba(255,200,87,0.5)' }}
-              animate={{ opacity: [0.7, 1, 0.7] }}
-              transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.1 }} />
-          ))}
-          {Array.from({ length: 3 }, (_, i) => (
-            <div key={i} className="flex-1 h-2 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }} />
-          ))}
+          {Array.from({ length: streakMax }, (_, i) => {
+            const filled = i < (streak % streakMax || (streak > 0 && streak % streakMax === 0 ? streakMax : 0));
+            return filled ? (
+              <motion.div key={i} className="flex-1 h-2 rounded-full"
+                style={{ background: '#FFC857', boxShadow: '0 0 6px rgba(255,200,87,0.5)' }}
+                animate={{ opacity: [0.7, 1, 0.7] }}
+                transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.1 }} />
+            ) : (
+              <div key={i} className="flex-1 h-2 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }} />
+            );
+          })}
         </div>
-        <p className="font-pixel mt-2" style={{ fontSize: 7, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.1em' }}>3 ДО БОНУСА</p>
+        <p className="font-pixel mt-2" style={{ fontSize: 7, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.1em' }}>
+          {streak === 0 ? 'НАЧНИ СЕРИЮ' : `${toBonus} ДО БОНУСА`}
+        </p>
       </div>
     </motion.aside>
   );
