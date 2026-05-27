@@ -569,10 +569,11 @@ model order_items {
 }
 
 model wishlists {
-  id        String   @id @default(cuid())
-  userId    String   @map("user_id")
-  gameId    String   @map("game_id")
-  createdAt DateTime @default(now()) @map("created_at")
+  id               String   @id @default(cuid())
+  userId           String   @map("user_id")
+  gameId           String   @map("game_id")
+  notifiedPrice    Int?     @map("notified_price")
+  createdAt        DateTime @default(now()) @map("created_at")
 
   user users @relation(fields: [userId], references: [id], onDelete: Cascade)
   game games @relation(fields: [gameId], references: [id], onDelete: Cascade)

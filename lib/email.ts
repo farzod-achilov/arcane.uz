@@ -179,7 +179,60 @@ export async function sendOrderConfirmationEmail(params: {
   await send(to, `Заказ #${orderId.slice(0, 8)} подтверждён — ARCANE.UZ`, html);
 }
 
-/* ── 3. Key delivery ─────────────────────────────────────────────────────── */
+/* ── 3. Price drop wishlist ──────────────────────────────────────────────── */
+export async function sendPriceDropEmail(params: {
+  to:        string;
+  username:  string;
+  gameTitle: string;
+  gameSlug:  string;
+  oldPrice:  number;
+  newPrice:  number;
+  savePct:   number;
+}): Promise<void> {
+  const { to, username, gameTitle, gameSlug, oldPrice, newPrice, savePct } = params;
+  const gameUrl = `${SITE_URL}/games/${gameSlug}`;
+
+  const html = layout(`
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;background:linear-gradient(135deg,rgba(34,197,94,0.2),rgba(34,197,94,0.06));border:1px solid rgba(34,197,94,0.3);border-radius:14px;font-size:22px;margin-bottom:14px;">📉</div>
+      <h1 style="margin:0 0 6px;color:#fff;font-size:22px;font-weight:700;">Цена снижена!</h1>
+      <p style="margin:0;color:#6B7280;font-size:14px;">Игра из вашего вишлиста подешевела, ${username}</p>
+    </div>
+
+    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:20px;margin-bottom:20px;">
+      <p style="margin:0 0 12px;color:#374151;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;">Игра</p>
+      <p style="margin:0 0 16px;color:#fff;font-size:17px;font-weight:700;">${gameTitle}</p>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="padding:10px 14px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.15);border-radius:10px;text-align:center;">
+            <p style="margin:0 0 2px;color:#374151;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;">Было</p>
+            <p style="margin:0;color:#F87171;font-size:15px;font-weight:600;text-decoration:line-through;">${formatPrice(oldPrice)}</p>
+          </td>
+          <td style="width:32px;text-align:center;color:#4B5563;font-size:16px;">→</td>
+          <td style="padding:10px 14px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);border-radius:10px;text-align:center;">
+            <p style="margin:0 0 2px;color:#374151;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;">Стало</p>
+            <p style="margin:0;color:#4ADE80;font-size:15px;font-weight:700;">${formatPrice(newPrice)}</p>
+          </td>
+        </tr>
+      </table>
+      <div style="margin-top:12px;text-align:center;">
+        ${tag(`Скидка ${savePct}%`, '#22C55E')}
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-bottom:16px;">
+      ${btn(gameUrl, 'Купить сейчас', '#22C55E')}
+    </div>
+    <p style="margin:0;color:#374151;font-size:11px;text-align:center;">
+      Не хотите получать такие письма?
+      <a href="${SITE_URL}/profile?tab=settings" style="color:#7C3AED;text-decoration:none;">Отписаться</a>
+    </p>
+  `);
+
+  await send(to, `📉 Цена снижена: ${gameTitle} — ${formatPrice(newPrice)}`, html);
+}
+
+/* ── 4. Key delivery ─────────────────────────────────────────────────────── */
 export async function sendKeyDeliveryEmail(params: {
   to:        string;
   username:  string;

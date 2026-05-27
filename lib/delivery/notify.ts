@@ -1,6 +1,9 @@
 import { formatPrice } from '@/lib/utils';
 import { prisma } from '@/lib/prisma';
-import { sendKeyDeliveryEmail } from '@/lib/email';
+import { sendKeyDeliveryEmail, sendPriceDropEmail } from '@/lib/email';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyDB = any;
 
 const BOT  = process.env.TELEGRAM_BOT_TOKEN ?? '';
 const CHAT = process.env.TELEGRAM_CHAT_ID   ?? '';
@@ -61,41 +64,74 @@ export async function notifyUserOrderComplete(params: {
 
 // Notify wishlist users when a game price drops
 export async function notifyWishlistPriceDrop(params: {
-  gameId:   string;
+  gameId:    string;
   gameTitle: string;
-  gameSlug: string;
-  oldPrice: number;
-  newPrice: number;
+  gameSlug:  string;
+  oldPrice:  number;
+  newPrice:  number;
 }) {
-  if (!BOT) return;
-  const wishlistUsers = await prisma.wishlists.findMany({
-    where:   { gameId: params.gameId },
-    include: {
-      user: {
-        include: { sessions: false },
-        select:  { id: true },
-      },
-    },
-  });
+  const { gameId, gameTitle, gameSlug, oldPrice, newPrice } = params;
+  const savePct = Math.round(((oldPrice - newPrice) / oldPrice) * 100);
 
-  const telegramLinks = await prisma.telegram_users.findMany({
+  // Fetch wishlist entries that haven't been notified at or below this price
+  const wishlists = await (prisma.wishlists.findMany as AnyDB)({
     where: {
-      userId:       { in: wishlistUsers.map(w => w.userId) },
-      prefsWishlist: true,
+      gameId,
+      OR: [
+        { notifiedPrice: null },
+        { notifiedPrice: { gt: newPrice } },
+      ],
     },
-    select: { telegramId: true },
+    select: {
+      id:     true,
+      userId: true,
+      user:   { select: { email: true, username: true } },
+    },
+  }) as { id: string; userId: string; user: { email: string; username: string } }[];
+
+  if (wishlists.length === 0) return;
+
+  const userIds = wishlists.map(w => w.userId);
+
+  // Telegram: only users who linked and enabled wishlist prefs
+  const telegramLinks = await prisma.telegram_users.findMany({
+    where:  { userId: { in: userIds }, prefsWishlist: true },
+    select: { userId: true, telegramId: true },
   });
 
-  const text = [
+  const tgUserIds = new Set(telegramLinks.map(t => t.userId));
+
+  const tgText = [
     `📉 <b>Снижение цены!</b>`,
     ``,
-    `🕹 <b>${params.gameTitle}</b>`,
-    `💰 ${formatPrice(params.oldPrice)} → <b>${formatPrice(params.newPrice)}</b>`,
+    `🕹 <b>${gameTitle}</b>`,
+    `💰 ${formatPrice(oldPrice)} → <b>${formatPrice(newPrice)}</b> (−${savePct}%)`,
     ``,
-    `👉 <a href="https://arcane.com.uz/games/${params.gameSlug}">Купить сейчас</a>`,
+    `👉 <a href="https://arcane.com.uz/games/${gameSlug}">Купить сейчас</a>`,
   ].join('\n');
 
-  await Promise.all(telegramLinks.map(u => tg(u.telegramId.toString(), text)));
+  await Promise.all([
+    // Telegram notifications
+    ...telegramLinks.map(u => tg(u.telegramId.toString(), tgText)),
+    // Email notifications for users without Telegram wishlist prefs
+    ...wishlists
+      .filter(w => !tgUserIds.has(w.userId))
+      .map(w => sendPriceDropEmail({
+        to:        w.user.email,
+        username:  w.user.username,
+        gameTitle,
+        gameSlug,
+        oldPrice,
+        newPrice,
+        savePct,
+      }).catch(() => {})),
+  ]);
+
+  // Mark all notified with the new price
+  await (prisma.wishlists.updateMany as AnyDB)({
+    where: { id: { in: wishlists.map(w => w.id) } },
+    data:  { notifiedPrice: newPrice },
+  });
 }
 
 export async function notifyNewManualOrder(params: {
