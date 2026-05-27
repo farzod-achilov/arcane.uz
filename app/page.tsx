@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { getGames } from '@/lib/db/games';
+
+export const dynamic = 'force-dynamic';
 import Hero from '@/components/home/Hero';
 import Categories from '@/components/home/Categories';
 import TrendingProducts from '@/components/home/TrendingProducts';
