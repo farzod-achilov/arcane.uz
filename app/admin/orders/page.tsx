@@ -6,7 +6,7 @@ import Image from 'next/image';
 import {
   Search, Clock, CheckCircle2, RefreshCw, X,
   ChevronDown, Send, Key, Package, AlertCircle, Check,
-  Hourglass, Ban, Calendar, ArrowUpDown,
+  Hourglass, Ban, Calendar, ArrowUpDown, Download,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 
@@ -312,15 +312,26 @@ export default function AdminOrdersPage() {
               {loading ? 'Загрузка...' : `${totalCount} заказов всего`}
             </p>
           </div>
-          <button
-            onClick={load}
-            disabled={loading}
-            className="flex items-center gap-2 rounded-xl px-4 py-2 font-heading font-semibold text-sm transition-all disabled:opacity-50"
-            style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', color: '#22C55E' }}
-          >
-            <RefreshCw style={{ width: '13px', height: '13px' }} className={loading ? 'animate-spin' : ''} />
-            Обновить
-          </button>
+          <div className="flex items-center gap-2">
+            <a
+              href="/api/admin/orders/export"
+              download
+              className="flex items-center gap-2 rounded-xl px-4 py-2 font-heading font-semibold text-sm transition-all"
+              style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)', color: '#A78BFA' }}
+            >
+              <Download style={{ width: '13px', height: '13px' }} />
+              CSV
+            </a>
+            <button
+              onClick={load}
+              disabled={loading}
+              className="flex items-center gap-2 rounded-xl px-4 py-2 font-heading font-semibold text-sm transition-all disabled:opacity-50"
+              style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', color: '#22C55E' }}
+            >
+              <RefreshCw style={{ width: '13px', height: '13px' }} className={loading ? 'animate-spin' : ''} />
+              Обновить
+            </button>
+          </div>
         </div>
       </motion.div>
 

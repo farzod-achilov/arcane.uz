@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShoppingCart, CreditCard, ArrowLeft, ChevronRight,
   Trash2, Tag, Check, Shield, Zap, Package, Mail, AtSign,
-  CheckCircle2, ArrowRight, Loader2, AlertCircle,
+  CheckCircle2, ArrowRight, Loader2, AlertCircle, Ticket, X,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 
@@ -111,10 +111,11 @@ function DeliveryBadge({ type }: { type: 'AUTO' | 'MANUAL' }) {
 
 /* ── Order summary sidebar ────────────────────────────── */
 function OrderSummary({
-  items, subtotal, coinsDiscount, total, step, onNext, onBack, submitting,
+  items, subtotal, coinsDiscount, promoDiscount, promoLabel, total, step, onNext, onBack, submitting,
 }: {
-  items: CheckoutItem[]; subtotal: number; coinsDiscount: number; total: number;
-  step: Step; onNext: () => void; onBack?: () => void; submitting: boolean;
+  items: CheckoutItem[]; subtotal: number; coinsDiscount: number;
+  promoDiscount: number; promoLabel: string;
+  total: number; step: Step; onNext: () => void; onBack?: () => void; submitting: boolean;
 }) {
   const coinsToEarn = Math.round(total / 1000);
   return (
@@ -171,6 +172,15 @@ function OrderSummary({
                   <Zap style={{ width: '11px', height: '11px' }} />Arcane Coins
                 </span>
                 <span className="font-body text-[#9D60FA]" style={{ fontSize: '13px' }}>−{formatPrice(coinsDiscount)}</span>
+              </motion.div>
+            )}
+            {promoDiscount > 0 && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                className="flex justify-between">
+                <span className="font-body text-[#4ADE80] flex items-center gap-1" style={{ fontSize: '13px' }}>
+                  <Ticket style={{ width: '11px', height: '11px' }} />{promoLabel}
+                </span>
+                <span className="font-body text-[#4ADE80]" style={{ fontSize: '13px' }}>−{formatPrice(promoDiscount)}</span>
               </motion.div>
             )}
           </AnimatePresence>
@@ -326,6 +336,13 @@ function CheckoutInner() {
   const [orderId, setOrderId]         = useState('');
   const [uzsBalance, setUzsBalance]   = useState(0);
 
+  const [promoInput,    setPromoInput]    = useState('');
+  const [promoLoading,  setPromoLoading]  = useState(false);
+  const [promoError,    setPromoError]    = useState('');
+  const [promoData,     setPromoData]     = useState<{
+    promoId: string; discount: number; label: string;
+  } | null>(null);
+
   const userArcCoins = (session?.user as { arcCoins?: number })?.arcCoins ?? 0;
 
   // Fetch UZS balance
@@ -376,7 +393,27 @@ function CheckoutInner() {
 
   const subtotal      = items.reduce((s, i) => s + i.priceUzs, 0);
   const coinsDiscount = useCoins ? Math.min(userArcCoins, Math.round(subtotal * 0.1)) : 0;
-  const total         = Math.max(0, subtotal - coinsDiscount);
+  const promoDiscount = promoData?.discount ?? 0;
+  const total         = Math.max(0, subtotal - coinsDiscount - promoDiscount);
+
+  async function applyPromo() {
+    if (!promoInput.trim()) return;
+    setPromoLoading(true); setPromoError(''); setPromoData(null);
+    try {
+      const res  = await fetch('/api/promo/validate', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ code: promoInput.trim(), subtotal }),
+      });
+      const data = await res.json() as {
+        ok?: boolean; promoId?: string; discount?: number; label?: string; error?: string;
+      };
+      if (!res.ok || !data.ok) { setPromoError(data.error ?? 'Недействительный промокод'); return; }
+      setPromoData({ promoId: data.promoId!, discount: data.discount!, label: data.label! });
+    } finally { setPromoLoading(false); }
+  }
+
+  function clearPromo() { setPromoData(null); setPromoInput(''); setPromoError(''); }
 
   const validateEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
@@ -397,6 +434,7 @@ function CheckoutInner() {
             userId:        (session.user as { id: string }).id,
             items:         items.map(i => ({ gameId: i.gameId })),
             paymentMethod: payMethod === 'balance' ? 'balance' : undefined,
+            promoId:       promoData?.promoId ?? undefined,
           }),
         });
         const data = await res.json() as { success?: boolean; order?: { id: string }; error?: string; code?: string };
@@ -579,6 +617,49 @@ function CheckoutInner() {
                       </div>
                     </Card>
 
+                    {/* Promo code */}
+                    <Card>
+                      <div className="p-5">
+                        <p className="font-heading font-semibold text-white mb-3" style={{ fontSize: '13.5px' }}>
+                          Промокод
+                        </p>
+                        {promoData ? (
+                          <div className="flex items-center justify-between rounded-xl px-4 py-3"
+                               style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)' }}>
+                            <div className="flex items-center gap-2">
+                              <Ticket size={14} style={{ color: '#4ADE80', flexShrink: 0 }} />
+                              <div>
+                                <p className="font-mono font-bold text-[#4ADE80] text-sm">{promoInput.toUpperCase()}</p>
+                                <p className="text-[#6B7280] text-xs">{promoData.label} · −{formatPrice(promoDiscount)}</p>
+                              </div>
+                            </div>
+                            <button onClick={clearPromo} className="text-[#4B5563] hover:text-white transition-colors">
+                              <X size={15} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2">
+                            <input
+                              value={promoInput}
+                              onChange={e => { setPromoInput(e.target.value.toUpperCase()); setPromoError(''); }}
+                              onKeyDown={e => e.key === 'Enter' && applyPromo()}
+                              placeholder="PROMO CODE"
+                              className="flex-1 rounded-xl px-3 py-2.5 text-white text-sm font-mono outline-none"
+                              style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${promoError ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.1)'}` }}
+                            />
+                            <button
+                              onClick={applyPromo}
+                              disabled={promoLoading || !promoInput.trim()}
+                              className="px-4 rounded-xl font-medium text-sm text-white transition-all disabled:opacity-40"
+                              style={{ background: 'rgba(124,58,237,0.25)', border: '1px solid rgba(124,58,237,0.3)' }}>
+                              {promoLoading ? <Loader2 size={14} className="animate-spin" /> : 'OK'}
+                            </button>
+                          </div>
+                        )}
+                        {promoError && <p className="text-red-400 text-xs mt-2">{promoError}</p>}
+                      </div>
+                    </Card>
+
                     {/* Arcane Coins toggle */}
                     {userArcCoins > 0 && (
                       <Card>
@@ -672,6 +753,8 @@ function CheckoutInner() {
                 items={items}
                 subtotal={subtotal}
                 coinsDiscount={coinsDiscount}
+                promoDiscount={promoDiscount}
+                promoLabel={promoData?.label ?? ''}
                 total={total}
                 step={step}
                 onNext={handleNext}

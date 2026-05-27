@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Search, Send, Crown, Zap, ShoppingBag, X,
-  RefreshCw, Shield, Ban, Users, CheckCircle2, Loader2, Wallet, Plus,
+  RefreshCw, Shield, Ban, Users, CheckCircle2, Loader2, Wallet, Plus, Download,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 
@@ -117,7 +117,17 @@ export default function AdminUsersPage() {
               {loading ? 'Загрузка...' : `${total} зарегистрированных`}
             </p>
           </div>
-          <button
+          <div className="flex items-center gap-2">
+            <a
+              href="/api/admin/users/export"
+              download
+              className="flex items-center gap-2 rounded-xl px-4 py-2 font-heading font-semibold text-sm transition-all"
+              style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)', color: '#A78BFA' }}
+            >
+              <Download style={{ width: '13px', height: '13px' }} />
+              CSV
+            </a>
+            <button
             onClick={load}
             disabled={loading}
             className="flex items-center gap-2 rounded-xl px-4 py-2 font-heading font-semibold text-sm transition-all disabled:opacity-50"
@@ -126,6 +136,7 @@ export default function AdminUsersPage() {
             <RefreshCw style={{ width: '13px', height: '13px' }} className={loading ? 'animate-spin' : ''} />
             Обновить
           </button>
+          </div>
         </div>
       </motion.div>
 

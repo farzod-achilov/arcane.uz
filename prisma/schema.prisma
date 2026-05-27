@@ -591,6 +591,29 @@ model reviews {
   @@index([rating])
 }
 
+// ── Promo Codes ───────────────────────────────────────────────────────────────
+
+enum PromoType {
+  PERCENT
+  FIXED
+}
+
+model promo_codes {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  type      PromoType @default(PERCENT)
+  value     Int
+  maxUses   Int?
+  usedCount Int       @default(0)
+  expiresAt DateTime?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([code])
+  @@index([isActive])
+}
+
 // ── Support System ────────────────────────────────────────────────────────────
 
 enum TicketStatus {

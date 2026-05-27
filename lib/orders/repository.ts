@@ -55,7 +55,7 @@ export async function findWaitingOrders() {
 // ── Create (PENDING, no key allocation yet) ───────────────────────────────────
 
 export async function createOrderTx(dto: CreateOrderDto) {
-  const { userId, items, paymentMethod } = dto;
+  const { userId, items, paymentMethod, promoId } = dto;
 
   return prisma.$transaction(async tx => {
     // 1. Verify user
@@ -82,7 +82,26 @@ export async function createOrderTx(dto: CreateOrderDto) {
       return { gameId: game.id, price: game.priceUzs ?? 0 };
     });
 
-    const totalPrice = lineItems.reduce((sum, li) => sum + li.price, 0);
+    const subtotal = lineItems.reduce((sum, li) => sum + li.price, 0);
+
+    // 2b. Apply promo code if provided
+    let promoDiscount = 0;
+    if (promoId) {
+      const promo = await tx.promo_codes.findUnique({ where: { id: promoId } });
+      if (promo && promo.isActive &&
+          !(promo.expiresAt && promo.expiresAt < new Date()) &&
+          !(promo.maxUses !== null && promo.usedCount >= promo.maxUses)) {
+        promoDiscount = promo.type === 'PERCENT'
+          ? Math.round(subtotal * promo.value / 100)
+          : Math.min(promo.value, subtotal);
+        await tx.promo_codes.update({
+          where: { id: promoId },
+          data:  { usedCount: { increment: 1 } },
+        });
+      }
+    }
+
+    const totalPrice = Math.max(0, subtotal - promoDiscount);
 
     // 3a. Balance payment — check and deduct immediately
     if (paymentMethod === 'balance') {

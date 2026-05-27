@@ -42,6 +42,7 @@ function validateCreateOrder(body: unknown): CreateOrderDto {
     userId:         b.userId.trim(),
     items,
     paymentMethod:  typeof b.paymentMethod === 'string' ? b.paymentMethod : undefined,
+    promoId:        typeof b.promoId === 'string' && b.promoId.trim() ? b.promoId.trim() : undefined,
   };
 }
 

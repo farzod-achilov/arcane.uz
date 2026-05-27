@@ -67,6 +67,7 @@ export interface CreateOrderDto {
   userId:         string;
   items:          CreateOrderItemDto[];
   paymentMethod?: string;
+  promoId?:       string;
 }
 
 export interface OrderFilters {

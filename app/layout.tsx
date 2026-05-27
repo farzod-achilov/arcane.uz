@@ -35,10 +35,19 @@ export const metadata: Metadata = {
     other: [{ rel: 'mask-icon', url: '/favicon.svg', color: '#7C3AED' }],
   },
   openGraph: {
-    title: 'ARCANE.UZ — Премиальный магазин игр',
+    title:       'ARCANE.UZ — Премиальный магазин игр',
     description: 'Цифровые игры по лучшим ценам в Узбекистане',
-    type: 'website',
+    url:         'https://arcane.com.uz',
+    siteName:    'ARCANE.UZ',
+    type:        'website',
+    locale:      'ru_RU',
   },
+  twitter: {
+    card:        'summary_large_image',
+    title:       'ARCANE.UZ — Премиальный магазин игр',
+    description: 'Цифровые игры по лучшим ценам в Узбекистане',
+  },
+  metadataBase: new URL('https://arcane.com.uz'),
 };
 
 export const viewport: Viewport = { themeColor: '#7C3AED' };
