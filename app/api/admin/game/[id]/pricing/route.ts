@@ -36,29 +36,31 @@ export async function PATCH(req: Request, { params }: Ctx) {
       productType?:           'KEY' | 'GIFT' | 'ACCOUNT';
     };
 
+    const { productType, ...pricingBody } = body;
+
     const existing = await getGamePricing(params.id);
 
     // Merge incoming + existing to have full input for the engine
-    const supplierPrice = body.supplierPriceUsd
+    const supplierPrice = pricingBody.supplierPriceUsd
       ?? Number(existing?.supplierPriceUsd ?? 0);
 
     const [settings, currency] = await Promise.all([getPriceSettings(), getCurrencySettings()]);
     const engine = new PriceEngineService(settings, currency);
 
-    const strategy: PricingStrategy = body.pricingStrategy
+    const strategy: PricingStrategy = pricingBody.pricingStrategy
       ?? (existing?.pricingStrategy as PricingStrategy)
       ?? 'GLOBAL';
 
     const result = engine.calculateFinalGamePrice({
       gameId:               params.id,
       supplierPriceUsd:     supplierPrice,
-      steamPriceUsd:        body.steamPriceUsd         ?? Number(existing?.steamPriceUsd)         ?? null,
-      steamDiscountPriceUsd: body.steamDiscountPriceUsd ?? Number(existing?.steamDiscountPriceUsd) ?? null,
+      steamPriceUsd:        pricingBody.steamPriceUsd         ?? Number(existing?.steamPriceUsd)         ?? null,
+      steamDiscountPriceUsd: pricingBody.steamDiscountPriceUsd ?? Number(existing?.steamDiscountPriceUsd) ?? null,
       pricingStrategy:      strategy,
-      customPricingEnabled: body.customPricingEnabled   ?? existing?.customPricingEnabled ?? false,
-      customMarkupType:     body.customMarkupType       ?? (existing?.customMarkupType as SmartMarkupType) ?? null,
-      customMarkupValue:    body.customMarkupValue       ?? Number(existing?.customMarkupValue)     ?? null,
-      customFinalPrice:     body.customFinalPrice        ?? Number(existing?.customFinalPrice)       ?? null,
+      customPricingEnabled: pricingBody.customPricingEnabled   ?? existing?.customPricingEnabled ?? false,
+      customMarkupType:     pricingBody.customMarkupType       ?? (existing?.customMarkupType as SmartMarkupType) ?? null,
+      customMarkupValue:    pricingBody.customMarkupValue       ?? Number(existing?.customMarkupValue)     ?? null,
+      customFinalPrice:     pricingBody.customFinalPrice        ?? Number(existing?.customFinalPrice)       ?? null,
     });
 
     const newPriceUzs = Math.round(result.finalPriceUzs);
@@ -67,7 +69,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
     const saved = await upsertGamePricing(
       params.id,
       {
-        ...body,
+        ...pricingBody,
         supplierPriceUsd:  result.supplierPriceUsd,
         finalPriceUsd:     result.finalPriceUsd,
         finalPriceUzs:     newPriceUzs,
@@ -93,7 +95,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
       data:  {
         priceUzs: newPriceUzs,
         priceUsd: result.finalPriceUsd,
-        ...(body.productType ? { productType: body.productType } : {}),
+        ...(productType ? { productType } : {}),
       },
       select: { id: true, title: true, slug: true },
     });

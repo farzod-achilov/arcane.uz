@@ -581,21 +581,24 @@ model wishlists {
 }
 
 model reviews {
-  id        String   @id @default(cuid())
-  userId    String   @map("user_id")
-  gameId    String   @map("game_id")
-  rating    Int
-  body      String?
-  verified  Boolean  @default(false)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id          String   @id @default(cuid())
+  userId      String?  @map("user_id")
+  gameId      String   @map("game_id")
+  rating      Int
+  body        String?
+  authorName  String?  @map("author_name")
+  authorEmail String?  @map("author_email")
+  verified    Boolean  @default(false)
+  isApproved  Boolean  @default(false) @map("is_approved")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  user users @relation(fields: [userId], references: [id], onDelete: Cascade)
-  game games @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user users? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game games  @relation(fields: [gameId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, gameId])
   @@index([gameId])
   @@index([rating])
+  @@index([isApproved])
 }
 
 // ── Promo Codes ───────────────────────────────────────────────────────────────

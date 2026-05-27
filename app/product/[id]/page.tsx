@@ -1112,14 +1112,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
 
             <ActivationGuide deliveryType={product.deliveryType} />
 
-            {product.productReviews && product.productReviews.length > 0 && (
-              <ProductReviews
-                reviews={product.productReviews}
-                overallRating={product.rating}
-                totalReviews={product.reviews}
-                productTitle={product.title}
-              />
-            )}
+            <ProductReviews slug={product.id} productTitle={product.title} />
 
             <ProductFAQ faq={product.faq} />
 

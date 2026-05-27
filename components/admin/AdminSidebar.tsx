@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Package, ShoppingBag, Users, Tag,
   Zap, Gift, MessageSquare, BarChart2, Settings,
-  ChevronLeft, ChevronRight, Shield, LogOut, KeyRound, TrendingUp, Gamepad2, Truck, Wallet, Ticket, Layers,
+  ChevronLeft, ChevronRight, Shield, LogOut, KeyRound, TrendingUp, Gamepad2, Truck, Wallet, Ticket, Layers, Star,
 } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 
@@ -37,6 +37,7 @@ export default function AdminSidebar({
     { href: '/admin/smart-pricing/games', label: t.nav.gamePricing,  icon: Gamepad2,        color: '#9D60FA' },
     { href: '/admin/bulk-pricing',        label: 'Массовые цены',    icon: Layers,          color: '#7C3AED' },
     { href: '/admin/steam-import',        label: 'Steam Import',     icon: Gamepad2,        color: '#1E90FF' },
+    { href: '/admin/reviews',              label: 'Отзывы',           icon: Star,            color: '#F59E0B' },
     { href: '/admin/support',             label: t.nav.support,      icon: MessageSquare,   color: '#06B6D4' },
     { href: '/admin/analytics',           label: t.nav.analytics,    icon: BarChart2,       color: '#7C3AED' },
   ];
