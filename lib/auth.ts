@@ -21,10 +21,13 @@ export const authOptions: NextAuthOptions = {
         hash:       {},
       },
       async authorize(creds) {
-        if (!creds?.id || !creds?.hash) return null;
+        if (!creds?.id || !creds?.hash) {
+          console.error('[TG] missing id or hash', creds);
+          return null;
+        }
 
         const botToken = process.env.TELEGRAM_BOT_TOKEN;
-        if (!botToken) return null;
+        if (!botToken) { console.error('[TG] no TELEGRAM_BOT_TOKEN'); return null; }
 
         const authData: TelegramAuthData = {
           id:         creds.id,
@@ -36,8 +39,12 @@ export const authOptions: NextAuthOptions = {
           hash:       creds.hash,
         };
 
-        if (!verifyTelegramAuth(authData, botToken))     return null;
-        if (!isTelegramAuthFresh(authData.auth_date))    return null;
+        const hashOk = verifyTelegramAuth(authData, botToken);
+        const freshOk = isTelegramAuthFresh(authData.auth_date);
+        console.log('[TG] verify:', { hashOk, freshOk, id: creds.id, auth_date: creds.auth_date });
+
+        if (!hashOk)  return null;
+        if (!freshOk) return null;
 
         const telegramId = BigInt(creds.id);
 
