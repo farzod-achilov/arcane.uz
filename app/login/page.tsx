@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { useUser } from '@/lib/userContext';
 import CheckoutInput from '@/components/checkout/CheckoutInput';
 
-const TG_BOT_ID = process.env.NEXT_PUBLIC_TELEGRAM_BOT_ID ?? '';
+const TG_BOT_ID = process.env.NEXT_PUBLIC_TELEGRAM_BOT_ID ?? '8889652013';
 
 /* ── Floating particle ─────────────────────────────────── */
 function Particle({ delay, x, y, size, color }: {
