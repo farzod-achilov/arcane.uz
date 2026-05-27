@@ -293,9 +293,26 @@ model users {
   reviews          reviews[]
   support_tickets  support_tickets[]
   support_messages support_messages[] @relation("SupportMessageAuthor")
+  notifications    notifications[]
 
   @@index([email])
   @@index([username])
+}
+
+model notifications {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  type      String
+  title     String
+  body      String
+  href      String?
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user users @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 enum InventoryStatus {

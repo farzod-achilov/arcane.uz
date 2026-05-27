@@ -1,6 +1,7 @@
 import { formatPrice } from '@/lib/utils';
 import { prisma } from '@/lib/prisma';
 import { sendKeyDeliveryEmail, sendPriceDropEmail } from '@/lib/email';
+import { createNotification } from '@/lib/notifications';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyDB = any;
@@ -60,6 +61,13 @@ export async function notifyUserOrderComplete(params: {
       keyValue:  params.keyValue,
     }).catch(() => {});
   }
+
+  createNotification(params.userId, {
+    type:  'order',
+    title: 'Заказ выполнен!',
+    body:  `Ключ для «${params.gameTitle}» готов`,
+    href:  '/library',
+  }).catch(() => {});
 }
 
 // Notify wishlist users when a game price drops
@@ -122,6 +130,18 @@ export async function notifyWishlistPriceDrop(params: {
       savePct,
     }).catch(() => {})),
   ]);
+
+  // In-app notifications for all wishlist users
+  await Promise.all(
+    wishlists.map(w =>
+      createNotification(w.userId, {
+        type:  'wishlist',
+        title: 'Цена снижена!',
+        body:  `«${gameTitle}» теперь стоит ${formatPrice(newPrice)} (−${savePct}%)`,
+        href:  `/games/${gameSlug}`,
+      }).catch(() => {}),
+    ),
+  );
 
   // Mark all notified with the new price
   await (prisma.wishlists.updateMany as AnyDB)({

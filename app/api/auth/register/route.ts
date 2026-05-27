@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { nanoid } from 'nanoid';
 import { prisma } from '@/lib/prisma';
 import { sendWelcomeEmail } from '@/lib/email';
+import { createNotification } from '@/lib/notifications';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyData = any;
@@ -107,6 +108,12 @@ export async function POST(req: NextRequest) {
     });
 
     sendWelcomeEmail(user.email, user.username).catch(() => {});
+    createNotification(userId, {
+      type:  'system',
+      title: `Добро пожаловать, ${normalUsername}!`,
+      body:  '+500 Arcane Coins зачислены на счёт',
+      href:  '/catalog',
+    }).catch(() => {});
 
     return NextResponse.json({ success: true, user }, { status: 201 });
   } catch (err) {

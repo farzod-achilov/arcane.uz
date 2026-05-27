@@ -6,7 +6,7 @@ import {
 } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import {
-  INITIAL_NOTIFICATIONS, getLevelFromXp,
+  getLevelFromXp,
   type Notification,
 } from './mockUserData';
 
@@ -48,18 +48,7 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | null>(null);
 
-const LS_LIST   = 'arcane_wishlist';
-const LS_NOTIFS = 'arcane_notifs';
-
-function readLS<T>(key: string, fallback: T): T {
-  if (typeof window === 'undefined') return fallback;
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
+const LS_LIST = 'arcane_wishlist';
 
 function sessionToUser(session: { user: { id: string; name?: string | null; email?: string | null; image?: string | null; arcCoins?: number; xp?: number } }): User {
   const s = session.user;
@@ -84,14 +73,25 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [user,          setUser]  = useState<User | null>(null);
   const [wishlist,      setWList] = useState<string[]>([]);
   const [notifications, setNotifs] = useState<Notification[]>([]);
-  const [hydrated,      setHyd]   = useState(false);
 
-  /* Hydrate local state from localStorage */
+  /* Poll notifications from DB every 30 s when authenticated */
   useEffect(() => {
-    setWList(readLS<string[]>(LS_LIST, []));
-    setNotifs(readLS<Notification[]>(LS_NOTIFS, INITIAL_NOTIFICATIONS));
-    setHyd(true);
-  }, []);
+    if (status !== 'authenticated') return;
+    let alive = true;
+
+    const load = () => {
+      fetch('/api/notifications')
+        .then(r => r.json())
+        .then((d: { notifications?: Notification[] }) => {
+          if (alive && Array.isArray(d.notifications)) setNotifs(d.notifications);
+        })
+        .catch(() => {});
+    };
+
+    load();
+    const id = setInterval(load, 30_000);
+    return () => { alive = false; clearInterval(id); };
+  }, [status]);
 
   /* Sync NextAuth session → user state + load wishlist from DB */
   useEffect(() => {
@@ -108,8 +108,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* Persist notifications only (wishlist now lives in DB) */
-  useEffect(() => { if (hydrated) localStorage.setItem(LS_NOTIFS, JSON.stringify(notifications)); }, [notifications, hydrated]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -133,16 +131,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     const ok = await signIn('credentials', { redirect: false, email, password });
     if (!ok?.ok) return { ok: false, error: 'Не удалось войти после регистрации' };
-
-    setNotifs((prev) => [{
-      id:    `w_${Date.now()}`,
-      type:  'system',
-      title: `Добро пожаловать, ${name}!`,
-      body:  '+500 Arcane Coins в подарок за регистрацию',
-      time:  Date.now(),
-      read:  false,
-      href:  '/library',
-    }, ...prev]);
 
     return { ok: true };
   }, []);
@@ -174,10 +162,23 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const isInWishlist = useCallback((id: string) => wishlist.includes(id), [wishlist]);
 
   /* ── Notifications ── */
-  const markNotificationRead = useCallback((id: string) =>
-    setNotifs((p) => p.map((n) => n.id === id ? { ...n, read: true } : n)), []);
-  const markAllRead = useCallback(() =>
-    setNotifs((p) => p.map((n) => ({ ...n, read: true }))), []);
+  const markNotificationRead = useCallback((id: string) => {
+    setNotifs((p) => p.map((n) => n.id === id ? { ...n, read: true } : n));
+    fetch('/api/notifications', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ id }),
+    }).catch(() => {});
+  }, []);
+
+  const markAllRead = useCallback(() => {
+    setNotifs((p) => p.map((n) => ({ ...n, read: true })));
+    fetch('/api/notifications', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({}),
+    }).catch(() => {});
+  }, []);
 
   /* ── Connected accounts ── */
   const connectTelegram = useCallback((username: string) => {
