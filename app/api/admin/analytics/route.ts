@@ -32,7 +32,7 @@ export async function GET(req: Request) {
     topPromos,
   ] = await Promise.all([
     prisma.orders.findMany({
-      where: { createdAt: { gte: dayN }, status: { in: paidStatuses as never[] } },
+      where: { createdAt: { gte: dayN }, status: { in: paidStatuses as unknown as never[] } },
       select: { totalPrice: true, createdAt: true, status: true },
     }),
     prisma.users.findMany({
@@ -43,7 +43,7 @@ export async function GET(req: Request) {
       by:    ['status'],
       _count: { id: true },
     }),
-    prisma.orders.count({ where: { status: { in: paidStatuses as never[] } } }),
+    prisma.orders.count({ where: { status: { in: paidStatuses as unknown as never[] } } }),
     prisma.orders.count({ where: { status: 'COMPLETED' } }),
     prisma.order_items.groupBy({
       by:     ['gameId'],
@@ -56,7 +56,7 @@ export async function GET(req: Request) {
     prisma.games.count({ where: { isActive: true } }),
     prisma.users.count(),
     prisma.orders.aggregate({
-      where: { status: { in: paidStatuses as never[] } },
+      where: { status: { in: paidStatuses as unknown as never[] } },
       _sum:  { totalPrice: true },
       _avg:  { totalPrice: true },
     }),
