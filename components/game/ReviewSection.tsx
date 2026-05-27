@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, MessageSquare, Send, Loader2 } from 'lucide-react';
+import { ShieldCheck, MessageSquare, Send, Loader2, CheckCircle2, LogIn } from 'lucide-react';
+import Link from 'next/link';
 import StarRating from './StarRating';
 
 interface Review {
@@ -24,13 +25,16 @@ interface ReviewsData {
 }
 
 export default function ReviewSection({ slug }: { slug: string }) {
-  const { data: session } = useSession();
-  const [data, setData]   = useState<ReviewsData | null>(null);
-  const [rating, setRating]   = useState(0);
-  const [body, setBody]       = useState('');
+  const { data: session, status } = useSession();
+  const [data, setData]     = useState<ReviewsData | null>(null);
+  const [rating, setRating] = useState(0);
+  const [body, setBody]     = useState('');
+  const [name, setName]     = useState('');
+  const [email, setEmail]   = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted]   = useState(false);
   const [showForm, setShowForm]     = useState(false);
+  const [error, setError]           = useState('');
 
   const load = useCallback(() => {
     fetch(`/api/games/${slug}/reviews`)
@@ -43,17 +47,29 @@ export default function ReviewSection({ slug }: { slug: string }) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!rating) return;
+    if (!rating) { setError('Выберите оценку'); return; }
+    if (!session && (!name.trim() || !email.trim())) {
+      setError('Укажите имя и email');
+      return;
+    }
+    setError('');
     setSubmitting(true);
     try {
-      await fetch(`/api/games/${slug}/reviews`, {
+      const res = await fetch(`/api/games/${slug}/reviews`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ rating, body }),
+        body:    JSON.stringify(
+          session
+            ? { rating, body }
+            : { rating, body, authorName: name.trim(), authorEmail: email.trim() }
+        ),
       });
+      const json = await res.json();
+      if (!res.ok) { setError(json.error ?? 'Ошибка'); return; }
       setSubmitted(true);
       setShowForm(false);
-      load();
+    } catch {
+      setError('Ошибка сети');
     } finally {
       setSubmitting(false);
     }
@@ -74,17 +90,27 @@ export default function ReviewSection({ slug }: { slug: string }) {
           )}
         </h2>
 
-        {session && !submitted && (
+        {!submitted && !showForm && status !== 'loading' && (
           <button
-            onClick={() => setShowForm(v => !v)}
-            className="font-heading font-semibold text-sm px-4 py-2 rounded-xl transition-all"
+            onClick={() => setShowForm(true)}
+            className="font-heading font-semibold text-sm px-4 py-2 rounded-xl transition-all flex items-center gap-2"
             style={{
-              background: showForm ? 'rgba(124,58,237,0.15)' : 'rgba(124,58,237,0.1)',
+              background: 'rgba(124,58,237,0.1)',
               border: '1px solid rgba(124,58,237,0.3)',
               color: '#A78BFA',
             }}
           >
-            {showForm ? 'Отмена' : '+ Написать отзыв'}
+            <Send className="w-3.5 h-3.5" />
+            Написать отзыв
+          </button>
+        )}
+        {showForm && !submitted && (
+          <button
+            onClick={() => { setShowForm(false); setError(''); }}
+            className="font-heading font-semibold text-sm px-4 py-2 rounded-xl transition-all"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: '#6B7280' }}
+          >
+            Отмена
           </button>
         )}
       </div>
@@ -119,9 +145,26 @@ export default function ReviewSection({ slug }: { slug: string }) {
         </div>
       )}
 
+      {/* Success */}
+      <AnimatePresence>
+        {submitted && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="flex items-start gap-3 rounded-2xl p-4 mb-6"
+            style={{ background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.2)' }}
+          >
+            <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-heading font-semibold text-green-400 text-sm">Отзыв отправлен!</p>
+              <p className="font-body text-[#4B5563] text-xs mt-0.5">Он появится после проверки модератором.</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Review form */}
       <AnimatePresence>
-        {showForm && (
+        {showForm && !submitted && (
           <motion.form
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -130,10 +173,55 @@ export default function ReviewSection({ slug }: { slug: string }) {
             className="mb-6 p-5 rounded-2xl space-y-4"
             style={{ background: '#0D0D16', border: '1px solid rgba(124,58,237,0.2)' }}
           >
+            {/* Guest name/email */}
+            {!session && (
+              <>
+                <div className="flex items-center gap-2 rounded-xl px-3 py-2.5 mb-1"
+                     style={{ background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.15)' }}>
+                  <LogIn className="w-3.5 h-3.5 text-[#7C3AED] flex-shrink-0" />
+                  <p className="font-body text-[#9CA3AF] text-xs">
+                    Или{' '}
+                    <Link href="/login" className="text-[#A78BFA] hover:underline">войдите</Link>
+                    {' '}для верифицированного отзыва
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-pixel text-[#4B5563] block mb-1.5" style={{ fontSize: '8px', letterSpacing: '0.1em' }}>ИМЯ *</label>
+                    <input
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      placeholder="Ваше имя"
+                      className="w-full font-body text-sm text-white rounded-xl px-3 py-2.5 outline-none transition-all"
+                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                      onFocus={e => (e.currentTarget.style.borderColor = 'rgba(124,58,237,0.4)')}
+                      onBlur={e  => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
+                    />
+                  </div>
+                  <div>
+                    <label className="font-pixel text-[#4B5563] block mb-1.5" style={{ fontSize: '8px', letterSpacing: '0.1em' }}>EMAIL *</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      placeholder="your@email.com"
+                      className="w-full font-body text-sm text-white rounded-xl px-3 py-2.5 outline-none transition-all"
+                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                      onFocus={e => (e.currentTarget.style.borderColor = 'rgba(124,58,237,0.4)')}
+                      onBlur={e  => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Rating */}
             <div>
-              <p className="font-pixel text-[#4B5563] mb-2" style={{ fontSize: '8px', letterSpacing: '0.1em' }}>ОЦЕНКА</p>
-              <StarRating value={rating} onChange={setRating} size={24} />
+              <p className="font-pixel text-[#4B5563] mb-2" style={{ fontSize: '8px', letterSpacing: '0.1em' }}>ОЦЕНКА *</p>
+              <StarRating value={rating} onChange={setRating} size={26} />
             </div>
+
+            {/* Body */}
             <div>
               <p className="font-pixel text-[#4B5563] mb-2" style={{ fontSize: '8px', letterSpacing: '0.1em' }}>КОММЕНТАРИЙ (необязательно)</p>
               <textarea
@@ -143,13 +231,16 @@ export default function ReviewSection({ slug }: { slug: string }) {
                 maxLength={1000}
                 rows={3}
                 className="w-full font-body text-sm text-white rounded-xl px-4 py-3 resize-none outline-none transition-all"
-                style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  color: '#E2E8F0',
-                }}
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#E2E8F0' }}
+                onFocus={e => (e.currentTarget.style.borderColor = 'rgba(124,58,237,0.4)')}
+                onBlur={e  => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
               />
             </div>
+
+            {error && (
+              <p className="font-body text-red-400 text-xs">{error}</p>
+            )}
+
             <button
               type="submit"
               disabled={!rating || submitting}
@@ -157,7 +248,7 @@ export default function ReviewSection({ slug }: { slug: string }) {
               style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', color: '#fff' }}
             >
               {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              Отправить
+              Отправить отзыв
             </button>
           </motion.form>
         )}
