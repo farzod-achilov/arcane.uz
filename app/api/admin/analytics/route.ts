@@ -16,12 +16,17 @@ export async function GET(req: Request) {
   const day0 = new Date(now); day0.setHours(0, 0, 0, 0);
   const dayN = new Date(day0); dayN.setDate(dayN.getDate() - (period - 1));
   const day30 = new Date(day0); day30.setDate(day30.getDate() - 29);
+  // Previous period window
+  const prevEnd   = new Date(dayN); prevEnd.setDate(prevEnd.getDate() - 1);
+  const prevStart = new Date(prevEnd); prevStart.setDate(prevStart.getDate() - (period - 1));
 
   const paidStatuses = ['PAID', 'COMPLETED', 'WAITING_MANUAL'] as const;
 
   const [
     ordersInPeriod,
     usersInPeriod,
+    ordersInPrev,
+    usersInPrev,
     allOrders,
     allOrdersCount,
     completedCount,
@@ -39,6 +44,11 @@ export async function GET(req: Request) {
       where:  { createdAt: { gte: dayN } },
       select: { createdAt: true },
     }),
+    prisma.orders.findMany({
+      where: { createdAt: { gte: prevStart, lte: prevEnd }, status: { in: paidStatuses as unknown as never[] } },
+      select: { totalPrice: true },
+    }),
+    prisma.users.count({ where: { createdAt: { gte: prevStart, lte: prevEnd } } }),
     prisma.orders.groupBy({
       by:    ['status'],
       _count: { id: true },
@@ -101,9 +111,15 @@ export async function GET(req: Request) {
     return { gameId: t.gameId, title: g?.title ?? 'Unknown', cover: g?.cover ?? null, slug: g?.slug ?? '', sales: t._count.id, revenue: t._sum.price ?? 0 };
   });
 
-  const statusDist    = Object.fromEntries(allOrders.map(r => [r.status, r._count.id]));
-  const revInPeriod   = ordersInPeriod.reduce((s, o) => s + o.totalPrice, 0);
+  const statusDist     = Object.fromEntries(allOrders.map(r => [r.status, r._count.id]));
+  const revInPeriod    = ordersInPeriod.reduce((s, o) => s + o.totalPrice, 0);
+  const revInPrev      = ordersInPrev.reduce((s, o) => s + o.totalPrice, 0);
   const completionRate = allOrdersCount > 0 ? Math.round((completedCount / allOrdersCount) * 100) : 0;
+
+  function pctChange(curr: number, prev: number) {
+    if (prev === 0) return curr > 0 ? 100 : 0;
+    return Math.round(((curr - prev) / prev) * 100);
+  }
 
   return NextResponse.json({
     period,
@@ -116,6 +132,16 @@ export async function GET(req: Request) {
       completionRate,
       totalGames,
       totalUsers,
+    },
+    prev: {
+      revenueN:  revInPrev,
+      ordersN:   ordersInPrev.length,
+      newUsersN: usersInPrev,
+    },
+    changes: {
+      revenueN:  pctChange(revInPeriod,          revInPrev),
+      ordersN:   pctChange(ordersInPeriod.length, ordersInPrev.length),
+      newUsersN: pctChange(usersInPeriod.length,  usersInPrev),
     },
     daily: days,
     topGames,

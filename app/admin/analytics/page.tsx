@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
-  TrendingUp, DollarSign, ShoppingBag, Users, Package,
-  Gamepad2, RefreshCw, Ticket, CheckCircle2, BarChart3,
+  TrendingUp, TrendingDown, DollarSign, ShoppingBag, Users, Package,
+  Gamepad2, RefreshCw, Ticket, CheckCircle2, BarChart3, Download,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 
@@ -19,10 +19,23 @@ interface Analytics {
     totalRevenue: number; avgOrderValue: number; completionRate: number;
     totalGames: number; totalUsers: number;
   };
+  changes:    { revenueN: number; ordersN: number; newUsersN: number };
   daily:      DayData[];
   topGames:   TopGame[];
   statusDist: Record<string, number>;
   topPromos:  TopPromo[];
+}
+
+function DeltaBadge({ pct }: { pct: number }) {
+  if (pct === 0) return null;
+  const up = pct > 0;
+  return (
+    <div className="flex items-center gap-0.5"
+         style={{ color: up ? '#4ADE80' : '#F87171', fontSize: '9px' }}>
+      {up ? <TrendingUp size={9} /> : <TrendingDown size={9} />}
+      <span className="font-body">{up ? '+' : ''}{pct}%</span>
+    </div>
+  );
 }
 
 const PERIODS = [
@@ -108,22 +121,26 @@ export default function AdminAnalyticsPage() {
     );
   }
 
-  const { kpis, daily, topGames, statusDist, topPromos } = data;
+  const { kpis, changes, daily, topGames, statusDist, topPromos } = data;
   const maxSales = Math.max(...topGames.map(g => g.sales), 1);
   const totalStatusOrders = Object.values(statusDist).reduce((s, v) => s + v, 0);
 
   const periodLabel = PERIODS.find(p => p.value === period)?.label ?? `${period} дней`;
 
   const kpiCards = [
-    { label: `Выручка (${periodLabel})`,    value: formatPrice(kpis.revenueN),       color: '#22C55E', icon: DollarSign   },
-    { label: `Заказов (${periodLabel})`,    value: String(kpis.ordersN),             color: '#7C3AED', icon: ShoppingBag  },
-    { label: `Новых юзеров`,               value: String(kpis.newUsersN),           color: '#06B6D4', icon: Users        },
-    { label: 'Средний чек',                value: formatPrice(kpis.avgOrderValue),   color: '#F59E0B', icon: BarChart3    },
-    { label: 'Выполнено заказов',           value: `${kpis.completionRate}%`,        color: '#4ADE80', icon: CheckCircle2 },
-    { label: 'Выручка всего',              value: formatPrice(kpis.totalRevenue),   color: '#F59E0B', icon: TrendingUp   },
-    { label: 'Игр в каталоге',             value: String(kpis.totalGames),          color: '#9D60FA', icon: Gamepad2     },
-    { label: 'Пользователей',              value: String(kpis.totalUsers),          color: '#FB923C', icon: Package      },
+    { label: `Выручка (${periodLabel})`,  value: formatPrice(kpis.revenueN),       color: '#22C55E', icon: DollarSign,   delta: changes?.revenueN  },
+    { label: `Заказов (${periodLabel})`,  value: String(kpis.ordersN),             color: '#7C3AED', icon: ShoppingBag,  delta: changes?.ordersN   },
+    { label: 'Новых юзеров',             value: String(kpis.newUsersN),           color: '#06B6D4', icon: Users,        delta: changes?.newUsersN },
+    { label: 'Средний чек',              value: formatPrice(kpis.avgOrderValue),   color: '#F59E0B', icon: BarChart3,    delta: undefined          },
+    { label: 'Выполнено заказов',         value: `${kpis.completionRate}%`,        color: '#4ADE80', icon: CheckCircle2, delta: undefined          },
+    { label: 'Выручка всего',            value: formatPrice(kpis.totalRevenue),   color: '#F59E0B', icon: TrendingUp,   delta: undefined          },
+    { label: 'Игр в каталоге',           value: String(kpis.totalGames),          color: '#9D60FA', icon: Gamepad2,     delta: undefined          },
+    { label: 'Пользователей',            value: String(kpis.totalUsers),          color: '#FB923C', icon: Package,      delta: undefined          },
   ];
+
+  const handleExport = () => {
+    window.location.href = `/api/admin/export/orders`;
+  };
 
   return (
     <div className="p-6 space-y-5">
@@ -152,6 +169,14 @@ export default function AdminAnalyticsPage() {
             ))}
           </div>
           <button
+            onClick={handleExport}
+            className="flex items-center gap-2 rounded-xl px-4 py-2 font-heading font-semibold text-sm transition-all hover:opacity-90"
+            style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', color: '#4ADE80' }}
+          >
+            <Download className="w-3.5 h-3.5" />
+            CSV
+          </button>
+          <button
             onClick={() => load(period)}
             disabled={loading}
             className="flex items-center gap-2 rounded-xl px-4 py-2 font-heading font-semibold text-sm transition-all disabled:opacity-50"
@@ -176,7 +201,10 @@ export default function AdminAnalyticsPage() {
           >
             <div className="absolute top-0 right-0 w-16 h-16 pointer-events-none"
                  style={{ background: `radial-gradient(circle at top right, ${s.color}14, transparent 70%)` }} />
-            <s.icon style={{ width: '13px', height: '13px', color: s.color, marginBottom: '6px' }} />
+            <div className="flex items-start justify-between mb-1.5">
+              <s.icon style={{ width: '13px', height: '13px', color: s.color }} />
+              {s.delta !== undefined && <DeltaBadge pct={s.delta} />}
+            </div>
             <p className="font-heading font-bold truncate" style={{ fontSize: '15px', color: s.color, lineHeight: 1 }}>{s.value}</p>
             <p className="font-body text-[#4B5563] mt-1 leading-tight" style={{ fontSize: '9.5px' }}>{s.label}</p>
           </motion.div>
