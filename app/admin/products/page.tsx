@@ -6,7 +6,7 @@ import Image from 'next/image';
 import {
   Search, Plus, Eye, EyeOff, Edit2, RefreshCw, Wifi, WifiOff,
   CheckCircle2, AlertCircle, Clock, Zap, Hand, Package, X, Save, Loader2, Trash2,
-  ArrowUpDown, SlidersHorizontal,
+  ArrowUpDown, SlidersHorizontal, ToggleRight,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import AddGameModal from '@/components/admin/keys/AddGameModal';
@@ -306,7 +306,8 @@ export default function AdminProductsPage() {
   const [editGame, setEditGame]   = useState<GameRow | null>(null);
   const [showAdd, setShowAdd]     = useState(false);
   const [showNuke, setShowNuke]   = useState(false);
-  const [toggling, setToggling]   = useState<string | null>(null);
+  const [toggling, setToggling]       = useState<string | null>(null);
+  const [bulkActivating, setBulkActivating] = useState(false);
   const [deleting, setDeleting]   = useState<string | null>(null); // confirm step
   const [deleteErr, setDeleteErr] = useState<Record<string, string>>({});
   const [statusFilter,   setStatusFilter]   = useState<StatusFilter>('ALL');
@@ -336,6 +337,15 @@ export default function AdminProductsPage() {
   }, [page, search, statusFilter, deliveryFilter, stockFilter, sort]);
 
   useEffect(() => { load(); }, [load]); // eslint-disable-line
+
+  async function bulkActivate() {
+    setBulkActivating(true);
+    try {
+      const res  = await fetch('/api/admin/games/bulk-activate', { method: 'POST' });
+      const data = await res.json() as { ok: boolean; count: number };
+      if (data.ok) setGames(prev => prev.map(g => ({ ...g, isActive: true })));
+    } finally { setBulkActivating(false); }
+  }
 
   async function toggleActive(game: GameRow) {
     setToggling(game.id);
@@ -378,13 +388,26 @@ export default function AdminProductsPage() {
         </div>
         <div className="flex items-center gap-2">
           {total > 0 && (
-            <button
-              onClick={() => setShowNuke(true)}
-              className="flex items-center gap-2 rounded-xl px-4 py-2.5 font-heading font-semibold text-sm"
-              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: '#EF4444' }}
-            >
-              <Trash2 className="w-4 h-4" /> Удалить все
-            </button>
+            <>
+              <button
+                onClick={bulkActivate}
+                disabled={bulkActivating}
+                className="flex items-center gap-2 rounded-xl px-4 py-2.5 font-heading font-semibold text-sm disabled:opacity-50"
+                style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', color: '#22C55E' }}
+              >
+                {bulkActivating
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <ToggleRight className="w-4 h-4" />}
+                Активировать все
+              </button>
+              <button
+                onClick={() => setShowNuke(true)}
+                className="flex items-center gap-2 rounded-xl px-4 py-2.5 font-heading font-semibold text-sm"
+                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: '#EF4444' }}
+              >
+                <Trash2 className="w-4 h-4" /> Удалить все
+              </button>
+            </>
           )}
           <button
             onClick={() => setShowAdd(true)}
