@@ -288,6 +288,8 @@ model users {
   orders           orders[]
   wishlists        wishlists[]
   reviews          reviews[]
+  support_tickets  support_tickets[]
+  support_messages support_messages[] @relation("SupportMessageAuthor")
 
   @@index([email])
   @@index([username])
@@ -587,6 +589,53 @@ model reviews {
   @@unique([userId, gameId])
   @@index([gameId])
   @@index([rating])
+}
+
+// ── Support System ────────────────────────────────────────────────────────────
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model support_tickets {
+  id        String         @id @default(cuid())
+  userId    String
+  subject   String
+  category  String         @default("other")
+  status    TicketStatus   @default(OPEN)
+  priority  TicketPriority @default(MEDIUM)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  user     users              @relation(fields: [userId], references: [id])
+  messages support_messages[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model support_messages {
+  id        String   @id @default(cuid())
+  ticketId  String
+  authorId  String
+  isAdmin   Boolean  @default(false)
+  body      String
+  createdAt DateTime @default(now())
+
+  ticket support_tickets @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author users           @relation("SupportMessageAuthor", fields: [authorId], references: [id])
+
+  @@index([ticketId])
 }
 
 model delivery_logs {

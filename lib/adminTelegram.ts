@@ -57,6 +57,57 @@ export async function notifyAdminDelivered(order: ArcaneOrder): Promise<void> {
   await sendMessage(ADMIN_CHAT, text);
 }
 
+/** Notify admin about a new support ticket */
+export async function notifyAdminNewTicket(params: {
+  ticketId:  string;
+  subject:   string;
+  category:  string;
+  userName:  string;
+  userEmail: string;
+}): Promise<void> {
+  const { ticketId, subject, category, userName, userEmail } = params;
+  const text = [
+    `🎫 <b>НОВЫЙ ТИКЕТ ПОДДЕРЖКИ</b>`,
+    ``,
+    `📝 Тема: <b>${subject}</b>`,
+    `🏷 Категория: ${category}`,
+    ``,
+    `👤 ${userName} (${userEmail})`,
+    `🆔 ID: <code>${ticketId}</code>`,
+    `🔗 Admin → /admin/support`,
+  ].join('\n');
+  await sendMessage(ADMIN_CHAT, text);
+}
+
+/** Notify admin about a new deposit request */
+export async function notifyAdminNewDeposit(params: {
+  depositId: string;
+  userId:    string;
+  userName:  string;
+  userEmail: string;
+  amount:    number;
+  method:    string;
+}): Promise<void> {
+  const { depositId, userName, userEmail, amount, method } = params;
+  const sum = new Intl.NumberFormat('uz-UZ').format(amount) + ' сум';
+  const methodLabel = method === 'click' ? 'Click' : method === 'payme' ? 'Payme' : 'Карта';
+
+  const text = [
+    `💳 <b>НОВАЯ ЗАЯВКА НА ДЕПОЗИТ</b>`,
+    ``,
+    `💰 Сумма: <b>${sum}</b>`,
+    `🏦 Метод: ${methodLabel}`,
+    ``,
+    `👤 Пользователь: ${userName || '—'}`,
+    `📧 Email: ${userEmail || '—'}`,
+    ``,
+    `🆔 ID заявки: <code>${depositId}</code>`,
+    `🔗 Admin → /admin/deposits`,
+  ].join('\n');
+
+  await sendMessage(ADMIN_CHAT, text);
+}
+
 /** Send game key to customer via their Telegram */
 export async function sendKeyToCustomer(
   order: ArcaneOrder,
