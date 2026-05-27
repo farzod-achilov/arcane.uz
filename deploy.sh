@@ -8,12 +8,16 @@ git stash || true
 git reset --hard origin/main
 
 echo "==> Installing deps..."
-npm ci
+npm ci --ignore-scripts
+
+echo "==> Generating Prisma client..."
+npx prisma generate
 
 echo "==> Applying Prisma schema..."
-npx prisma db push --accept-data-loss
+npx prisma db push --accept-data-loss || true
 
 echo "==> Building Next.js..."
+rm -rf .next
 npm run build
 
 echo "==> Restarting Next.js..."
