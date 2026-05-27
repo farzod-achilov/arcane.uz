@@ -3,6 +3,7 @@ import { hash } from 'bcryptjs';
 import crypto from 'crypto';
 import { nanoid } from 'nanoid';
 import { prisma } from '@/lib/prisma';
+import { sendWelcomeEmail } from '@/lib/email';
 
 export async function POST(req: NextRequest) {
   try {
@@ -66,6 +67,8 @@ export async function POST(req: NextRequest) {
 
       return created;
     });
+
+    sendWelcomeEmail(user.email, user.username).catch(() => {});
 
     return NextResponse.json({ success: true, user }, { status: 201 });
   } catch (err) {

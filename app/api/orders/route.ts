@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createOrder, listOrders } from '@/lib/orders/service';
 import { OrderError } from '@/lib/orders/types';
 import { notifyAdminNewOrder } from '@/lib/adminTelegram';
+import { sendOrderConfirmationEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,17 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const order = await createOrder(body);
+
+    // Email order confirmation to customer (non-blocking)
+    if (order.user?.email) {
+      sendOrderConfirmationEmail({
+        to:         order.user.email,
+        username:   order.user.username ?? '—',
+        orderId:    order.id,
+        items:      (order.items ?? []).map(i => ({ title: i.game?.title ?? '—', price: i.price })),
+        totalPrice: order.totalPrice,
+      }).catch(() => {});
+    }
 
     // Notify admin via Telegram (non-blocking)
     notifyAdminNewOrder({

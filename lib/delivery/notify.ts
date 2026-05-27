@@ -1,5 +1,6 @@
 import { formatPrice } from '@/lib/utils';
 import { prisma } from '@/lib/prisma';
+import { sendKeyDeliveryEmail } from '@/lib/email';
 
 const BOT  = process.env.TELEGRAM_BOT_TOKEN ?? '';
 const CHAT = process.env.TELEGRAM_CHAT_ID   ?? '';
@@ -35,6 +36,8 @@ export async function notifyUserOrderComplete(params: {
   orderId:   string;
   gameTitle: string;
   keyValue?: string;
+  userEmail?: string;
+  username?:  string;
 }) {
   await tgUser(params.userId, [
     `✅ <b>Ваш заказ выполнен!</b>`,
@@ -44,6 +47,16 @@ export async function notifyUserOrderComplete(params: {
     ``,
     `📦 Проверьте <a href="https://arcane.com.uz/library">Мою библиотеку</a>`,
   ].join('\n'));
+
+  if (params.userEmail) {
+    sendKeyDeliveryEmail({
+      to:        params.userEmail,
+      username:  params.username ?? params.userEmail,
+      orderId:   params.orderId,
+      gameTitle: params.gameTitle,
+      keyValue:  params.keyValue,
+    }).catch(() => {});
+  }
 }
 
 // Notify wishlist users when a game price drops

@@ -98,6 +98,8 @@ export async function completeManual(input: ManualCompleteInput) {
       orderId,
       gameTitle,
       keyValue,
+      userEmail: order.user.email,
+      username:  order.user.username,
     }).catch(() => null);
   }
 
