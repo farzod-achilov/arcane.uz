@@ -14,7 +14,7 @@ export async function GET(
 
   try {
     const res = await fetch(
-      `https://store.steampowered.com/api/appdetails?appids=${appId}&l=english`,
+      `https://store.steampowered.com/api/appdetails?appids=${appId}&cc=uz&l=english`,
       { cache: 'no-store' },
     );
 

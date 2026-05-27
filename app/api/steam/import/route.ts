@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
 
     // ── Fetch from Steam ─────────────────────────────────────────────────────
     const steamRes = await fetch(
-      `https://store.steampowered.com/api/appdetails?appids=${appId}&l=english`,
+      `https://store.steampowered.com/api/appdetails?appids=${appId}&cc=uz&l=english`,
       { cache: 'no-store', signal: AbortSignal.timeout(12_000) },
     );
 

@@ -41,7 +41,7 @@ class SteamClient {
     }
   }
 
-  async fetchAppDetails(appId: number, cc = 'US'): Promise<SteamGameData | null> {
+  async fetchAppDetails(appId: number, cc = 'UZ'): Promise<SteamGameData | null> {
     const { data } = await this.storeHttp.get<Record<string, SteamAppDetails>>('/appdetails', {
       params: { appids: appId, cc, l: 'english' },
     });
@@ -51,7 +51,7 @@ class SteamClient {
     return result.data;
   }
 
-  async fetchMultipleAppDetails(appIds: number[], cc = 'US'): Promise<Map<number, SteamGameData>> {
+  async fetchMultipleAppDetails(appIds: number[], cc = 'UZ'): Promise<Map<number, SteamGameData>> {
     const results = new Map<number, SteamGameData>();
 
     // Steam API allows only one appid at a time, batch with rate limiting

@@ -151,7 +151,7 @@ function matchScore(candidate: string, target: string): number {
 async function fetchSteam(title: string): Promise<SteamResult | null> {
   try {
     const searchRes = await fetch(
-      `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(title)}&l=english&cc=us`,
+      `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(title)}&l=english&cc=uz`,
       { cache: 'no-store', signal: AbortSignal.timeout(6000) },
     );
     if (!searchRes.ok) return null;
@@ -175,7 +175,7 @@ async function fetchSteam(title: string): Promise<SteamResult | null> {
 
     // Fetch full app details to get the initial (non-sale) price
     const detailRes = await fetch(
-      `https://store.steampowered.com/api/appdetails?appids=${appId}&cc=us&l=english`,
+      `https://store.steampowered.com/api/appdetails?appids=${appId}&cc=uz&l=english`,
       { cache: 'no-store', signal: AbortSignal.timeout(5000) },
     );
 
