@@ -11,8 +11,11 @@ type Ctx = { params: { id: string } };
 
 export async function GET(_req: Request, { params }: Ctx) {
   try {
-    const pricing = await getGamePricing(params.id);
-    return NextResponse.json({ success: true, data: pricing });
+    const [pricing, game] = await Promise.all([
+      getGamePricing(params.id),
+      prisma.games.findUnique({ where: { id: params.id }, select: { productType: true } }),
+    ]);
+    return NextResponse.json({ success: true, data: { ...pricing, productType: game?.productType ?? 'KEY' } });
   } catch (err) {
     return NextResponse.json({ success: false, error: String(err) }, { status: 500 });
   }
@@ -30,6 +33,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
       customMarkupValue?:     number | null;
       customFinalPrice?:      number | null;
       notes?:                 string;
+      productType?:           'KEY' | 'GIFT' | 'ACCOUNT';
     };
 
     const existing = await getGamePricing(params.id);
@@ -83,10 +87,14 @@ export async function PATCH(req: Request, { params }: Ctx) {
       },
     );
 
-    // Sync price to games table so storefront shows the updated price
+    // Sync price (and productType if provided) to games table
     const game = await prisma.games.update({
       where: { id: params.id },
-      data:  { priceUzs: newPriceUzs, priceUsd: result.finalPriceUsd },
+      data:  {
+        priceUzs: newPriceUzs,
+        priceUsd: result.finalPriceUsd,
+        ...(body.productType ? { productType: body.productType } : {}),
+      },
       select: { id: true, title: true, slug: true },
     });
 

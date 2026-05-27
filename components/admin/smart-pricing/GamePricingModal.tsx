@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import {
   X, DollarSign, Check, RefreshCw,
-  ArrowRight, ExternalLink,
+  ArrowRight, ExternalLink, Key, Gift, User,
 } from 'lucide-react';
 import type { PricingStrategy, SmartMarkupType, PriceCalculationResult } from '@/lib/smartPricing/types';
 import { STRATEGY_META } from '@/lib/smartPricing/strategies';
@@ -21,6 +21,8 @@ export interface GameItem {
   priceUsd?:  number;
 }
 
+type ProductType = 'KEY' | 'GIFT' | 'ACCOUNT';
+
 interface ExistingPricing {
   supplierPriceUsd?:      number | null;
   steamPriceUsd?:         number | null;
@@ -35,6 +37,7 @@ interface ExistingPricing {
   customMarkupValue?:     number | null;
   customFinalPrice?:      number | null;
   notes?:                 string | null;
+  productType?:           ProductType;
 }
 
 interface MarketOffer {
@@ -216,6 +219,7 @@ export default function GamePricingModal({ game, onClose, onSaved }: Props) {
   const [customValue,   setCustomValue]     = useState('');
   const [manualPrice,   setManualPrice]     = useState('');
   const [notes,         setNotes]           = useState('');
+  const [productType,   setProductType]     = useState<ProductType>('KEY');
 
   // Market prices state
   const [market,       setMarket]       = useState<MarketPrices | null>(null);
@@ -244,6 +248,7 @@ export default function GamePricingModal({ game, onClose, onSaved }: Props) {
           if (d.customMarkupValue)     setCustomValue(String(d.customMarkupValue));
           if (d.customFinalPrice)      setManualPrice(String(d.customFinalPrice));
           if (d.notes)                 setNotes(d.notes ?? '');
+          if (d.productType)           setProductType(d.productType);
         }
       })
       .catch(() => {})
@@ -320,6 +325,7 @@ export default function GamePricingModal({ game, onClose, onSaved }: Props) {
         customMarkupValue:     customEnabled && strategy !== 'MANUAL' ? (parseFloat(customValue) || null) : null,
         customFinalPrice:      customEnabled && strategy === 'MANUAL' ? (parseFloat(manualPrice) || null) : null,
         notes:                 notes || null,
+        productType,
       };
 
       const res  = await fetch(`/api/admin/game/${game.id}/pricing`, {
@@ -529,6 +535,40 @@ export default function GamePricingModal({ game, onClose, onSaved }: Props) {
                 </div>
               </div>
 
+              {/* ── Product type ── */}
+              <div className="rounded-2xl p-4 space-y-3"
+                   style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <p className="font-pixel text-[#6B7280]" style={{ fontSize: '7px', letterSpacing: '0.1em' }}>ТИП ВЫДАЧИ</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { id: 'KEY'    as ProductType, label: 'Ключ',    icon: Key,  color: '#22C55E', desc: 'Код активации Steam / GOG' },
+                    { id: 'GIFT'   as ProductType, label: 'Подарок', icon: Gift, color: '#F59E0B', desc: 'Steam-подарок на аккаунт'   },
+                    { id: 'ACCOUNT'as ProductType, label: 'Аккаунт', icon: User, color: '#06B6D4', desc: 'Аккаунт с игрой'            },
+                  ] as const).map(opt => {
+                    const active = productType === opt.id;
+                    return (
+                      <button key={opt.id} type="button" onClick={() => setProductType(opt.id)}
+                        className="rounded-xl p-3 text-center transition-all duration-200 flex flex-col items-center gap-1.5"
+                        style={{
+                          background: active ? `${opt.color}12` : 'rgba(255,255,255,0.02)',
+                          border:     `1px solid ${active ? opt.color + '40' : 'rgba(255,255,255,0.07)'}`,
+                          boxShadow:  active ? `0 0 12px ${opt.color}15` : 'none',
+                        }}>
+                        <opt.icon style={{ width: '14px', height: '14px', color: active ? opt.color : '#4B5563' }} />
+                        <p className="font-heading font-bold" style={{ fontSize: '11px', color: active ? opt.color : '#4B5563' }}>
+                          {opt.label}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="font-body text-[#374151]" style={{ fontSize: '10.5px' }}>
+                  {productType === 'KEY'     && 'Покупатель получает код активации для ввода в Steam / GOG / другую платформу'}
+                  {productType === 'GIFT'    && 'Товар отправляется как Steam-подарок напрямую на аккаунт покупателя'}
+                  {productType === 'ACCOUNT' && 'Покупатель получает данные аккаунта с уже купленной игрой'}
+                </p>
+              </div>
+
               {/* ── Strategy ── */}
               <div className="rounded-2xl p-4 space-y-3"
                    style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -710,6 +750,23 @@ export default function GamePricingModal({ game, onClose, onSaved }: Props) {
                     )}
                   </AnimatePresence>
                 </div>
+              </div>
+
+              {/* Product type badge */}
+              <div className="flex items-center justify-center gap-2 rounded-xl px-3 py-2"
+                   style={{
+                     background: productType === 'KEY' ? 'rgba(34,197,94,0.07)' : productType === 'GIFT' ? 'rgba(245,158,11,0.07)' : 'rgba(6,182,212,0.07)',
+                     border:     productType === 'KEY' ? '1px solid rgba(34,197,94,0.18)' : productType === 'GIFT' ? '1px solid rgba(245,158,11,0.18)' : '1px solid rgba(6,182,212,0.18)',
+                   }}>
+                {productType === 'KEY'     && <Key  style={{ width: '12px', height: '12px', color: '#22C55E', flexShrink: 0 }} />}
+                {productType === 'GIFT'    && <Gift style={{ width: '12px', height: '12px', color: '#F59E0B', flexShrink: 0 }} />}
+                {productType === 'ACCOUNT' && <User style={{ width: '12px', height: '12px', color: '#06B6D4', flexShrink: 0 }} />}
+                <span className="font-heading font-semibold" style={{
+                  fontSize: '11px',
+                  color: productType === 'KEY' ? '#22C55E' : productType === 'GIFT' ? '#F59E0B' : '#06B6D4',
+                }}>
+                  {productType === 'KEY' ? 'Ключ активации' : productType === 'GIFT' ? 'Steam-подарок' : 'Аккаунт'}
+                </span>
               </div>
 
               {/* Save button */}
