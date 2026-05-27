@@ -4,8 +4,9 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Search, Bell, User, Menu, X, LogOut, TrendingUp, TrendingDown, Heart, Wallet } from 'lucide-react';
+import { ShoppingCart, Search, Bell, User, Menu, X, LogOut, TrendingUp, TrendingDown, Heart, Wallet, Home, LayoutGrid } from 'lucide-react';
 import SearchOverlay from '@/components/ui/SearchOverlay';
+import SearchBar from '@/components/ui/SearchBar';
 import NotificationDropdown from '@/components/user/NotificationDropdown';
 import CartDrawer from '@/components/cart/CartDrawer';
 import { useUser } from '@/lib/userContext';
@@ -63,10 +64,18 @@ export default function Navbar() {
     ...(isLoggedIn ? [{ href: '/library', label: 'Библиотека' }] : []),
   ];
 
-  // Cmd/Ctrl+K global shortcut
+  // Cmd/Ctrl+K and "/" global shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsSearchOpen(true);
+        return;
+      }
+      // "/" opens search when not focused on an input/textarea
+      if (e.key === '/' && !e.metaKey && !e.ctrlKey) {
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) return;
         e.preventDefault();
         setIsSearchOpen(true);
       }
@@ -569,9 +578,10 @@ export default function Navbar() {
                 }}
               />
 
-              {/* ── SEARCH ── */}
+              {/* ── SEARCH: inline bar on desktop, icon on mobile ── */}
+              <SearchBar onOpenOverlay={() => setIsSearchOpen(true)} />
               <button
-                className="group relative p-2.5 rounded-xl transition-all duration-200"
+                className="lg:hidden group relative p-2.5 rounded-xl transition-all duration-200"
                 aria-label="Поиск"
                 onClick={() => setIsSearchOpen(true)}
               >
@@ -832,6 +842,106 @@ export default function Navbar() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ══════════════════════════════════════════════════════
+          MOBILE BOTTOM NAV
+      ══════════════════════════════════════════════════════ */}
+      <div
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50"
+        style={{
+          background: 'rgba(6,5,11,0.97)',
+          backdropFilter: 'blur(28px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+          borderTop: '1px solid rgba(124,58,237,0.2)',
+          boxShadow: '0 -8px 40px rgba(0,0,0,0.5)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
+      >
+        {/* Top accent line */}
+        <div className="absolute top-0 left-0 right-0 h-px pointer-events-none"
+             style={{ background: 'linear-gradient(90deg, transparent, rgba(124,58,237,0.5) 30%, rgba(6,182,212,0.4) 70%, transparent)' }} />
+
+        <div className="flex items-center justify-around px-2" style={{ height: '60px' }}>
+          {/* Home */}
+          {[
+            { href: '/',        icon: Home,       label: 'Главная' },
+            { href: '/catalog', icon: LayoutGrid,  label: 'Каталог' },
+          ].map(({ href, icon: Icon, label }) => {
+            const active = isActive(href);
+            return (
+              <Link key={href} href={href}
+                    className="flex flex-col items-center justify-center gap-1 flex-1 py-2 relative"
+                    style={{ color: active ? '#9D60FA' : '#374151' }}>
+                {active && (
+                  <motion.div
+                    layoutId="bottomNavDot"
+                    className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full"
+                    style={{ background: 'linear-gradient(90deg, #7C3AED, #06B6D4)' }}
+                  />
+                )}
+                <Icon style={{ width: '20px', height: '20px' }} />
+                <span className="font-heading" style={{ fontSize: '9px', letterSpacing: '0.04em' }}>{label}</span>
+              </Link>
+            );
+          })}
+
+          {/* Cart — centre FAB */}
+          <button
+            onClick={openCart}
+            className="relative flex flex-col items-center justify-center mx-1"
+            style={{ flexShrink: 0 }}
+            aria-label="Корзина"
+          >
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center relative"
+              style={{
+                background: 'linear-gradient(135deg, #7C3AED, #5B21B6)',
+                boxShadow: '0 0 20px rgba(124,58,237,0.5), 0 4px 16px rgba(0,0,0,0.5)',
+                border: '1px solid rgba(157,96,250,0.4)',
+              }}
+            >
+              <ShoppingCart style={{ width: '20px', height: '20px', color: '#fff' }} />
+              {cartCount > 0 && (
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full flex items-center justify-center font-pixel text-white"
+                  style={{ fontSize: '8px', background: '#EF4444', boxShadow: '0 0 8px rgba(239,68,68,0.7)', paddingInline: '3px' }}
+                >
+                  {cartCount}
+                </motion.span>
+              )}
+            </div>
+          </button>
+
+          {/* Wishlist */}
+          {[
+            { href: '/wishlist', icon: Heart,  label: 'Вишлист' },
+            {
+              href: isLoggedIn ? '/profile' : '/login',
+              icon: User,
+              label: isLoggedIn ? 'Профиль' : 'Войти',
+            },
+          ].map(({ href, icon: Icon, label }) => {
+            const active = isActive(href);
+            return (
+              <Link key={href} href={href}
+                    className="flex flex-col items-center justify-center gap-1 flex-1 py-2 relative"
+                    style={{ color: active ? '#9D60FA' : '#374151' }}>
+                {active && (
+                  <motion.div
+                    layoutId="bottomNavDot"
+                    className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full"
+                    style={{ background: 'linear-gradient(90deg, #7C3AED, #06B6D4)' }}
+                  />
+                )}
+                <Icon style={{ width: '20px', height: '20px' }} />
+                <span className="font-heading" style={{ fontSize: '9px', letterSpacing: '0.04em' }}>{label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
     </>
   );
 }

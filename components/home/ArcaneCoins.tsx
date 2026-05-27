@@ -1,7 +1,9 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 import { Zap, ArrowRight, TrendingUp, Percent, Gift, ChevronsUp, Layers } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 
 const perks = [
   {
@@ -91,6 +93,9 @@ const particles = [
 ];
 
 export default function ArcaneCoins() {
+  const { data: session } = useSession();
+  const ctaHref = session?.user ? '/profile' : '/register';
+
   return (
     <section className="py-16 sm:py-24 relative overflow-hidden">
       {/* Section background */}
@@ -226,29 +231,30 @@ export default function ArcaneCoins() {
             </div>
 
             {/* CTA */}
-            <motion.button
-              whileHover={{ scale: 1.025 }}
-              whileTap={{ scale: 0.975 }}
-              className="group relative inline-flex items-center gap-2.5 overflow-hidden rounded-xl font-heading font-semibold text-white"
-              style={{
-                background: 'linear-gradient(135deg, #7C3AED 0%, #5B21B6 60%, #06B6D4 130%)',
-                padding: '13px 28px',
-                fontSize: '14px',
-                letterSpacing: '0.025em',
-                boxShadow:
-                  '0 0 0 1px rgba(124,58,237,0.4), 0 4px 24px rgba(124,58,237,0.35), inset 0 1px 0 rgba(255,255,255,0.12)',
-              }}
-            >
-              <span
-                className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+            <motion.div whileHover={{ scale: 1.025 }} whileTap={{ scale: 0.975 }} className="inline-block">
+              <Link
+                href={ctaHref}
+                className="group relative inline-flex items-center gap-2.5 overflow-hidden rounded-xl font-heading font-semibold text-white"
                 style={{
-                  background:
-                    'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 55%)',
+                  background: 'linear-gradient(135deg, #7C3AED 0%, #5B21B6 60%, #06B6D4 130%)',
+                  padding: '13px 28px',
+                  fontSize: '14px',
+                  letterSpacing: '0.025em',
+                  boxShadow:
+                    '0 0 0 1px rgba(124,58,237,0.4), 0 4px 24px rgba(124,58,237,0.35), inset 0 1px 0 rgba(255,255,255,0.12)',
                 }}
-              />
-              <span className="relative z-10">Начать копить</span>
-              <ArrowRight className="w-4 h-4 relative z-10 transition-transform duration-200 group-hover:translate-x-0.5" />
-            </motion.button>
+              >
+                <span
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                  style={{
+                    background:
+                      'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 55%)',
+                  }}
+                />
+                <span className="relative z-10">Начать копить</span>
+                <ArrowRight className="w-4 h-4 relative z-10 transition-transform duration-200 group-hover:translate-x-0.5" />
+              </Link>
+            </motion.div>
           </motion.div>
 
           {/* ════════════════════════════════

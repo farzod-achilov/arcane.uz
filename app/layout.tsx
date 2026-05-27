@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from 'next';
 import { Space_Grotesk, Inter, Press_Start_2P } from 'next/font/google';
 import './globals.css';
+import { Suspense } from 'react';
 import InitialLoader from '@/components/ui/loaders/InitialLoader';
+import BackToTop from '@/components/ui/BackToTop';
+import NavigationProgress from '@/components/ui/NavigationProgress';
 import Providers from '@/app/providers';
 import ConditionalLayout from '@/app/ConditionalLayout';
 
@@ -57,8 +60,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ru" className={`${spaceGrotesk.variable} ${inter.variable} ${pressStart.variable}`}>
       <body className="bg-[#0A0A0F] text-white font-body antialiased">
         <Providers>
+          <Suspense><NavigationProgress /></Suspense>
           <InitialLoader />
           <ConditionalLayout>{children}</ConditionalLayout>
+          <BackToTop />
         </Providers>
       </body>
     </html>

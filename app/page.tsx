@@ -10,6 +10,8 @@ import DailyDeals from '@/components/home/DailyDeals';
 import ArcaneCoins from '@/components/home/ArcaneCoins';
 import TelegramSupport from '@/components/home/TelegramSupport';
 import Reviews from '@/components/home/Reviews';
+import RecentlyViewed from '@/components/home/RecentlyViewed';
+import FlashSale, { type FlashDeal } from '@/components/home/FlashSale';
 
 /* ── Data helpers ── */
 
@@ -50,6 +52,45 @@ async function getDeals() {
   });
 }
 
+async function getFlashDeals(): Promise<{ deals: FlashDeal[]; endTime: number }> {
+  const now = new Date();
+  const rows = await prisma.discounts.findMany({
+    where: {
+      isActive:   true,
+      isFeatured: true,
+      type:       'flash',
+      endsAt:     { gt: now },
+    },
+    include: {
+      games: {
+        select: {
+          id: true, title: true, slug: true, cover: true,
+          priceUzs: true, rating: true, genres: true,
+        },
+      },
+    },
+    orderBy: { discountPct: 'desc' },
+    take: 4,
+  });
+
+  const deals: FlashDeal[] = rows.map(d => ({
+    gameId:          d.games.id,
+    title:           d.games.title,
+    slug:            d.games.slug,
+    cover:           d.games.cover,
+    priceUzs:        d.games.priceUzs ?? 0,
+    discountedPrice: Math.round((d.games.priceUzs ?? 0) * (1 - d.discountPct / 100) / 1000) * 1000,
+    discountPct:     d.discountPct,
+    rating:          d.games.rating,
+    genres:          d.games.genres,
+    endsAt:          d.endsAt!.getTime(),
+  }));
+
+  const endTime = deals.reduce((min, d) => Math.min(min, d.endsAt), Infinity);
+
+  return { deals, endTime: isFinite(endTime) ? endTime : Date.now() + 3_600_000 };
+}
+
 async function getHomeReviews() {
   return prisma.reviews.findMany({
     where: { isApproved: true, rating: { gte: 4 }, body: { not: null } },
@@ -63,10 +104,11 @@ async function getHomeReviews() {
 }
 
 export default async function HomePage() {
-  const [{ games: trending }, genres, deals, reviewsRaw] = await Promise.all([
+  const [{ games: trending }, genres, deals, flashData, reviewsRaw] = await Promise.all([
     getGames({ sort: 'popular', limit: 6 }),
     getGenreCounts(),
     getDeals(),
+    getFlashDeals(),
     getHomeReviews(),
   ]);
 
@@ -107,6 +149,8 @@ export default async function HomePage() {
       {trending.length > 0 && <TrendingProducts games={trending} />}
       <MysteryCases />
       {dealItems.length > 0 && <DailyDeals deals={dealItems} endTime={dealsEndTime} />}
+      {flashData.deals.length > 0 && <FlashSale deals={flashData.deals} endTime={flashData.endTime} />}
+      <RecentlyViewed />
       <ArcaneCoins />
       <TelegramSupport />
       {reviews.length > 0 && <Reviews reviews={reviews} />}

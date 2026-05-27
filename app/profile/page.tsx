@@ -161,7 +161,7 @@ async function getReferralData(userId: string) {
     }),
   ]);
 
-  const baseUrl = process.env.NEXTAUTH_URL ?? 'https://arcane.uz';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://arcane.com.uz';
   return {
     code:             user.referralCode as string,
     referralLink:     `${baseUrl}/register?ref=${user.referralCode}`,

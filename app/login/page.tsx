@@ -9,6 +9,8 @@ import { toast } from 'sonner';
 import { useUser } from '@/lib/userContext';
 import CheckoutInput from '@/components/checkout/CheckoutInput';
 
+const TG_BOT_ID = process.env.NEXT_PUBLIC_TELEGRAM_BOT_ID ?? '';
+
 /* ── Floating particle ─────────────────────────────────── */
 function Particle({ delay, x, y, size, color }: {
   delay: number; x: number; y: number; size: number; color: string;
@@ -46,6 +48,23 @@ export default function LoginPage() {
   const [mounted,  setMounted]  = useState(false);
 
   useEffect(() => setMounted(true), []);
+
+  function openTelegramLogin() {
+    if (!TG_BOT_ID) {
+      toast.error('Telegram вход не настроен');
+      return;
+    }
+    const appUrl   = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin;
+    const returnTo = `${appUrl}/auth/telegram-callback`;
+    const url = [
+      'https://oauth.telegram.org/auth',
+      `?client_id=${TG_BOT_ID}`,
+      `&origin=${encodeURIComponent(appUrl)}`,
+      `&return_to=${encodeURIComponent(returnTo)}`,
+      '&scope=openid+profile',
+    ].join('');
+    window.location.href = url;
+  }
 
   const validate = (): string | null => {
     if (!email.trim())               return 'Введите email';
@@ -244,29 +263,46 @@ export default function LoginPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-2.5">
-              {[
-                { label: 'Telegram', icon: Send,     hoverBorder: 'rgba(6,182,212,0.4)',   hoverColor: '#22D3EE' },
-                { label: 'Steam',    icon: Gamepad2,  hoverBorder: 'rgba(102,192,244,0.4)', hoverColor: '#66C0F4' },
-              ].map(({ label, icon: Icon, hoverBorder, hoverColor }) => (
-                <button key={label}
-                  className="flex items-center justify-center gap-2 rounded-xl font-heading font-medium transition-all duration-200"
-                  style={{ background: '#09090E', border: '1px solid rgba(255,255,255,0.07)',
-                           padding: '10px', fontSize: '12.5px', color: '#9CA3AF' }}
-                  onMouseEnter={(e) => {
-                    const el = e.currentTarget as HTMLElement;
-                    el.style.borderColor = hoverBorder; el.style.color = hoverColor;
-                    el.style.boxShadow = `0 0 14px ${hoverBorder}`;
-                  }}
-                  onMouseLeave={(e) => {
-                    const el = e.currentTarget as HTMLElement;
-                    el.style.borderColor = 'rgba(255,255,255,0.07)';
-                    el.style.color = '#9CA3AF'; el.style.boxShadow = 'none';
-                  }}
-                >
-                  <Icon style={{ width: '14px', height: '14px' }} />
-                  {label}
-                </button>
-              ))}
+              {/* Telegram */}
+              <button
+                onClick={openTelegramLogin}
+                className="flex items-center justify-center gap-2 rounded-xl font-heading font-medium transition-all duration-200"
+                style={{ background: '#09090E', border: '1px solid rgba(255,255,255,0.07)',
+                         padding: '10px', fontSize: '12.5px', color: '#9CA3AF' }}
+                onMouseEnter={(e) => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.borderColor = 'rgba(6,182,212,0.4)'; el.style.color = '#22D3EE';
+                  el.style.boxShadow = '0 0 14px rgba(6,182,212,0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.borderColor = 'rgba(255,255,255,0.07)';
+                  el.style.color = '#9CA3AF'; el.style.boxShadow = 'none';
+                }}
+              >
+                <Send style={{ width: '14px', height: '14px' }} />
+                Telegram
+              </button>
+
+              {/* Steam (placeholder) */}
+              <button
+                className="flex items-center justify-center gap-2 rounded-xl font-heading font-medium transition-all duration-200"
+                style={{ background: '#09090E', border: '1px solid rgba(255,255,255,0.07)',
+                         padding: '10px', fontSize: '12.5px', color: '#9CA3AF' }}
+                onMouseEnter={(e) => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.borderColor = 'rgba(102,192,244,0.4)'; el.style.color = '#66C0F4';
+                  el.style.boxShadow = '0 0 14px rgba(102,192,244,0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.borderColor = 'rgba(255,255,255,0.07)';
+                  el.style.color = '#9CA3AF'; el.style.boxShadow = 'none';
+                }}
+              >
+                <Gamepad2 style={{ width: '14px', height: '14px' }} />
+                Steam
+              </button>
             </div>
 
             {/* Trust badges */}

@@ -17,7 +17,7 @@ export default function ConditionalLayout({ children }: { children: React.ReactN
   return (
     <>
       {!isFullscreenOverlay && <Navbar />}
-      <main className={`page-enter ${isFullscreenOverlay ? '' : 'pt-[120px]'}`}>
+      <main className={`page-enter ${isFullscreenOverlay ? '' : 'pt-[120px] pb-[60px] md:pb-0'}`}>
         {children}
       </main>
       {!isFullscreenOverlay && <Footer />}

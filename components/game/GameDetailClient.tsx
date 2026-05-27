@@ -1,14 +1,14 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
   Star, Calendar, Monitor, Package, Users,
   Zap, Tag, Apple, Terminal, Shield, Globe, Check,
   Award, ChevronRight, Maximize2, ShoppingCart, Heart, Cpu,
-  Play, Volume2, VolumeX,
+  Play, Volume2, VolumeX, Bell, BellOff,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import GameCard from '@/components/catalog/GameCard';
@@ -16,7 +16,9 @@ import ReviewSection from '@/components/game/ReviewSection';
 import TrustIndicators from '@/components/product/TrustIndicators';
 import FullscreenGallery from '@/components/product/FullscreenGallery';
 import { useWishlist } from '@/hooks/useWishlist';
+import SocialProof from '@/components/game/SocialProof';
 import { useCart } from '@/lib/cartContext';
+import { useRecentlyViewed } from '@/hooks/useRecentlyViewed';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { parseMedia, isVideoMedia, isYouTubeMedia } from '@/lib/media';
@@ -309,6 +311,10 @@ export default function GameDetailClient({
   const { data: session } = useSession();
   const router = useRouter();
   const isWishlisted = isIn(game.id);
+  const { addId } = useRecentlyViewed();
+
+  // Record this game as recently viewed
+  useEffect(() => { addId(game.id); }, [game.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const inCart = has(game.id);
 
   const isManual = game.deliveryType === 'MANUAL';
@@ -324,6 +330,43 @@ export default function GameDetailClient({
     e.preventDefault();
     if (!session) { router.push('/login'); return; }
     toggle(game.id);
+  }
+
+  /* ── Price-drop notification ── */
+  const [notifying,     setNotifying]     = useState(false);
+  const [notifyLoading, setNotifyLoading] = useState(false);
+
+  useEffect(() => {
+    if (!session?.user?.id || !game.priceUzs) return;
+    fetch(`/api/wishlist/notify?gameId=${game.id}`)
+      .then(r => r.json())
+      .then((d: { notifying?: boolean }) => setNotifying(!!d.notifying))
+      .catch(() => {});
+  }, [session?.user?.id, game.id, game.priceUzs]);
+
+  async function handleNotify() {
+    if (!session) { router.push('/login'); return; }
+    if (!game.priceUzs) return;
+    setNotifyLoading(true);
+    try {
+      if (notifying) {
+        await fetch('/api/wishlist/notify', {
+          method:  'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ gameId: game.id }),
+        });
+        setNotifying(false);
+      } else {
+        await fetch('/api/wishlist/notify', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ gameId: game.id, priceUzs: game.priceUzs }),
+        });
+        setNotifying(true);
+      }
+    } finally {
+      setNotifyLoading(false);
+    }
   }
 
   return (
@@ -649,7 +692,51 @@ export default function GameDetailClient({
                       )}
                     </motion.button>
                   )}
+
+                  {/* Row 3: price-drop notification */}
+                  {game.priceUzs != null && (
+                    <motion.button
+                      onClick={handleNotify}
+                      disabled={notifyLoading}
+                      whileTap={{ scale: 0.97 }}
+                      className="w-full flex items-center justify-center gap-2.5 rounded-2xl font-heading font-semibold text-sm transition-all duration-200"
+                      style={{
+                        padding: '11px 24px',
+                        background: notifying
+                          ? 'rgba(245,158,11,0.08)'
+                          : 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${notifying
+                          ? 'rgba(245,158,11,0.3)'
+                          : 'rgba(255,255,255,0.07)'}`,
+                        color: notifying ? '#FCD34D' : '#6B7280',
+                        opacity: notifyLoading ? 0.6 : 1,
+                      }}
+                    >
+                      <AnimatePresence mode="wait" initial={false}>
+                        {notifying ? (
+                          <motion.span key="on"
+                            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
+                            className="flex items-center gap-2">
+                            <BellOff style={{ width: '14px', height: '14px' }} />
+                            Уведомление включено — отключить
+                          </motion.span>
+                        ) : (
+                          <motion.span key="off"
+                            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
+                            className="flex items-center gap-2">
+                            <Bell style={{ width: '14px', height: '14px' }} />
+                            Уведомить о снижении цены
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </motion.button>
+                  )}
                 </div>
+              </div>
+
+              {/* Social proof */}
+              <div className="mb-4">
+                <SocialProof gameId={game.id} stockStore={game.stockStore} isManual={isManual} />
               </div>
 
               {/* Trust mini row */}
@@ -893,19 +980,114 @@ export default function GameDetailClient({
 
             {/* Horizontal scroll container */}
             <div
-              className="flex gap-4 overflow-x-auto pb-4"
+              className="overflow-x-auto pb-4"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+            <div
+              className="flex gap-3 justify-center"
               style={{
+                minWidth: 'fit-content',
+                margin: '0 auto',
                 paddingLeft:  'clamp(16px, calc((100vw - 1280px) / 2 + 40px), 80px)',
                 paddingRight: 'clamp(16px, calc((100vw - 1280px) / 2 + 40px), 80px)',
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none',
               }}
             >
-              {similar.map((g, i) => (
-                <div key={g.id} className="flex-shrink-0" style={{ width: 'clamp(160px, 18vw, 220px)' }}>
-                  <GameCard game={g} index={i} />
-                </div>
-              ))}
+              {similar.map((g, i) => {
+                const isInStock = g.stockStore > 0 || g.deliveryType === 'MANUAL';
+                return (
+                  <motion.div
+                    key={g.id}
+                    initial={{ opacity: 0, y: 16 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.35, delay: i * 0.05 }}
+                    className="flex-shrink-0 group"
+                    style={{ width: 'clamp(180px, 20vw, 240px)' }}
+                  >
+                    <Link href={`/games/${g.slug}`}>
+                      <div
+                        className="rounded-xl overflow-hidden transition-all duration-300"
+                        style={{
+                          background: '#0D0D16',
+                          border: '1px solid rgba(255,255,255,0.07)',
+                        }}
+                        onMouseEnter={e => {
+                          const el = e.currentTarget as HTMLElement;
+                          el.style.borderColor = 'rgba(124,58,237,0.45)';
+                          el.style.boxShadow   = '0 0 28px rgba(124,58,237,0.18), 0 12px 36px rgba(0,0,0,0.55)';
+                          el.style.transform   = 'translateY(-4px)';
+                        }}
+                        onMouseLeave={e => {
+                          const el = e.currentTarget as HTMLElement;
+                          el.style.borderColor = 'rgba(255,255,255,0.07)';
+                          el.style.boxShadow   = 'none';
+                          el.style.transform   = 'translateY(0)';
+                        }}
+                      >
+                        {/* Cover — 16/9 fits Steam header images */}
+                        <div className="relative overflow-hidden" style={{ aspectRatio: '16/9' }}>
+                          {g.cover ? (
+                            <Image
+                              src={g.cover}
+                              alt={g.title}
+                              fill unoptimized
+                              className="object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center"
+                                 style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.2), rgba(6,182,212,0.1))' }}>
+                              <Package style={{ width: '32px', height: '32px', color: 'rgba(255,255,255,0.15)' }} />
+                            </div>
+                          )}
+                          <div className="absolute inset-0 pointer-events-none"
+                               style={{ background: 'linear-gradient(to bottom, transparent 30%, rgba(13,13,22,0.85) 100%)' }} />
+                          {!isInStock && (
+                            <div className="absolute top-2 left-2 font-pixel rounded px-1.5 py-0.5"
+                                 style={{ fontSize: '7px', background: 'rgba(107,114,128,0.88)', color: '#fff', letterSpacing: '0.06em' }}>
+                              НЕТ
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Info */}
+                        <div className="p-3 space-y-1.5">
+                          <h3 className="font-heading font-bold text-white line-clamp-2 leading-snug"
+                              style={{ fontSize: '13px' }}>
+                            {g.title}
+                          </h3>
+
+                          <div className="flex flex-wrap gap-1">
+                            {g.genres.slice(0, 2).map(genre => (
+                              <span key={genre} className="font-pixel rounded px-1.5 py-0.5"
+                                    style={{ fontSize: '7px', letterSpacing: '0.04em',
+                                             background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)',
+                                             color: '#9D60FA' }}>
+                                {genre}
+                              </span>
+                            ))}
+                          </div>
+
+                          <div className="flex items-center justify-between pt-0.5"
+                               style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                            <span className="font-heading font-bold text-white" style={{ fontSize: '13px' }}>
+                              {g.priceUzs != null ? formatPrice(g.priceUzs) : '—'}
+                            </span>
+                            {g.rating != null && (
+                              <div className="flex items-center gap-0.5">
+                                <Star className="w-3 h-3 text-[#F59E0B] fill-[#F59E0B]" />
+                                <span className="font-body text-[#9CA3AF]" style={{ fontSize: '11px' }}>
+                                  {g.rating.toFixed(1)}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </div>
             </div>
           </div>
         )}
