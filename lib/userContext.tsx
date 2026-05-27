@@ -93,17 +93,22 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setHyd(true);
   }, []);
 
-  /* Sync NextAuth session → user state */
+  /* Sync NextAuth session → user state + load wishlist from DB */
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
       setUser(sessionToUser(session as Parameters<typeof sessionToUser>[0]));
+      // Load wishlist from DB, overwrite localStorage copy
+      fetch('/api/wishlist/ids')
+        .then((r) => r.json())
+        .then((ids: string[]) => { if (Array.isArray(ids)) setWList(ids); })
+        .catch(() => {});
     } else if (status === 'unauthenticated') {
       setUser(null);
+      setWList([]);
     }
-  }, [session, status]);
+  }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* Persist wishlist + notifications */
-  useEffect(() => { if (hydrated) localStorage.setItem(LS_LIST,   JSON.stringify(wishlist)); },      [wishlist, hydrated]);
+  /* Persist notifications only (wishlist now lives in DB) */
   useEffect(() => { if (hydrated) localStorage.setItem(LS_NOTIFS, JSON.stringify(notifications)); }, [notifications, hydrated]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -147,10 +152,26 @@ export function UserProvider({ children }: { children: ReactNode }) {
     signOut({ redirect: false });
   }, []);
 
-  /* ── Wishlist ── */
-  const addToWishlist      = useCallback((id: string) => setWList((p) => p.includes(id) ? p : [...p, id]), []);
-  const removeFromWishlist = useCallback((id: string) => setWList((p) => p.filter((x) => x !== id)), []);
-  const isInWishlist       = useCallback((id: string) => wishlist.includes(id), [wishlist]);
+  /* ── Wishlist (synced to DB for logged-in users) ── */
+  const addToWishlist = useCallback((id: string) => {
+    setWList((p) => p.includes(id) ? p : [...p, id]);
+    fetch('/api/wishlist/toggle', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ gameId: id }),
+    }).catch(() => {});
+  }, []);
+
+  const removeFromWishlist = useCallback((id: string) => {
+    setWList((p) => p.filter((x) => x !== id));
+    fetch('/api/wishlist/toggle', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ gameId: id }),
+    }).catch(() => {});
+  }, []);
+
+  const isInWishlist = useCallback((id: string) => wishlist.includes(id), [wishlist]);
 
   /* ── Notifications ── */
   const markNotificationRead = useCallback((id: string) =>
