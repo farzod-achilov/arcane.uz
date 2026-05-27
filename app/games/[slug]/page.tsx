@@ -23,7 +23,7 @@ export default async function GamePage({ params }: Props) {
   const game = await getGameBySlug(params.slug);
   if (!game || !game.isActive) notFound();
 
-  const similar = await getSimilarGames(game.slug, game.genres, 4);
+  const similar = await getSimilarGames(game.slug, game.genres, game.platforms, 8);
 
   return <GameDetailClient game={game} similar={similar} />;
 }

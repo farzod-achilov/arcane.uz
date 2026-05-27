@@ -15,6 +15,8 @@ interface SearchResult {
   cover:     string | null;
   priceUzs:  number;
   platforms: string[];
+  genres:    string[];
+  rating:    number | null;
   instant:   boolean;
 }
 
@@ -99,7 +101,7 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
         setActiveIdx((i) => Math.max(i - 1, -1));
       }
       if (e.key === 'Enter' && activeIdx >= 0 && results[activeIdx]) {
-        router.push(`/product/${results[activeIdx].id}`);
+        router.push(`/games/${results[activeIdx].slug}`);
         onClose();
       }
     };
@@ -224,7 +226,7 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                   {results.map((result, i) => (
                     <Link
                       key={result.id}
-                      href={`/product/${result.id}`}
+                      href={`/games/${result.slug}`}
                       onClick={onClose}
                       className="group flex items-center gap-4 px-5 py-3.5 transition-all duration-150"
                       style={{
@@ -249,22 +251,30 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                         >
                           {result.title}
                         </p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {result.platforms.length > 0 && (
-                            <span className="font-body text-[#4B5563]" style={{ fontSize: '11.5px' }}>
-                              {result.platforms.slice(0, 2).join(' · ')}
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          {result.genres.slice(0, 1).map(g => (
+                            <span key={g} className="font-pixel rounded px-1.5 py-0.5"
+                                  style={{ fontSize: '7px', letterSpacing: '0.04em',
+                                           background: 'rgba(124,58,237,0.1)', color: '#9D60FA',
+                                           border: '1px solid rgba(124,58,237,0.2)' }}>
+                              {g}
                             </span>
+                          ))}
+                          {result.rating != null && (
+                            <div className="flex items-center gap-0.5">
+                              <Star style={{ width: '9px', height: '9px', color: '#F59E0B', fill: '#F59E0B' }} />
+                              <span className="font-body text-[#6B7280]" style={{ fontSize: '11px' }}>
+                                {result.rating.toFixed(1)}
+                              </span>
+                            </div>
                           )}
                           {result.instant && (
-                            <>
-                              {result.platforms.length > 0 && <span className="text-[#1F2937]">·</span>}
-                              <div className="flex items-center gap-1">
-                                <Zap style={{ width: '9px', height: '9px', color: '#22C55E' }} />
-                                <span className="font-body text-[#22C55E]" style={{ fontSize: '10.5px' }}>
-                                  Мгновенно
-                                </span>
-                              </div>
-                            </>
+                            <div className="flex items-center gap-0.5">
+                              <Zap style={{ width: '9px', height: '9px', color: '#22C55E' }} />
+                              <span className="font-body text-[#22C55E]" style={{ fontSize: '10.5px' }}>
+                                Авто
+                              </span>
+                            </div>
                           )}
                         </div>
                       </div>

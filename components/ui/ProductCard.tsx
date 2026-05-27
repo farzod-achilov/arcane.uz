@@ -27,7 +27,7 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
   const badge = product.badge ? badgeCfg[product.badge] : null;
   const { isLoggedIn, isInWishlist, addToWishlist, removeFromWishlist } = useUser();
   const wishlisted = isInWishlist(product.id);
-  const { addGame, removeGame, has } = useCart();
+  const { addGame, removeGame, has, openCart } = useCart();
   const [justAdded, setJustAdded] = useState(false);
   const inCart = has(product.id);
 
@@ -44,6 +44,7 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
       return;
     }
     addGame(product.id);
+    openCart();
     setJustAdded(true);
     setTimeout(() => setJustAdded(false), 1500);
   };

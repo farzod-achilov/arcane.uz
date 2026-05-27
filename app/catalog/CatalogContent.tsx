@@ -11,24 +11,29 @@ import GameListCard from '@/components/catalog/GameListCard';
 import type { GameListItem } from '@/lib/db/games';
 
 interface Props {
-  games:           GameListItem[];
-  total:           number;
-  pages:           number;
-  page:            number;
-  genres:          string[];
-  currentGenres:   string[];
-  currentPlatform: string;
-  currentSort:     string;
-  currentView:     string;
-  currentQ:        string;
+  games:            GameListItem[];
+  total:            number;
+  pages:            number;
+  page:             number;
+  genres:           string[];
+  currentGenres:    string[];
+  currentPlatform:  string;
+  currentSort:      string;
+  currentView:      string;
+  currentQ:         string;
+  currentPriceMin?: number;
+  currentPriceMax?: number;
 }
 
 export default function CatalogContent({
   games, total, pages, page, genres,
   currentGenres, currentPlatform, currentSort, currentView, currentQ,
+  currentPriceMin, currentPriceMax,
 }: Props) {
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
-  const activeFilters = currentGenres.length + (currentPlatform ? 1 : 0);
+  const PRICE_MAX = 3_000_000;
+  const hasPriceFilter = (currentPriceMin != null && currentPriceMin > 0) || (currentPriceMax != null && currentPriceMax < PRICE_MAX);
+  const activeFilters = currentGenres.length + (currentPlatform ? 1 : 0) + (hasPriceFilter ? 1 : 0);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
@@ -51,6 +56,8 @@ export default function CatalogContent({
             genres={genres}
             currentGenres={currentGenres}
             currentPlatform={currentPlatform}
+            currentPriceMin={currentPriceMin}
+            currentPriceMax={currentPriceMax}
           />
         </aside>
 
@@ -88,6 +95,8 @@ export default function CatalogContent({
                   genres={genres}
                   currentGenres={currentGenres}
                   currentPlatform={currentPlatform}
+                  currentPriceMin={currentPriceMin}
+                  currentPriceMax={currentPriceMax}
                 />
               </motion.div>
             </motion.div>

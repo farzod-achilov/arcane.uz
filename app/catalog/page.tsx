@@ -15,6 +15,8 @@ interface Props {
     sort?:     string;
     view?:     string;
     page?:     string;
+    priceMin?: string;
+    priceMax?: string;
   };
 }
 
@@ -22,6 +24,8 @@ export default async function CatalogPage({ searchParams }: Props) {
   const sp            = searchParams;
   const page          = Math.max(1, parseInt(sp.page ?? '1', 10) || 1);
   const selectedGenres = sp.genre ? sp.genre.split(',').filter(Boolean) : [];
+  const priceMin = sp.priceMin ? parseInt(sp.priceMin, 10) : undefined;
+  const priceMax = sp.priceMax ? parseInt(sp.priceMax, 10) : undefined;
 
   const [{ games, total, pages }, genres] = await Promise.all([
     getGames({
@@ -30,6 +34,8 @@ export default async function CatalogPage({ searchParams }: Props) {
       platform: sp.platform,
       sort:     sp.sort ?? 'newest',
       page,
+      priceMin,
+      priceMax,
     }),
     getDistinctGenres(),
   ]);
@@ -91,6 +97,8 @@ export default async function CatalogPage({ searchParams }: Props) {
         currentSort={sp.sort ?? 'newest'}
         currentView={sp.view ?? 'grid'}
         currentQ={sp.q ?? ''}
+        currentPriceMin={priceMin}
+        currentPriceMax={priceMax}
       />
     </div>
   );

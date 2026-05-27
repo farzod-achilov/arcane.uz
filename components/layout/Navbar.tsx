@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Search, Bell, User, Menu, X, LogOut, TrendingUp, TrendingDown, Heart, Wallet } from 'lucide-react';
 import SearchOverlay from '@/components/ui/SearchOverlay';
 import NotificationDropdown from '@/components/user/NotificationDropdown';
+import CartDrawer from '@/components/cart/CartDrawer';
 import { useUser } from '@/lib/userContext';
 import { useCoin, coinTimeAgo } from '@/lib/coinContext';
 import { useCart } from '@/lib/cartContext';
@@ -29,7 +30,7 @@ export default function Navbar() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotifOpen,  setIsNotifOpen]  = useState(false);
   const [isCoinOpen,   setIsCoinOpen]   = useState(false);
-  const { count: cartCount } = useCart();
+  const { count: cartCount, openCart } = useCart();
   const coinRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const router   = useRouter();
@@ -83,6 +84,7 @@ export default function Navbar() {
   return (
     <>
       <SearchOverlay isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+      <CartDrawer />
 
       {/* ══════════════════════════════════════════════════════
           TIER 1 — PREMIUM ARCADE TICKER
@@ -609,9 +611,9 @@ export default function Navbar() {
               </div>
 
               {/* ── CART ── */}
-              <Link
-                href="/checkout"
-                className="group relative p-2.5 rounded-xl transition-all duration-200 block"
+              <button
+                onClick={openCart}
+                className="group relative p-2.5 rounded-xl transition-all duration-200"
                 aria-label="Корзина"
               >
                 <div
@@ -635,7 +637,7 @@ export default function Navbar() {
                     {cartCount}
                   </motion.span>
                 )}
-              </Link>
+              </button>
 
               {/* ── LOGIN / USER BUTTON ── */}
               {isLoggedIn && user ? (

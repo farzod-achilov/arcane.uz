@@ -310,20 +310,26 @@ export default function SupportPage() {
                       initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.05 }}
-                      className="flex items-center gap-4 rounded-xl px-4 py-3.5"
-                      style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)' }}
                     >
-                      <div className="flex-1 min-w-0">
-                        <p className="font-body text-[#D1D5DB] truncate" style={{ fontSize: '13px' }}>{t.subject}</p>
-                        <p className="font-body text-[#374151]" style={{ fontSize: '11px' }}>
-                          {new Date(t.createdAt).toLocaleDateString('ru-RU')} · {t._count.messages} сообщ.
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1.5 flex-shrink-0 rounded-lg px-2.5 py-1"
-                           style={{ background: `${sc.color}12` }}>
-                        <sc.icon style={{ width: '10px', height: '10px', color: sc.color }} />
-                        <span className="font-body" style={{ fontSize: '10.5px', color: sc.color }}>{sc.label}</span>
-                      </div>
+                      <Link
+                        href={`/support/${t.id}`}
+                        className="flex items-center gap-4 rounded-xl px-4 py-3.5 transition-all duration-200 block"
+                        style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(124,58,237,0.3)'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)'; }}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-body text-[#D1D5DB] truncate" style={{ fontSize: '13px' }}>{t.subject}</p>
+                          <p className="font-body text-[#374151]" style={{ fontSize: '11px' }}>
+                            {new Date(t.createdAt).toLocaleDateString('ru-RU')} · {t._count.messages} сообщ.
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-shrink-0 rounded-lg px-2.5 py-1"
+                             style={{ background: `${sc.color}12` }}>
+                          <sc.icon style={{ width: '10px', height: '10px', color: sc.color }} />
+                          <span className="font-body" style={{ fontSize: '10.5px', color: sc.color }}>{sc.label}</span>
+                        </div>
+                      </Link>
                     </motion.div>
                   );
                 })}

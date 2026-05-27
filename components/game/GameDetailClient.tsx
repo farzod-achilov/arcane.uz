@@ -16,6 +16,7 @@ import ReviewSection from '@/components/game/ReviewSection';
 import TrustIndicators from '@/components/product/TrustIndicators';
 import FullscreenGallery from '@/components/product/FullscreenGallery';
 import { useWishlist } from '@/hooks/useWishlist';
+import { useCart } from '@/lib/cartContext';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { parseMedia, isVideoMedia, isYouTubeMedia } from '@/lib/media';
@@ -304,12 +305,20 @@ export default function GameDetailClient({
   similar: GameListItem[];
 }) {
   const { isIn, toggle } = useWishlist();
+  const { has, addGame, openCart } = useCart();
   const { data: session } = useSession();
   const router = useRouter();
   const isWishlisted = isIn(game.id);
+  const inCart = has(game.id);
 
   const isManual = game.deliveryType === 'MANUAL';
   const inStock  = game.stockStore > 0 || isManual;
+
+  function handleCart() {
+    if (inCart) { openCart(); return; }
+    addGame(game.id);
+    openCart();
+  }
 
   function handleWishlist(e: React.MouseEvent) {
     e.preventDefault();
@@ -555,61 +564,91 @@ export default function GameDetailClient({
                   </div>
                 )}
 
-                {/* Buttons row */}
-                <div className="flex gap-3">
-                  {inStock ? (
-                    <Link
-                      href={`/checkout?gameId=${game.id}`}
-                      className="flex-1 relative overflow-hidden rounded-2xl font-heading font-bold flex items-center justify-center gap-2 text-white"
-                      style={{
-                        padding: '15px 24px', fontSize: '14px', letterSpacing: '0.02em',
-                        background: 'linear-gradient(135deg, #7C3AED 0%, #5B21B6 45%, #0891B2 100%)',
-                        boxShadow: '0 0 40px rgba(124,58,237,0.45), 0 0 80px rgba(124,58,237,0.15), 0 8px 24px rgba(0,0,0,0.5)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                      }}
-                    >
-                      <div className="absolute inset-0 pointer-events-none" style={{
-                        background: 'linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.1) 50%, transparent 65%)',
-                        animation: 'shimmer 2.8s ease infinite',
-                      }} />
-                      <ShoppingCart style={{ width: '16px', height: '16px', position: 'relative', zIndex: 1 }} />
-                      <span style={{ position: 'relative', zIndex: 1 }}>Купить сейчас</span>
-                    </Link>
-                  ) : (
-                    <button
-                      disabled
-                      className="flex-1 rounded-2xl font-heading font-bold text-sm cursor-not-allowed flex items-center justify-center"
-                      style={{
-                        padding: '15px 24px',
-                        background: 'rgba(107,114,128,0.1)',
-                        color: '#6B7280',
-                        border: '1px solid rgba(107,114,128,0.2)',
-                      }}
-                    >
-                      Нет в наличии
-                    </button>
-                  )}
+                {/* Buttons */}
+                <div className="flex flex-col gap-2.5">
+                  {/* Row 1: buy now + wishlist */}
+                  <div className="flex gap-3">
+                    {inStock ? (
+                      <Link
+                        href={`/checkout?gameId=${game.id}`}
+                        className="flex-1 relative overflow-hidden rounded-2xl font-heading font-bold flex items-center justify-center gap-2 text-white"
+                        style={{
+                          padding: '15px 24px', fontSize: '14px', letterSpacing: '0.02em',
+                          background: 'linear-gradient(135deg, #7C3AED 0%, #5B21B6 45%, #0891B2 100%)',
+                          boxShadow: '0 0 40px rgba(124,58,237,0.45), 0 0 80px rgba(124,58,237,0.15), 0 8px 24px rgba(0,0,0,0.5)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                        }}
+                      >
+                        <div className="absolute inset-0 pointer-events-none" style={{
+                          background: 'linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.1) 50%, transparent 65%)',
+                          animation: 'shimmer 2.8s ease infinite',
+                        }} />
+                        <ShoppingCart style={{ width: '16px', height: '16px', position: 'relative', zIndex: 1 }} />
+                        <span style={{ position: 'relative', zIndex: 1 }}>Купить сейчас</span>
+                      </Link>
+                    ) : (
+                      <button
+                        disabled
+                        className="flex-1 rounded-2xl font-heading font-bold text-sm cursor-not-allowed flex items-center justify-center"
+                        style={{
+                          padding: '15px 24px',
+                          background: 'rgba(107,114,128,0.1)',
+                          color: '#6B7280',
+                          border: '1px solid rgba(107,114,128,0.2)',
+                        }}
+                      >
+                        Нет в наличии
+                      </button>
+                    )}
 
-                  {/* Wishlist button */}
-                  <motion.button
-                    onClick={handleWishlist}
-                    whileHover={{ scale: 1.05, y: -2 }}
-                    whileTap={{ scale: 0.93 }}
-                    className="rounded-2xl flex items-center justify-center"
-                    style={{
-                      padding: '15px 16px',
-                      background: isWishlisted ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.03)',
-                      border: `1px solid ${isWishlisted ? 'rgba(239,68,68,0.35)' : 'rgba(255,255,255,0.07)'}`,
-                      color: isWishlisted ? '#F87171' : '#374151',
-                      boxShadow: isWishlisted ? '0 0 20px rgba(239,68,68,0.25)' : 'none',
-                      backdropFilter: 'blur(8px)',
-                    }}
-                  >
-                    <Heart
-                      style={{ width: '20px', height: '20px' }}
-                      className={isWishlisted ? 'fill-current text-red-400' : ''}
-                    />
-                  </motion.button>
+                    {/* Wishlist button */}
+                    <motion.button
+                      onClick={handleWishlist}
+                      whileHover={{ scale: 1.05, y: -2 }}
+                      whileTap={{ scale: 0.93 }}
+                      className="rounded-2xl flex items-center justify-center"
+                      style={{
+                        padding: '15px 16px',
+                        background: isWishlisted ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${isWishlisted ? 'rgba(239,68,68,0.35)' : 'rgba(255,255,255,0.07)'}`,
+                        color: isWishlisted ? '#F87171' : '#374151',
+                        boxShadow: isWishlisted ? '0 0 20px rgba(239,68,68,0.25)' : 'none',
+                        backdropFilter: 'blur(8px)',
+                      }}
+                    >
+                      <Heart
+                        style={{ width: '20px', height: '20px' }}
+                        className={isWishlisted ? 'fill-current text-red-400' : ''}
+                      />
+                    </motion.button>
+                  </div>
+
+                  {/* Row 2: add to cart */}
+                  {inStock && (
+                    <motion.button
+                      onClick={handleCart}
+                      whileTap={{ scale: 0.97 }}
+                      className="w-full flex items-center justify-center gap-2.5 rounded-2xl font-heading font-bold text-sm transition-all duration-200"
+                      style={{
+                        padding: '13px 24px',
+                        background: inCart ? 'rgba(34,197,94,0.08)' : 'rgba(255,255,255,0.04)',
+                        border: `1px solid ${inCart ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.09)'}`,
+                        color: inCart ? '#22C55E' : '#9CA3AF',
+                      }}
+                    >
+                      {inCart ? (
+                        <>
+                          <Check style={{ width: '15px', height: '15px' }} />
+                          В корзине — открыть
+                        </>
+                      ) : (
+                        <>
+                          <ShoppingCart style={{ width: '15px', height: '15px' }} />
+                          В корзину
+                        </>
+                      )}
+                    </motion.button>
+                  )}
                 </div>
               </div>
 
@@ -825,22 +864,48 @@ export default function GameDetailClient({
         {/* ── Similar games ── */}
         {similar.length > 0 && (
           <div
-            className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-10 pb-20"
-            style={{ marginTop: '64px', paddingTop: '40px', borderTop: '1px solid rgba(255,255,255,0.06)' }}
+            style={{ marginTop: '64px', paddingTop: '40px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingBottom: '80px' }}
           >
-            <div className="flex items-center gap-3 mb-6">
-              <div style={{ width: '3px', height: '22px', background: 'linear-gradient(to bottom, #7C3AED, #06B6D4)', borderRadius: '2px' }} />
-              <h2 className="font-heading font-bold text-xl text-white">Похожие игры</h2>
-              <Link
-                href="/catalog"
-                className="font-body text-sm transition-colors hover:text-white ml-auto"
-                style={{ color: '#6B7280' }}
-              >
-                Весь каталог →
-              </Link>
+            <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-10">
+              <div className="flex items-end justify-between gap-3 mb-6">
+                <div>
+                  <div className="flex items-center gap-3 mb-1">
+                    <div style={{ width: '3px', height: '22px', background: 'linear-gradient(to bottom, #7C3AED, #06B6D4)', borderRadius: '2px' }} />
+                    <h2 className="font-heading font-bold text-white" style={{ fontSize: '20px' }}>
+                      Похожие игры
+                    </h2>
+                  </div>
+                  {game.genres.length > 0 && (
+                    <p className="font-body pl-5" style={{ fontSize: '12px', color: '#374151' }}>
+                      По жанрам: {game.genres.slice(0, 3).join(', ')}
+                    </p>
+                  )}
+                </div>
+                <Link
+                  href={game.genres[0] ? `/catalog?genre=${encodeURIComponent(game.genres[0])}` : '/catalog'}
+                  className="flex-shrink-0 font-body text-sm transition-colors hover:text-white"
+                  style={{ color: '#6B7280', fontSize: '13px' }}
+                >
+                  Весь каталог →
+                </Link>
+              </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              {similar.map((g, i) => <GameCard key={g.id} game={g} index={i} />)}
+
+            {/* Horizontal scroll container */}
+            <div
+              className="flex gap-4 overflow-x-auto pb-4"
+              style={{
+                paddingLeft:  'clamp(16px, calc((100vw - 1280px) / 2 + 40px), 80px)',
+                paddingRight: 'clamp(16px, calc((100vw - 1280px) / 2 + 40px), 80px)',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
+              }}
+            >
+              {similar.map((g, i) => (
+                <div key={g.id} className="flex-shrink-0" style={{ width: 'clamp(160px, 18vw, 220px)' }}>
+                  <GameCard game={g} index={i} />
+                </div>
+              ))}
             </div>
           </div>
         )}

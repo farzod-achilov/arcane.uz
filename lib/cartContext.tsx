@@ -3,28 +3,35 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 interface CartContextValue {
-  gameIds: string[];
-  addGame:    (gameId: string) => boolean; // returns true if added, false if already in cart
+  gameIds:    string[];
+  addGame:    (gameId: string) => boolean;
   removeGame: (gameId: string) => void;
   clear:      () => void;
   count:      number;
   has:        (gameId: string) => boolean;
+  isOpen:     boolean;
+  openCart:   () => void;
+  closeCart:  () => void;
 }
 
 const CartContext = createContext<CartContextValue>({
-  gameIds: [],
+  gameIds:    [],
   addGame:    () => false,
   removeGame: () => {},
   clear:      () => {},
   count:      0,
   has:        () => false,
+  isOpen:     false,
+  openCart:   () => {},
+  closeCart:  () => {},
 });
 
 const STORAGE_KEY = 'arcane_cart';
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [gameIds, setGameIds] = useState<string[]>([]);
+  const [gameIds,  setGameIds]  = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const [isOpen,   setIsOpen]   = useState(false);
 
   useEffect(() => {
     try {
@@ -53,12 +60,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setGameIds(prev => prev.filter(id => id !== gameId));
   }, []);
 
-  const clear = useCallback(() => setGameIds([]), []);
-
-  const has = useCallback((gameId: string) => gameIds.includes(gameId), [gameIds]);
+  const clear     = useCallback(() => setGameIds([]), []);
+  const has       = useCallback((gameId: string) => gameIds.includes(gameId), [gameIds]);
+  const openCart  = useCallback(() => setIsOpen(true), []);
+  const closeCart = useCallback(() => setIsOpen(false), []);
 
   return (
-    <CartContext.Provider value={{ gameIds, addGame, removeGame, clear, count: gameIds.length, has }}>
+    <CartContext.Provider value={{ gameIds, addGame, removeGame, clear, count: gameIds.length, has, isOpen, openCart, closeCart }}>
       {children}
     </CartContext.Provider>
   );

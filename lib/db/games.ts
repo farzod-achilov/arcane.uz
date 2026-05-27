@@ -21,6 +21,8 @@ export type GameFilters = {
   page?:     number;
   limit?:    number;
   inStock?:  boolean;
+  priceMin?: number;
+  priceMax?: number;
 };
 
 /* ── Build WHERE clause ── */
@@ -38,6 +40,12 @@ function buildWhere(f: GameFilters): Prisma.gamesWhereInput {
     } : {}),
     ...(f.genres?.length ? { genres: { hasSome: f.genres } } : {}),
     ...(f.platform ? { platforms: { has: f.platform } } : {}),
+    ...(f.priceMin != null || f.priceMax != null ? {
+      priceUzs: {
+        ...(f.priceMin != null ? { gte: f.priceMin } : {}),
+        ...(f.priceMax != null ? { lte: f.priceMax } : {}),
+      },
+    } : {}),
   };
 }
 
@@ -103,12 +111,54 @@ export const getDistinctGenres = unstable_cache(
 );
 
 /* ── Similar games by genres ── */
-export async function getSimilarGames(slug: string, genres: string[], limit = 4) {
-  if (!genres.length) return [];
-  return prisma.games.findMany({
-    where:   { isActive: true, NOT: { slug }, genres: { hasSome: genres } },
-    orderBy: { rating: 'desc' },
-    take:    limit,
-    select:  LIST_SELECT,
+export async function getSimilarGames(
+  slug: string,
+  genres: string[],
+  platforms: string[],
+  limit = 8,
+) {
+  // Fetch candidates by genre overlap, fall back to platform overlap
+  const byGenre = genres.length
+    ? await prisma.games.findMany({
+        where:   { isActive: true, NOT: { slug }, genres: { hasSome: genres } },
+        orderBy: [{ salesCount: 'desc' }, { rating: 'desc' }],
+        take:    40,
+        select:  { ...LIST_SELECT, salesCount: true },
+      })
+    : [];
+
+  // If not enough matches, supplement with platform matches
+  let candidates = byGenre;
+  if (candidates.length < limit && platforms.length) {
+    const existingIds = new Set(candidates.map(g => g.id));
+    const byPlatform = await prisma.games.findMany({
+      where: {
+        isActive:  true,
+        NOT:       { slug },
+        id:        { notIn: Array.from(existingIds) },
+        platforms: { hasSome: platforms },
+      },
+      orderBy: [{ salesCount: 'desc' }, { rating: 'desc' }],
+      take:    limit,
+      select:  { ...LIST_SELECT, salesCount: true },
+    });
+    candidates = [...candidates, ...byPlatform];
+  }
+
+  // Score: genre overlap count × 10 + platform overlap count × 3 + rating
+  const scored = candidates.map(g => {
+    const genreScore    = g.genres.filter(x => genres.includes(x)).length * 10;
+    const platformScore = g.platforms.filter(x => platforms.includes(x)).length * 3;
+    const ratingScore   = (g.rating ?? 0);
+    return { game: g, score: genreScore + platformScore + ratingScore };
   });
+
+  return scored
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(({ game }) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { salesCount: _, ...rest } = game;
+      return rest as GameListItem;
+    });
 }
