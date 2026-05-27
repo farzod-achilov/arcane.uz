@@ -8,7 +8,7 @@ import {
   Link2, Search, Package, Star, Monitor, Apple, Server,
   CheckCircle2, AlertCircle, Clock, X, Plus, Loader2,
   ChevronLeft, ArrowUpRight, Layers, ExternalLink,
-  ClipboardPaste, Zap, History, Info, AlertTriangle,
+  ClipboardPaste, Zap, History, Info, AlertTriangle, RefreshCw, TrendingUp, TrendingDown,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 
@@ -376,6 +376,28 @@ export default function SteamImportPage() {
   const [batchRunning, setBatchRunning] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Steam price sync state
+  type SyncResult = { total: number; updated: number; failed: number; skipped: number; details: Array<{ id: string; title: string; status: 'updated' | 'failed' | 'skipped'; oldUzs: number; newUzs: number }> };
+  const [syncing,    setSyncing]    = useState(false);
+  const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
+  const [syncError,  setSyncError]  = useState('');
+
+  const handleSteamSync = async () => {
+    setSyncing(true);
+    setSyncResult(null);
+    setSyncError('');
+    try {
+      const res  = await fetch('/api/admin/game/steam-sync', { method: 'POST' });
+      const data = await res.json();
+      if (!data.success) { setSyncError(data.error ?? 'Ошибка синхронизации'); return; }
+      setSyncResult(data);
+    } catch {
+      setSyncError('Ошибка сети');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   // Load history
   useEffect(() => {
     fetch('/api/steam/import?limit=24')
@@ -601,8 +623,87 @@ export default function SteamImportPage() {
         </div>
       </motion.div>
 
+      {/* ── Steam price sync banner ── */}
+      <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+                  className="rounded-2xl p-4"
+                  style={{ background: '#0A0A14', border: '1px solid rgba(6,182,212,0.15)' }}>
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                 style={{ background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.2)' }}>
+              <RefreshCw style={{ width: '14px', height: '14px', color: '#06B6D4' }} />
+            </div>
+            <div>
+              <p className="font-heading font-semibold text-white" style={{ fontSize: '13px' }}>Обновить цены Steam</p>
+              <p className="font-body text-[#4B5563]" style={{ fontSize: '11px' }}>
+                Re-fetch актуальных цен для всех Steam-игр и пересчёт финальной цены
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 ml-auto flex-wrap">
+            {syncError && (
+              <span className="font-body text-red-400 text-xs">{syncError}</span>
+            )}
+            {syncResult && !syncing && (
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1 text-xs text-green-400">
+                  <CheckCircle2 style={{ width: '12px' }} /> {syncResult.updated} обновлено
+                </span>
+                {syncResult.failed > 0 && (
+                  <span className="flex items-center gap-1 text-xs text-red-400">
+                    <AlertCircle style={{ width: '12px' }} /> {syncResult.failed} ошибок
+                  </span>
+                )}
+                {syncResult.skipped > 0 && (
+                  <span className="text-xs text-[#6B7280]">{syncResult.skipped} пропущено</span>
+                )}
+              </div>
+            )}
+            <button
+              onClick={handleSteamSync}
+              disabled={syncing}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl font-heading font-semibold transition-all disabled:opacity-50"
+              style={{ background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.3)',
+                       color: '#06B6D4', fontSize: '12px' }}
+            >
+              {syncing
+                ? <><Loader2 className="animate-spin" style={{ width: '13px' }} /> Синхронизация...</>
+                : <><RefreshCw style={{ width: '13px' }} /> Запустить</>}
+            </button>
+          </div>
+        </div>
+
+        {/* Details table after sync */}
+        {syncResult && syncResult.details.length > 0 && (
+          <div className="mt-3 max-h-48 overflow-y-auto rounded-xl"
+               style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.05)' }}>
+            {syncResult.details.filter(d => d.status === 'updated').map((d) => {
+              const diff = d.newUzs - d.oldUzs;
+              return (
+                <div key={d.id} className="flex items-center gap-3 px-3 py-2"
+                     style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                  <span className="flex-1 text-[#9CA3AF] text-xs truncate">{d.title}</span>
+                  <span className="text-[#6B7280] text-xs font-mono">
+                    {(d.oldUzs / 1000).toFixed(0)}K → {(d.newUzs / 1000).toFixed(0)}K сум
+                  </span>
+                  {diff !== 0 && (
+                    <span className={`flex items-center gap-0.5 text-xs ${diff > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                      {diff > 0
+                        ? <TrendingUp style={{ width: '11px' }} />
+                        : <TrendingDown style={{ width: '11px' }} />}
+                      {diff > 0 ? '+' : ''}{((diff / (d.oldUzs || 1)) * 100).toFixed(1)}%
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </motion.div>
+
       {/* ── Mode toggle ── */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
                   className="flex items-center gap-2">
         {[
           { id: false, label: 'Одна игра',    icon: Link2  },
