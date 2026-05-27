@@ -359,7 +359,7 @@ export default async function ProfilePage({
                     const st   = ORDER_STATUS[order.status] ?? { label: order.status, color: '#6B7280' };
                     const game = order.items[0]?.game;
                     return (
-                      <div key={order.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-white/[0.015]"
+                      <Link key={order.id} href={`/orders/${order.id}`} className="flex items-center gap-4 px-5 py-3.5 hover:bg-white/[0.015] transition-colors"
                            style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                         <div className="w-9 h-11 rounded-lg overflow-hidden flex-shrink-0"
                              style={{ background: 'rgba(255,255,255,0.05)' }}>
@@ -380,7 +380,7 @@ export default async function ProfilePage({
                               style={{ fontSize: '10px', color: st.color, background: `${st.color}18`, border: `1px solid ${st.color}25` }}>
                           {st.label}
                         </span>
-                      </div>
+                      </Link>
                     );
                   })
                 )}
