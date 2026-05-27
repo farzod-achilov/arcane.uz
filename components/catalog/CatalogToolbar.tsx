@@ -6,6 +6,7 @@ import { Search, X, LayoutGrid, List, ChevronDown, SlidersHorizontal } from 'luc
 
 const SORT_OPTIONS = [
   { value: 'newest',     label: 'Новинки' },
+  { value: 'popular',    label: 'Популярные' },
   { value: 'rating',     label: 'По рейтингу' },
   { value: 'price_asc',  label: 'Цена: по возрастанию' },
   { value: 'price_desc', label: 'Цена: по убыванию' },

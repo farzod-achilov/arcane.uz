@@ -116,6 +116,7 @@ model games {
   stockStore        Int            @default(0)
   stockDrop         Int            @default(0)
   lowStockThreshold Int            @default(5)
+  salesCount        Int            @default(0)
   syncedAt          DateTime?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime
@@ -293,7 +294,8 @@ model users {
   reviews          reviews[]
   support_tickets  support_tickets[]
   support_messages support_messages[] @relation("SupportMessageAuthor")
-  notifications    notifications[]
+  notifications          notifications[]
+  password_reset_tokens  password_reset_tokens[]
 
   @@index([email])
   @@index([username])
@@ -704,4 +706,20 @@ model delivery_logs {
 
   @@index([orderId])
   @@index([createdAt])
+}
+
+// ── Password Reset ─────────────────────────────────────────────────────────────
+
+model password_reset_tokens {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  token     String    @unique
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user users @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
 }

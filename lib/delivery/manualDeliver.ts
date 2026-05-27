@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { auditLog } from './audit';
 import { notifyNewManualOrder, notifyOrderCompleted, notifyUserOrderComplete } from './notify';
+import { createNotification } from '@/lib/notifications';
 import { DeliveryError } from './types';
 import type { DeliveryContext, ManualDeliveryResult, ManualCompleteInput } from './types';
 
@@ -82,6 +83,15 @@ export async function completeManual(input: ManualCompleteInput) {
     { actorName, keyProvided: !!keyValue },
   );
 
+  // Increment salesCount for each delivered game
+  const gameIds = Array.from(new Set(order.items.map(i => i.game?.id).filter((id): id is string => !!id)));
+  if (gameIds.length) {
+    await prisma.games.updateMany({
+      where: { id: { in: gameIds } },
+      data:  { salesCount: { increment: 1 } },
+    });
+  }
+
   const gameTitle = order.items[0]?.game?.title ?? '—';
   notifyOrderCompleted({
     orderId,
@@ -101,6 +111,16 @@ export async function completeManual(input: ManualCompleteInput) {
       userEmail: order.user.email,
       username:  order.user.username,
     }).catch(() => null);
+
+    const firstGameId = order.items[0]?.game?.id;
+    if (firstGameId) {
+      createNotification(order.user.id, {
+        type:  'review',
+        title: `Как вам «${gameTitle}»?`,
+        body:  'Оставьте отзыв — помогите другим покупателям',
+        href:  `/product/${firstGameId}#reviews`,
+      }).catch(() => null);
+    }
   }
 
   return prisma.orders.findUnique({

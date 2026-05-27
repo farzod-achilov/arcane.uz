@@ -292,3 +292,32 @@ export async function sendKeyDeliveryEmail(params: {
 
   await send(to, `🔑 Ключ готов: ${gameTitle} — ARCANE.UZ`, html);
 }
+
+/* ── Password reset ───────────────────────────────────────────────────────── */
+export async function sendPasswordResetEmail(params: {
+  to: string; username: string; resetUrl: string;
+}): Promise<void> {
+  const { to, username, resetUrl } = params;
+  const html = layout(`
+    <h1 style="margin:0 0 8px;color:#fff;font-size:22px;font-weight:700;">Сброс пароля</h1>
+    <p style="margin:0 0 20px;color:#9CA3AF;font-size:14px;line-height:1.6;">
+      Привет, <b style="color:#fff;">${username}</b>! Мы получили запрос на сброс пароля.
+      Нажмите кнопку ниже — ссылка действительна <b style="color:#fff;">1 час</b>.
+    </p>
+
+    <div style="background:rgba(124,58,237,0.07);border:1px solid rgba(124,58,237,0.2);border-radius:12px;padding:20px;margin-bottom:20px;text-align:center;">
+      ${btn(resetUrl, 'Сбросить пароль', '#7C3AED')}
+    </div>
+
+    <p style="margin:0 0 8px;color:#4B5563;font-size:12px;">
+      Если кнопка не работает, скопируйте ссылку в браузер:
+    </p>
+    <p style="margin:0;color:#7C3AED;font-size:11px;word-break:break-all;">${resetUrl}</p>
+
+    <p style="margin:20px 0 0;color:#374151;font-size:12px;">
+      Если вы не запрашивали сброс — просто проигнорируйте это письмо. Ваш пароль останется прежним.
+    </p>
+  `);
+
+  await send(to, '🔐 Сброс пароля — ARCANE.UZ', html);
+}

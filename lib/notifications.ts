@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 const db = prisma as any;
 
 export type NotifType =
-  | 'order' | 'coins' | 'wishlist' | 'event' | 'level' | 'system' | 'preorder';
+  | 'order' | 'coins' | 'wishlist' | 'event' | 'level' | 'system' | 'preorder' | 'review';
 
 export async function createNotification(
   userId: string,

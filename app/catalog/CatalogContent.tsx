@@ -16,7 +16,7 @@ interface Props {
   pages:           number;
   page:            number;
   genres:          string[];
-  currentGenre:    string;
+  currentGenres:   string[];
   currentPlatform: string;
   currentSort:     string;
   currentView:     string;
@@ -25,10 +25,10 @@ interface Props {
 
 export default function CatalogContent({
   games, total, pages, page, genres,
-  currentGenre, currentPlatform, currentSort, currentView, currentQ,
+  currentGenres, currentPlatform, currentSort, currentView, currentQ,
 }: Props) {
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
-  const activeFilters = (currentGenre ? 1 : 0) + (currentPlatform ? 1 : 0);
+  const activeFilters = currentGenres.length + (currentPlatform ? 1 : 0);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
@@ -49,7 +49,7 @@ export default function CatalogContent({
         <aside className="hidden lg:block flex-shrink-0 w-56">
           <CatalogGenreFilter
             genres={genres}
-            currentGenre={currentGenre}
+            currentGenres={currentGenres}
             currentPlatform={currentPlatform}
           />
         </aside>
@@ -86,7 +86,7 @@ export default function CatalogContent({
                 </div>
                 <CatalogGenreFilter
                   genres={genres}
-                  currentGenre={currentGenre}
+                  currentGenres={currentGenres}
                   currentPlatform={currentPlatform}
                 />
               </motion.div>

@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { OrderError } from '@/lib/orders/types';
 import { auditLog } from './audit';
 import { notifyOrderCompleted, notifyLowStock } from './notify';
+import { createNotification } from '@/lib/notifications';
 import type { DeliveryContext, AutoDeliveryResult } from './types';
 
 interface KeyRow { id: string; key_value: string }
@@ -44,10 +45,10 @@ export async function autoDeliver(ctx: DeliveryContext): Promise<AutoDeliveryRes
         data:  { keyValue: keyRow.key_value, deliveredAt: new Date() },
       });
 
-      // Decrement stock
+      // Decrement stock, increment sales counter
       const updated = await tx.games.update({
-        where: { id: item.gameId },
-        data:  { stockStore: { decrement: 1 } },
+        where:  { id: item.gameId },
+        data:   { stockStore: { decrement: 1 }, salesCount: { increment: 1 } },
         select: { stockStore: true, lowStockThreshold: true, title: true },
       });
 
@@ -88,6 +89,21 @@ export async function autoDeliver(ctx: DeliveryContext): Promise<AutoDeliveryRes
       gameTitle: ctx.items[0]?.gameTitle ?? '—',
       method:    'AUTO',
     }).catch(() => null);
+
+    // Review nudge — only when order fully completed (no waiting items)
+    if (waiting === 0) {
+      const firstItem = ctx.items[0];
+      if (firstItem) {
+        createNotification(ctx.userId, {
+          type:  'review',
+          title: keys.length === 1
+            ? `Как вам «${firstItem.gameTitle}»?`
+            : `Оцените купленные игры`,
+          body:  'Оставьте отзыв — помогите другим покупателям',
+          href:  `/product/${firstItem.gameId}#reviews`,
+        }).catch(() => null);
+      }
+    }
   }
 
   return { type: 'AUTO', delivered: keys.length, waiting, keys };

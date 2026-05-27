@@ -7,7 +7,8 @@ export async function GET(req: NextRequest) {
   const sp = new URL(req.url).searchParams;
 
   const q        = sp.get('q')?.trim()        ?? '';
-  const genre    = sp.get('genre')?.trim()    ?? '';
+  const genreRaw = sp.get('genre')?.trim()    ?? '';
+  const genres   = genreRaw ? genreRaw.split(',').filter(Boolean) : undefined;
   const platform = sp.get('platform')?.trim() ?? '';
   const sort     = sp.get('sort')             ?? 'newest';
   const page     = Math.max(1, parseInt(sp.get('page')  ?? '1',  10));
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
   const inStock  = sp.get('inStock') === 'true';
 
   try {
-    const result = await getGames({ q, genre, platform, sort, page, limit, inStock });
+    const result = await getGames({ q, genres, platform, sort, page, limit, inStock });
     return NextResponse.json({ success: true, ...result }, {
       headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120' },
     });

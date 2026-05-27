@@ -19,13 +19,14 @@ interface Props {
 }
 
 export default async function CatalogPage({ searchParams }: Props) {
-  const sp   = searchParams;
-  const page = Math.max(1, parseInt(sp.page ?? '1', 10) || 1);
+  const sp            = searchParams;
+  const page          = Math.max(1, parseInt(sp.page ?? '1', 10) || 1);
+  const selectedGenres = sp.genre ? sp.genre.split(',').filter(Boolean) : [];
 
   const [{ games, total, pages }, genres] = await Promise.all([
     getGames({
       q:        sp.q,
-      genre:    sp.genre,
+      genres:   selectedGenres.length ? selectedGenres : undefined,
       platform: sp.platform,
       sort:     sp.sort ?? 'newest',
       page,
@@ -67,10 +68,12 @@ export default async function CatalogPage({ searchParams }: Props) {
             </span>
           </h1>
 
-          {(sp.q || sp.genre || sp.platform) && (
+          {(sp.q || selectedGenres.length > 0 || sp.platform) && (
             <p className="font-body text-sm mt-2" style={{ color: '#6B7280' }}>
-              {sp.q     && <>Поиск: <span className="text-[#9D60FA]">«{sp.q}»</span></>}
-              {sp.genre && <> · Жанр: <span className="text-[#9D60FA]">{sp.genre}</span></>}
+              {sp.q && <>Поиск: <span className="text-[#9D60FA]">«{sp.q}»</span></>}
+              {selectedGenres.length > 0 && (
+                <> · Жанры: <span className="text-[#9D60FA]">{selectedGenres.join(', ')}</span></>
+              )}
               {sp.platform && <> · Платформа: <span className="text-[#9D60FA]">{sp.platform}</span></>}
             </p>
           )}
@@ -83,7 +86,7 @@ export default async function CatalogPage({ searchParams }: Props) {
         pages={pages}
         page={page}
         genres={genres}
-        currentGenre={sp.genre ?? ''}
+        currentGenres={selectedGenres}
         currentPlatform={sp.platform ?? ''}
         currentSort={sp.sort ?? 'newest'}
         currentView={sp.view ?? 'grid'}

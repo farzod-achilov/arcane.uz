@@ -182,7 +182,7 @@ export default function LoginPage() {
                   </div>
                   <span className="font-body text-[#6B7280]" style={{ fontSize: '12.5px' }}>Запомнить</span>
                 </label>
-                <Link href="#" className="font-body text-[#4B5563] hover:text-[#7C3AED] transition-colors"
+                <Link href="/forgot-password" className="font-body text-[#4B5563] hover:text-[#7C3AED] transition-colors"
                       style={{ fontSize: '12.5px' }}>
                   Забыли пароль?
                 </Link>

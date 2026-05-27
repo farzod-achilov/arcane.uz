@@ -7,6 +7,7 @@ import {
   Search, Clock, CheckCircle2, RefreshCw, X,
   ChevronDown, Send, Key, Package, AlertCircle, Check,
   Hourglass, Ban, Calendar, ArrowUpDown, Download,
+  DollarSign, Zap,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 
@@ -180,13 +181,41 @@ function CompleteModal({
   );
 }
 
+/* ── KPI card ─────────────────────────────────────────────── */
+function KpiCard({
+  label, value, sub, color, icon: Icon, pulse,
+}: {
+  label: string; value: string | number; sub?: string;
+  color: string; icon: React.ElementType; pulse?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl px-4 py-3.5 flex items-center gap-3.5 relative overflow-hidden"
+         style={{ background: '#0D0D1A', border: `1px solid ${color}22` }}>
+      {pulse && (
+        <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ background: color, animation: 'pulse 2s infinite', boxShadow: `0 0 6px ${color}` }} />
+      )}
+      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+           style={{ background: `${color}14`, border: `1px solid ${color}30` }}>
+        <Icon style={{ width: '16px', height: '16px', color }} />
+      </div>
+      <div className="min-w-0">
+        <p className="font-heading font-bold text-white truncate" style={{ fontSize: '16px' }}>{value}</p>
+        <p className="font-body text-[#4B5563] truncate" style={{ fontSize: '11px' }}>{label}</p>
+        {sub && <p className="font-body truncate" style={{ fontSize: '10px', color: `${color}99` }}>{sub}</p>}
+      </div>
+    </div>
+  );
+}
+
 /* ── Main page ────────────────────────────────────────────── */
 export default function AdminOrdersPage() {
-  const [orders,  setOrders]  = useState<AdminOrder[]>([]);
-  const [counts,  setCounts]  = useState<Record<string, number>>({});
-  const [total,   setTotal]   = useState(0);
-  const [pages,   setPages]   = useState(1);
-  const [page,    setPage]    = useState(1);
+  const [orders,       setOrders]       = useState<AdminOrder[]>([]);
+  const [counts,       setCounts]       = useState<Record<string, number>>({});
+  const [total,        setTotal]        = useState(0);
+  const [pages,        setPages]        = useState(1);
+  const [page,         setPage]         = useState(1);
+  const [todayRevenue, setTodayRevenue] = useState(0);
+  const [lastUpdated,  setLastUpdated]  = useState<Date | null>(null);
   const [loading,    setLoading]    = useState(true);
   const [search,     setSearch]     = useState('');
   const [tab,        setTab]        = useState<StatusFilter>('ALL');
@@ -212,14 +241,22 @@ export default function AdminOrdersPage() {
       });
       const res  = await fetch(`/api/admin/orders?${qs}`);
       const data = await res.json();
-      setOrders(data.orders  ?? []);
-      setCounts(data.counts  ?? {});
-      setTotal(data.total    ?? 0);
-      setPages(data.pages    ?? 1);
+      setOrders(data.orders       ?? []);
+      setCounts(data.counts       ?? {});
+      setTotal(data.total         ?? 0);
+      setPages(data.pages         ?? 1);
+      setTodayRevenue(data.todayRevenue ?? 0);
+      setLastUpdated(new Date());
     } finally { setLoading(false); }
   }, [page, tab, search, datePreset, sort]);
 
   useEffect(() => { load(); }, [load]);
+
+  /* Auto-refresh every 60 s */
+  useEffect(() => {
+    const id = setInterval(load, 60_000);
+    return () => clearInterval(id);
+  }, [load]);
 
   const updateStatus = async (id: string, status: string) => {
     setOpenStatusId(null);
@@ -310,6 +347,11 @@ export default function AdminOrdersPage() {
             <h1 className="font-heading font-bold text-white" style={{ fontSize: '22px' }}>Заказы</h1>
             <p className="font-body text-[#4B5563]" style={{ fontSize: '12px' }}>
               {loading ? 'Загрузка...' : `${totalCount} заказов всего`}
+              {lastUpdated && !loading && (
+                <span className="ml-2 text-[#1F2937]">
+                  · обновлено {lastUpdated.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </span>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -333,6 +375,33 @@ export default function AdminOrdersPage() {
             </button>
           </div>
         </div>
+      </motion.div>
+
+      {/* KPI Strip */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+        className="grid grid-cols-3 gap-3"
+      >
+        <KpiCard
+          label="Выручка сегодня"
+          value={formatPrice(todayRevenue)}
+          color="#22C55E"
+          icon={DollarSign}
+        />
+        <KpiCard
+          label="Ждут доставки"
+          value={counts.WAITING_MANUAL ?? 0}
+          sub={(counts.WAITING_MANUAL ?? 0) > 0 ? 'Требуется действие' : 'Всё в порядке'}
+          color="#FB923C"
+          icon={Hourglass}
+          pulse={(counts.WAITING_MANUAL ?? 0) > 0}
+        />
+        <KpiCard
+          label="Ожидают оплаты"
+          value={counts.PENDING ?? 0}
+          color="#F59E0B"
+          icon={Zap}
+        />
       </motion.div>
 
       {/* Tabs + Search */}

@@ -15,7 +15,7 @@ export type GameListItem = Prisma.gamesGetPayload<{ select: typeof LIST_SELECT }
 
 export type GameFilters = {
   q?:        string;
-  genre?:    string;
+  genres?:   string[];
   platform?: string;
   sort?:     string;
   page?:     number;
@@ -36,7 +36,7 @@ function buildWhere(f: GameFilters): Prisma.gamesWhereInput {
         { publisher:   { contains: f.q, mode: 'insensitive' } },
       ],
     } : {}),
-    ...(f.genre    ? { genres:    { has: f.genre    } } : {}),
+    ...(f.genres?.length ? { genres: { hasSome: f.genres } } : {}),
     ...(f.platform ? { platforms: { has: f.platform } } : {}),
   };
 }
@@ -44,11 +44,12 @@ function buildWhere(f: GameFilters): Prisma.gamesWhereInput {
 /* ── Build ORDER BY ── */
 function buildOrder(sort = 'newest'): Prisma.gamesOrderByWithRelationInput {
   switch (sort) {
-    case 'price_asc':  return { priceUzs: 'asc'  };
-    case 'price_desc': return { priceUzs: 'desc' };
-    case 'rating':     return { rating:   'desc' };
-    case 'name':       return { title:    'asc'  };
-    default:           return { createdAt: 'desc' };
+    case 'price_asc':  return { priceUzs:   'asc'  };
+    case 'price_desc': return { priceUzs:   'desc' };
+    case 'rating':     return { rating:     'desc' };
+    case 'name':       return { title:      'asc'  };
+    case 'popular':    return { salesCount: 'desc' };
+    default:           return { createdAt:  'desc' };
   }
 }
 

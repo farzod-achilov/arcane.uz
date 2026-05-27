@@ -41,7 +41,10 @@ export async function GET(req: Request) {
     ? { totalPrice: sortDir as 'asc' | 'desc' }
     : { createdAt:  sortDir as 'asc' | 'desc' };
 
-  const [orders, total, statusGroups] = await Promise.all([
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const [orders, total, statusGroups, todayAgg] = await Promise.all([
     prisma.orders.findMany({
       where,
       select: {
@@ -70,9 +73,14 @@ export async function GET(req: Request) {
     }),
     prisma.orders.count({ where }),
     prisma.orders.groupBy({ by: ['status'], _count: { id: true } }),
+    prisma.orders.aggregate({
+      where: { status: 'COMPLETED', createdAt: { gte: todayStart } },
+      _sum:  { totalPrice: true },
+    }),
   ]);
 
-  const counts = Object.fromEntries(statusGroups.map(r => [r.status, r._count.id]));
+  const counts       = Object.fromEntries(statusGroups.map(r => [r.status, r._count.id]));
+  const todayRevenue = todayAgg._sum.totalPrice ?? 0;
 
-  return NextResponse.json({ orders, total, pages: Math.ceil(total / limit), counts });
+  return NextResponse.json({ orders, total, pages: Math.ceil(total / limit), counts, todayRevenue });
 }

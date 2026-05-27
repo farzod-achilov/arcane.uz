@@ -5,10 +5,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, X, Zap, ArrowRight, Flame, Tag, Star } from 'lucide-react';
-import { products } from '@/lib/mockData';
+import { Search, X, Zap, ArrowRight, Flame, Tag, Star, Loader2 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
-import type { Product } from '@/lib/types';
+
+interface SearchResult {
+  id:        string;
+  title:     string;
+  slug:      string;
+  cover:     string | null;
+  priceUzs:  number;
+  platforms: string[];
+  instant:   boolean;
+}
 
 /* ── Quick links shown when search is empty ───────────── */
 const QUICK = [
@@ -17,33 +25,20 @@ const QUICK = [
   { label: 'Новинки',     href: '/new-releases',          icon: Star,   color: '#F59E0B' },
 ];
 
-function searchProducts(q: string): Product[] {
-  const lower = q.toLowerCase().trim();
-  if (!lower) return [];
-  return products
-    .filter(
-      (p) =>
-        p.title.toLowerCase().includes(lower) ||
-        p.subtitle?.toLowerCase().includes(lower) ||
-        p.category.toLowerCase().includes(lower) ||
-        p.platform.some((pl) => pl.toLowerCase().includes(lower)) ||
-        p.tags?.some((t) => t.toLowerCase().includes(lower)),
-    )
-    .slice(0, 7);
-}
-
 interface SearchOverlayProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
 export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<Product[]>([]);
+  const [query,     setQuery]     = useState('');
+  const [results,   setResults]   = useState<SearchResult[]>([]);
+  const [loading,   setLoading]   = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef    = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
-  const router = useRouter();
+  const abortRef    = useRef<AbortController>();
+  const router      = useRouter();
 
   /* ── Auto-focus / reset on open ── */
   useEffect(() => {
@@ -51,16 +46,43 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
       setQuery('');
       setResults([]);
       setActiveIdx(-1);
+      setLoading(false);
       setTimeout(() => inputRef.current?.focus(), 80);
     }
   }, [isOpen]);
 
-  /* ── Debounced search ── */
+  /* ── Debounced search against API ── */
   useEffect(() => {
     clearTimeout(debounceRef.current);
-    if (!query.trim()) { setResults([]); return; }
-    debounceRef.current = setTimeout(() => setResults(searchProducts(query)), 240);
-    return () => clearTimeout(debounceRef.current);
+    abortRef.current?.abort();
+
+    if (!query.trim() || query.trim().length < 2) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    debounceRef.current = setTimeout(async () => {
+      const controller = new AbortController();
+      abortRef.current = controller;
+      try {
+        const res  = await fetch(`/api/search?q=${encodeURIComponent(query.trim())}`, {
+          signal: controller.signal,
+        });
+        const data = await res.json() as { results?: SearchResult[] };
+        setResults(data.results ?? []);
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') setResults([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      clearTimeout(debounceRef.current);
+      abortRef.current?.abort();
+    };
   }, [query]);
 
   /* ── Keyboard navigation ── */
@@ -86,7 +108,7 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
   }, [isOpen, results, activeIdx, onClose, router]);
 
   const hasResults = results.length > 0;
-  const noMatch = query.trim() && !hasResults;
+  const noMatch    = query.trim().length >= 2 && !loading && !hasResults;
 
   return (
     <AnimatePresence>
@@ -136,20 +158,20 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                 className="flex items-center gap-3.5 px-5 py-4"
                 style={{
                   borderBottom:
-                    hasResults || noMatch || !query.trim()
+                    hasResults || noMatch || !query.trim() || loading
                       ? '1px solid rgba(255,255,255,0.05)'
                       : 'none',
                 }}
               >
-                <Search
-                  style={{ width: '18px', height: '18px', color: '#7C3AED', flexShrink: 0 }}
-                />
+                {loading
+                  ? <Loader2 style={{ width: '18px', height: '18px', color: '#7C3AED', flexShrink: 0 }} className="animate-spin" />
+                  : <Search style={{ width: '18px', height: '18px', color: '#7C3AED', flexShrink: 0 }} />}
                 <input
                   ref={inputRef}
                   type="text"
                   value={query}
                   onChange={(e) => { setQuery(e.target.value); setActiveIdx(-1); }}
-                  placeholder="Поиск игр, жанров, платформ..."
+                  placeholder="Поиск игр, разработчиков..."
                   className="flex-1 bg-transparent text-white outline-none font-heading placeholder:text-[#2D2D44]"
                   style={{ fontSize: '16px' }}
                 />
@@ -189,7 +211,7 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                       Результаты ({results.length})
                     </span>
                     <Link
-                      href="/catalog"
+                      href={`/catalog?q=${encodeURIComponent(query)}`}
                       onClick={onClose}
                       className="flex items-center gap-1 font-body transition-colors text-[#7C3AED] hover:text-[#9D60FA]"
                       style={{ fontSize: '12px' }}
@@ -199,10 +221,10 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                     </Link>
                   </div>
 
-                  {results.map((product, i) => (
+                  {results.map((result, i) => (
                     <Link
-                      key={product.id}
-                      href={`/product/${product.id}`}
+                      key={result.id}
+                      href={`/product/${result.id}`}
                       onClick={onClose}
                       className="group flex items-center gap-4 px-5 py-3.5 transition-all duration-150"
                       style={{
@@ -212,14 +234,11 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                       onMouseEnter={() => setActiveIdx(i)}
                     >
                       {/* Cover */}
-                      <div className="relative w-10 h-12 rounded-xl overflow-hidden flex-shrink-0">
-                        <Image
-                          src={product.image}
-                          alt={product.title}
-                          fill
-                          unoptimized
-                          className="object-cover"
-                        />
+                      <div className="relative w-10 h-12 rounded-xl overflow-hidden flex-shrink-0"
+                           style={{ background: 'rgba(124,58,237,0.08)' }}>
+                        {result.cover && (
+                          <Image src={result.cover} alt={result.title} fill unoptimized className="object-cover" />
+                        )}
                       </div>
 
                       {/* Info */}
@@ -228,21 +247,20 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                           className="font-heading font-semibold text-white line-clamp-1"
                           style={{ fontSize: '14px' }}
                         >
-                          {product.title}
+                          {result.title}
                         </p>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className="font-body text-[#4B5563]" style={{ fontSize: '11.5px' }}>
-                            {product.platform.slice(0, 2).join(' · ')}
-                          </span>
-                          {product.inStock && (
+                          {result.platforms.length > 0 && (
+                            <span className="font-body text-[#4B5563]" style={{ fontSize: '11.5px' }}>
+                              {result.platforms.slice(0, 2).join(' · ')}
+                            </span>
+                          )}
+                          {result.instant && (
                             <>
-                              <span className="text-[#1F2937]">·</span>
+                              {result.platforms.length > 0 && <span className="text-[#1F2937]">·</span>}
                               <div className="flex items-center gap-1">
                                 <Zap style={{ width: '9px', height: '9px', color: '#22C55E' }} />
-                                <span
-                                  className="font-body text-[#22C55E]"
-                                  style={{ fontSize: '10.5px' }}
-                                >
+                                <span className="font-body text-[#22C55E]" style={{ fontSize: '10.5px' }}>
                                   Мгновенно
                                 </span>
                               </div>
@@ -253,28 +271,27 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
 
                       {/* Price */}
                       <div className="text-right flex-shrink-0">
-                        <p
-                          className="font-heading font-bold text-white"
-                          style={{ fontSize: '14px' }}
-                        >
-                          {formatPrice(product.price)}
+                        <p className="font-heading font-bold text-white" style={{ fontSize: '14px' }}>
+                          {result.priceUzs > 0 ? formatPrice(result.priceUzs) : '—'}
                         </p>
-                        {product.discount && (
-                          <span
-                            className="font-pixel rounded"
-                            style={{
-                              fontSize: '7px',
-                              background: 'rgba(239,68,68,0.15)',
-                              color: '#F87171',
-                              padding: '1.5px 5px',
-                              letterSpacing: '0.04em',
-                            }}
-                          >
-                            -{product.discount}%
-                          </span>
-                        )}
                       </div>
                     </Link>
+                  ))}
+                </div>
+              )}
+
+              {/* Loading skeleton */}
+              {loading && !hasResults && (
+                <div className="px-5 py-5 space-y-3">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="flex items-center gap-4 animate-pulse">
+                      <div className="w-10 h-12 rounded-xl flex-shrink-0" style={{ background: 'rgba(255,255,255,0.04)' }} />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-3.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.05)', width: `${55 + i * 15}%` }} />
+                        <div className="h-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', width: '40%' }} />
+                      </div>
+                      <div className="h-3.5 w-20 rounded-lg flex-shrink-0" style={{ background: 'rgba(255,255,255,0.04)' }} />
+                    </div>
                   ))}
                 </div>
               )}
@@ -286,7 +303,7 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                     Ничего не найдено по запросу «{query}»
                   </p>
                   <p className="font-body text-[#2D2D44]" style={{ fontSize: '12px' }}>
-                    Попробуйте другое название или жанр
+                    Попробуйте другое название или разработчика
                   </p>
                 </div>
               )}
