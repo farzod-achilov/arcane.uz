@@ -1,13 +1,14 @@
 import { Resend } from 'resend';
 import { formatPrice } from '@/lib/utils';
 
-const resend   = new Resend(process.env.RESEND_API_KEY ?? '');
 const FROM     = process.env.EMAIL_FROM ?? 'ARCANE.UZ <noreply@arcane.com.uz>';
 const SITE_URL = 'https://arcane.com.uz';
 
 async function send(to: string, subject: string, html: string): Promise<void> {
-  if (!process.env.RESEND_API_KEY) return;
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return;
   try {
+    const resend = new Resend(key);
     await resend.emails.send({ from: FROM, to, subject, html });
   } catch { /* non-fatal */ }
 }
