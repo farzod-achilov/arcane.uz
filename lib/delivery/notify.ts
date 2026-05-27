@@ -99,8 +99,6 @@ export async function notifyWishlistPriceDrop(params: {
     select: { userId: true, telegramId: true },
   });
 
-  const tgUserIds = new Set(telegramLinks.map(t => t.userId));
-
   const tgText = [
     `📉 <b>Снижение цены!</b>`,
     ``,
@@ -111,20 +109,18 @@ export async function notifyWishlistPriceDrop(params: {
   ].join('\n');
 
   await Promise.all([
-    // Telegram notifications
+    // Telegram — all linked users with wishlist prefs enabled
     ...telegramLinks.map(u => tg(u.telegramId.toString(), tgText)),
-    // Email notifications for users without Telegram wishlist prefs
-    ...wishlists
-      .filter(w => !tgUserIds.has(w.userId))
-      .map(w => sendPriceDropEmail({
-        to:        w.user.email,
-        username:  w.user.username,
-        gameTitle,
-        gameSlug,
-        oldPrice,
-        newPrice,
-        savePct,
-      }).catch(() => {})),
+    // Email — all wishlist users (regardless of Telegram)
+    ...wishlists.map(w => sendPriceDropEmail({
+      to:        w.user.email,
+      username:  w.user.username,
+      gameTitle,
+      gameSlug,
+      oldPrice,
+      newPrice,
+      savePct,
+    }).catch(() => {})),
   ]);
 
   // Mark all notified with the new price
