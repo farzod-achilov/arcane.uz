@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Search, Send, Crown, Zap, ShoppingBag, X,
-  RefreshCw, Shield, Ban, Users, CheckCircle2, Loader2, Wallet, Plus, Download,
+  RefreshCw, Shield, Ban, Users, CheckCircle2, Loader2, Wallet, Plus, Download, ShieldOff, AlertTriangle,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 
@@ -48,10 +48,12 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [search,  setSearch]  = useState('');
   const [totalCoins, setTotalCoins] = useState(0);
-  const [banning,    setBanning]    = useState<string | null>(null);
-  const [topUpUser,  setTopUpUser]  = useState<AdminUser | null>(null);
-  const [topUpAmt,   setTopUpAmt]   = useState('');
-  const [topUpSaving,setTopUpSaving]= useState(false);
+  const [banning,       setBanning]       = useState<string | null>(null);
+  const [topUpUser,     setTopUpUser]     = useState<AdminUser | null>(null);
+  const [topUpAmt,      setTopUpAmt]      = useState('');
+  const [topUpSaving,   setTopUpSaving]   = useState(false);
+  const [confirmAdmin,  setConfirmAdmin]  = useState<AdminUser | null>(null);
+  const [togglingAdmin, setTogglingAdmin] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -81,6 +83,22 @@ export default function AdminUsersPage() {
         setUsers(prev => prev.map(u => u.id === user.id ? { ...u, isBanned: data.user.isBanned } : u));
       }
     } finally { setBanning(null); }
+  }
+
+  async function toggleAdmin(user: AdminUser) {
+    setConfirmAdmin(null);
+    setTogglingAdmin(user.id);
+    try {
+      const res  = await fetch(`/api/admin/users/${user.id}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ isAdmin: !user.isAdmin }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setUsers(prev => prev.map(u => u.id === user.id ? { ...u, isAdmin: data.user.isAdmin } : u));
+      }
+    } finally { setTogglingAdmin(null); }
   }
 
   const withTelegram = 0; // would need telegram_users join — skip for now
@@ -359,6 +377,25 @@ export default function AdminUsersPage() {
                             {user.isBanned ? 'Разбанить' : 'Бан'}
                           </button>
                         )}
+                        <button
+                          onClick={() => setConfirmAdmin(user)}
+                          disabled={togglingAdmin === user.id}
+                          title={user.isAdmin ? 'Снять права админа' : 'Выдать права админа'}
+                          className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 font-body transition-all disabled:opacity-50"
+                          style={{
+                            fontSize:   '10.5px',
+                            background: user.isAdmin ? 'rgba(245,158,11,0.1)' : 'rgba(124,58,237,0.1)',
+                            border:     user.isAdmin ? '1px solid rgba(245,158,11,0.25)' : '1px solid rgba(124,58,237,0.25)',
+                            color:      user.isAdmin ? '#F59E0B' : '#A78BFA',
+                          }}
+                        >
+                          {togglingAdmin === user.id
+                            ? <Loader2 style={{ width: '10px', height: '10px' }} className="animate-spin" />
+                            : user.isAdmin
+                              ? <ShieldOff style={{ width: '10px', height: '10px' }} />
+                              : <Shield style={{ width: '10px', height: '10px' }} />}
+                          {user.isAdmin ? 'Снять' : 'Админ'}
+                        </button>
                       </div>
                     </td>
                   </motion.tr>
@@ -390,6 +427,54 @@ export default function AdminUsersPage() {
           </div>
         )}
       </motion.div>
+
+      {/* Confirm admin toggle modal */}
+      {confirmAdmin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+             style={{ background: 'rgba(0,0,0,0.75)' }}
+             onClick={() => setConfirmAdmin(null)}>
+          <div className="rounded-2xl p-6 w-full max-w-sm space-y-4"
+               style={{ background: '#0D0D1A', border: '1px solid rgba(245,158,11,0.3)' }}
+               onClick={e => e.stopPropagation()}>
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                   style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)' }}>
+                <AlertTriangle style={{ width: '18px', height: '18px', color: '#F59E0B' }} />
+              </div>
+              <div>
+                <p className="font-heading font-bold text-white" style={{ fontSize: '15px' }}>
+                  {confirmAdmin.isAdmin ? 'Снять права админа?' : 'Выдать права админа?'}
+                </p>
+                <p className="font-body text-[#6B7280] mt-1" style={{ fontSize: '12px' }}>
+                  Пользователь: <span className="text-white">@{confirmAdmin.username}</span>
+                </p>
+                <p className="font-body text-[#4B5563] mt-1" style={{ fontSize: '11px' }}>
+                  {confirmAdmin.isAdmin
+                    ? 'Этот пользователь потеряет доступ к панели администратора.'
+                    : 'Этот пользователь получит полный доступ к панели администратора.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3 pt-1">
+              <button onClick={() => setConfirmAdmin(null)}
+                className="flex-1 rounded-xl py-2.5 font-heading font-semibold transition-all"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#6B7280', fontSize: '13px' }}>
+                Отмена
+              </button>
+              <button onClick={() => toggleAdmin(confirmAdmin)}
+                className="flex-1 rounded-xl py-2.5 font-heading font-semibold text-white transition-all flex items-center justify-center gap-2"
+                style={{
+                  background: confirmAdmin.isAdmin ? 'linear-gradient(135deg,#B45309,#92400E)' : 'linear-gradient(135deg,#6D28D9,#4C1D95)',
+                  fontSize: '13px',
+                }}>
+                {confirmAdmin.isAdmin
+                  ? <><ShieldOff style={{ width: '13px', height: '13px' }} /> Снять</>
+                  : <><Shield style={{ width: '13px', height: '13px' }} /> Выдать</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Top-up modal */}
       {topUpUser && (
