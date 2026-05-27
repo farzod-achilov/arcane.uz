@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, User as UserIcon, Eye, EyeOff, Zap, Star, Gift } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, Eye, EyeOff, Zap, Star, Gift, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUser } from '@/lib/userContext';
 import CheckoutInput from '@/components/checkout/CheckoutInput';
@@ -65,9 +65,12 @@ function PasswordStrength({ password }: { password: string }) {
   );
 }
 
-export default function RegisterPage() {
+function RegisterForm() {
   const { register } = useUser();
   const router       = useRouter();
+  const searchParams = useSearchParams();
+  const refCode      = searchParams.get('ref') ?? '';
+
   const [name,     setName]    = useState('');
   const [email,    setEmail]   = useState('');
   const [password, setPassword]= useState('');
@@ -95,7 +98,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     const toastId = toast.loading('Создаём аккаунт…');
-    const result = await register(name.trim(), email.trim(), password);
+    const result = await register(name.trim(), email.trim(), password, refCode || undefined);
     setLoading(false);
 
     if (result.ok) {
@@ -179,7 +182,7 @@ export default function RegisterPage() {
             {/* Welcome bonus */}
             <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.2 }}
-              className="flex items-center gap-3 rounded-xl p-3.5 mb-5 relative overflow-hidden"
+              className="flex items-center gap-3 rounded-xl p-3.5 mb-3 relative overflow-hidden"
               style={{ background: 'rgba(124,58,237,0.07)', border: '1px solid rgba(124,58,237,0.2)' }}>
               <div className="absolute inset-0 pointer-events-none"
                    style={{ background: 'radial-gradient(ellipse at left, rgba(124,58,237,0.08), transparent 60%)' }} />
@@ -202,6 +205,29 @@ export default function RegisterPage() {
                 </span>
               </div>
             </motion.div>
+
+            {/* Referral banner */}
+            {refCode && (
+              <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.25 }}
+                className="flex items-center gap-3 rounded-xl p-3.5 mb-5 relative overflow-hidden"
+                style={{ background: 'rgba(6,182,212,0.07)', border: '1px solid rgba(6,182,212,0.25)' }}>
+                <div className="absolute inset-0 pointer-events-none"
+                     style={{ background: 'radial-gradient(ellipse at left, rgba(6,182,212,0.08), transparent 60%)' }} />
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 relative z-10"
+                     style={{ background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.2)' }}>
+                  <Share2 style={{ width: '16px', height: '16px', color: '#06B6D4' }} />
+                </div>
+                <div className="relative z-10">
+                  <p className="font-heading font-semibold text-white" style={{ fontSize: '13px' }}>
+                    Реферальное приглашение активно
+                  </p>
+                  <p className="font-body text-[#6B7280]" style={{ fontSize: '11px' }}>
+                    Код: <span style={{ color: '#06B6D4', fontFamily: 'monospace' }}>{refCode}</span>
+                  </p>
+                </div>
+              </motion.div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <CheckoutInput
@@ -318,5 +344,13 @@ export default function RegisterPage() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense>
+      <RegisterForm />
+    </Suspense>
   );
 }

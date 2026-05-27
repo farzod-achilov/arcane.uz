@@ -5,12 +5,17 @@ import Link                 from 'next/link';
 import {
   Zap, ShoppingBag, Heart, Star, Settings, BookOpen,
   Package, ChevronRight, Crown, Calendar, TrendingUp,
-  Box, History, Wallet, Gift,
+  Box, History, Wallet, Gift, Users,
 } from 'lucide-react';
 import { authOptions } from '@/lib/auth';
 import { prisma }      from '@/lib/prisma';
 import { formatPrice } from '@/lib/utils';
+import ReferralCard    from '@/components/profile/ReferralCard';
+import crypto          from 'crypto';
 import type { Metadata } from 'next';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyDB = any;
 
 export const metadata: Metadata = { title: 'Профиль — Arcane' };
 
@@ -133,7 +138,39 @@ async function getOrders(userId: string) {
   });
 }
 
-type Tab = 'overview' | 'inventory' | 'cases' | 'deposits';
+async function getReferralData(userId: string) {
+  let user = await (prisma.users.findUnique as AnyDB)({
+    where:  { id: userId },
+    select: { referralCode: true },
+  });
+
+  if (!user?.referralCode) {
+    const code = crypto.randomBytes(4).toString('hex').toUpperCase();
+    await (prisma.users.update as AnyDB)({
+      where: { id: userId },
+      data:  { referralCode: code },
+    });
+    user = { referralCode: code };
+  }
+
+  const [totalReferrals, coinsAgg] = await Promise.all([
+    (prisma.users.count as AnyDB)({ where: { referredBy: userId } }),
+    prisma.transactions.aggregate({
+      where: { userId, type: 'REFERRAL_BONUS' },
+      _sum:  { amount: true },
+    }),
+  ]);
+
+  const baseUrl = process.env.NEXTAUTH_URL ?? 'https://arcane.uz';
+  return {
+    code:             user.referralCode as string,
+    referralLink:     `${baseUrl}/register?ref=${user.referralCode}`,
+    totalReferrals:   totalReferrals as number,
+    totalCoinsEarned: (coinsAgg._sum?.amount ?? 0) as number,
+  };
+}
+
+type Tab = 'overview' | 'inventory' | 'cases' | 'deposits' | 'referral';
 
 /* ── Page ────────────────────────────────────────────── */
 export default async function ProfilePage({
@@ -144,28 +181,30 @@ export default async function ProfilePage({
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect('/login?callbackUrl=/profile');
 
-  const tab: Tab = (['overview', 'inventory', 'cases', 'deposits'].includes(searchParams.tab ?? '')
+  const tab: Tab = (['overview', 'inventory', 'cases', 'deposits', 'referral'].includes(searchParams.tab ?? '')
     ? searchParams.tab as Tab
     : 'overview');
 
   const { user, wishlistCount } = await getBaseData(session.user.id);
   if (!user) redirect('/login');
 
-  const [inventory, caseHistory, deposits, recentOrders] = await Promise.all([
-    tab === 'inventory' ? getInventory(session.user.id)    : Promise.resolve(null),
-    tab === 'cases'     ? getCaseHistory(session.user.id)  : Promise.resolve(null),
-    tab === 'deposits'  ? getDeposits(session.user.id)     : Promise.resolve(null),
-    tab === 'overview'  ? getOrders(session.user.id)       : Promise.resolve(null),
+  const [inventory, caseHistory, deposits, recentOrders, referralData] = await Promise.all([
+    tab === 'inventory' ? getInventory(session.user.id)      : Promise.resolve(null),
+    tab === 'cases'     ? getCaseHistory(session.user.id)    : Promise.resolve(null),
+    tab === 'deposits'  ? getDeposits(session.user.id)       : Promise.resolve(null),
+    tab === 'overview'  ? getOrders(session.user.id)         : Promise.resolve(null),
+    tab === 'referral'  ? getReferralData(session.user.id)   : Promise.resolve(null),
   ]);
 
   const { name: levelName, cfg: levelCfg, pct: xpPct, xpToNext } = getXpProgress(user.xp);
   const joinYear = new Date(user.createdAt).getFullYear();
 
   const TABS = [
-    { id: 'overview'  as Tab, label: 'Обзор',     icon: TrendingUp },
-    { id: 'inventory' as Tab, label: 'Инвентарь', icon: Box        },
-    { id: 'cases'     as Tab, label: 'Кейсы',     icon: Gift       },
-    { id: 'deposits'  as Tab, label: 'Баланс',    icon: Wallet     },
+    { id: 'overview'  as Tab, label: 'Обзор',      icon: TrendingUp },
+    { id: 'inventory' as Tab, label: 'Инвентарь',  icon: Box        },
+    { id: 'cases'     as Tab, label: 'Кейсы',      icon: Gift       },
+    { id: 'deposits'  as Tab, label: 'Баланс',     icon: Wallet     },
+    { id: 'referral'  as Tab, label: 'Рефералы',   icon: Users      },
   ];
 
   return (
@@ -602,6 +641,18 @@ export default async function ProfilePage({
               )}
             </div>
           </div>
+        )}
+
+        {/* ════════════════════════════════════════════════
+            TAB: REFERRAL
+        ════════════════════════════════════════════════ */}
+        {tab === 'referral' && referralData && (
+          <ReferralCard
+            code={referralData.code}
+            referralLink={referralData.referralLink}
+            totalReferrals={referralData.totalReferrals}
+            totalCoinsEarned={referralData.totalCoinsEarned}
+          />
         )}
 
       </div>

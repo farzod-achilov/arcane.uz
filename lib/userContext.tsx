@@ -34,7 +34,7 @@ interface UserContextType {
   unreadCount: number;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
-  register: (name: string, email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  register: (name: string, email: string, password: string, referralCode?: string) => Promise<{ ok: boolean; error?: string }>;
   addToWishlist: (id: string) => void;
   removeFromWishlist: (id: string) => void;
   isInWishlist: (id: string) => boolean;
@@ -119,11 +119,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return result?.ok ?? false;
   }, []);
 
-  const register = useCallback(async (name: string, email: string, password: string): Promise<{ ok: boolean; error?: string }> => {
+  const register = useCallback(async (name: string, email: string, password: string, referralCode?: string): Promise<{ ok: boolean; error?: string }> => {
     const res = await fetch('/api/auth/register', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ name, email, password }),
+      body:    JSON.stringify({ name, email, password, referralCode }),
     });
 
     if (!res.ok) {
