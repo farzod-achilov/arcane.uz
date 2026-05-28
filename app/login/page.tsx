@@ -49,6 +49,20 @@ export default function LoginPage() {
 
   useEffect(() => setMounted(true), []);
 
+  function openSteamLogin() {
+    const appUrl   = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin;
+    const returnTo = `${appUrl}/api/auth/steam-callback`;
+    window.location.href = [
+      'https://steamcommunity.com/openid/login',
+      '?openid.ns=http://specs.openid.net/auth/2.0',
+      '&openid.mode=checkid_setup',
+      `&openid.return_to=${encodeURIComponent(returnTo)}`,
+      `&openid.realm=${encodeURIComponent(appUrl)}`,
+      '&openid.identity=http://specs.openid.net/auth/2.0/identifier_select',
+      '&openid.claimed_id=http://specs.openid.net/auth/2.0/identifier_select',
+    ].join('');
+  }
+
   function openTelegramLogin() {
     if (!TG_BOT_ID) {
       toast.error('Telegram вход не настроен');
@@ -284,8 +298,9 @@ export default function LoginPage() {
                 Telegram
               </button>
 
-              {/* Steam (placeholder) */}
+              {/* Steam */}
               <button
+                onClick={openSteamLogin}
                 className="flex items-center justify-center gap-2 rounded-xl font-heading font-medium transition-all duration-200"
                 style={{ background: '#09090E', border: '1px solid rgba(255,255,255,0.07)',
                          padding: '10px', fontSize: '12.5px', color: '#9CA3AF' }}
