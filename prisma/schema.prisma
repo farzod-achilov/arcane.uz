@@ -541,6 +541,28 @@ model steam_users {
   @@index([userId])
 }
 
+// ═══════════════════════════════════════════════════════
+//  BANNERS (homepage promo slider)
+// ═══════════════════════════════════════════════════════
+
+model banners {
+  id          String   @id @default(uuid())
+  title       String
+  subtitle    String?
+  buttonText  String?
+  buttonLink  String?
+  imageUrl    String?
+  badgeText   String?
+  colorFrom   String   @default("#7C3AED")
+  colorTo     String   @default("#06B6D4")
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+}
+
 model pending_tokens {
   token     String   @id
   userId    String

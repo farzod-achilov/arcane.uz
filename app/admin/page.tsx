@@ -479,6 +479,28 @@ export default function AdminDashboard() {
         </div>
       </motion.div>
 
+      {/* Banners quick link */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
+        className="rounded-2xl px-5 py-4 flex items-center justify-between gap-4"
+        style={{ background: 'rgba(124,58,237,0.05)', border: '1px solid rgba(124,58,237,0.18)' }}
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+               style={{ background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.3)' }}>
+            <span style={{ fontSize: '14px' }}>🖼</span>
+          </div>
+          <p className="font-body text-[#9CA3AF]" style={{ fontSize: '13px' }}>
+            Управляйте промо-баннерами на главной странице
+          </p>
+        </div>
+        <Link href="/admin/banners"
+          className="flex items-center gap-1.5 rounded-xl px-4 py-2 font-heading font-semibold text-white text-sm whitespace-nowrap"
+          style={{ background: 'rgba(124,58,237,0.3)', border: '1px solid rgba(124,58,237,0.4)' }}>
+          Баннеры <ArrowRight style={{ width: '13px', height: '13px' }} />
+        </Link>
+      </motion.div>
+
       {/* Warning if deliveries pending */}
       {!loading && waiting > 0 && (
         <motion.div

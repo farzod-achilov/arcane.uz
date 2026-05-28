@@ -12,6 +12,7 @@ import TelegramSupport from '@/components/home/TelegramSupport';
 import Reviews from '@/components/home/Reviews';
 import RecentlyViewed from '@/components/home/RecentlyViewed';
 import FlashSale, { type FlashDeal } from '@/components/home/FlashSale';
+import PromoBanner, { type Banner } from '@/components/home/PromoBanner';
 
 /* ── Data helpers ── */
 
@@ -103,13 +104,23 @@ async function getHomeReviews() {
   });
 }
 
+async function getBanners(): Promise<Banner[]> {
+  return prisma.banners.findMany({
+    where:   { isActive: true },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+    select: { id: true, title: true, subtitle: true, buttonText: true,
+              buttonLink: true, imageUrl: true, badgeText: true, colorFrom: true, colorTo: true },
+  });
+}
+
 export default async function HomePage() {
-  const [{ games: trending }, genres, deals, flashData, reviewsRaw] = await Promise.all([
+  const [{ games: trending }, genres, deals, flashData, reviewsRaw, banners] = await Promise.all([
     getGames({ sort: 'popular', limit: 6 }),
     getGenreCounts(),
     getDeals(),
     getFlashDeals(),
     getHomeReviews(),
+    getBanners(),
   ]);
 
   const dealItems = deals.map(d => ({
@@ -145,6 +156,7 @@ export default async function HomePage() {
   return (
     <>
       <Hero />
+      {banners.length > 0 && <PromoBanner banners={banners} />}
       <Categories genres={genres} />
       {trending.length > 0 && <TrendingProducts games={trending} />}
       <MysteryCases />
