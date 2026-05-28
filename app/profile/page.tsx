@@ -12,7 +12,8 @@ import { prisma }      from '@/lib/prisma';
 import { formatPrice } from '@/lib/utils';
 import ReferralCard    from '@/components/profile/ReferralCard';
 import LinkEmailButton from '@/components/profile/LinkEmailButton';
-import SocialLinks    from '@/components/profile/SocialLinks';
+import SocialLinks          from '@/components/profile/SocialLinks';
+import ChangePasswordForm   from '@/components/profile/ChangePasswordForm';
 import crypto          from 'crypto';
 import type { Metadata } from 'next';
 
@@ -268,6 +269,9 @@ export default async function ProfilePage({
               ) : (
                 <p className="font-body text-[#4B5563] mb-1" style={{ fontSize: '12px' }}>{user.email}</p>
               )}
+
+              {/* Change password — only for email accounts */}
+              {!user.email.endsWith('@arcane.internal') && <ChangePasswordForm />}
 
               {/* Social links row */}
               <SocialLinks
