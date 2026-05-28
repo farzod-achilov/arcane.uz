@@ -11,6 +11,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma }      from '@/lib/prisma';
 import { formatPrice } from '@/lib/utils';
 import ReferralCard    from '@/components/profile/ReferralCard';
+import LinkEmailButton from '@/components/profile/LinkEmailButton';
 import crypto          from 'crypto';
 import type { Metadata } from 'next';
 
@@ -247,7 +248,11 @@ export default async function ProfilePage({
             {/* Name + XP */}
             <div className="flex-1 min-w-0">
               <h1 className="font-heading font-bold text-white mb-0.5" style={{ fontSize: '24px' }}>{user.username}</h1>
-              <p className="font-body text-[#4B5563] mb-3" style={{ fontSize: '12px' }}>{user.email}</p>
+              {user.email.endsWith('@arcane.internal') ? (
+                <LinkEmailButton />
+              ) : (
+                <p className="font-body text-[#4B5563] mb-3" style={{ fontSize: '12px' }}>{user.email}</p>
+              )}
               <div className="mb-1 flex items-center justify-between">
                 <span className="font-body text-[#6B7280]" style={{ fontSize: '11px' }}>
                   {user.xp.toLocaleString('ru')} XP
