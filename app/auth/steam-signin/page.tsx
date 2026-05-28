@@ -18,10 +18,11 @@ function Inner() {
 
     let steamId: string;
     try {
-      const decoded = JSON.parse(Buffer.from(token, 'base64url').toString());
+      const base64 = token.replace(/-/g, '+').replace(/_/g, '/');
+      const pad    = (4 - base64.length % 4) % 4;
+      const decoded = JSON.parse(atob(base64 + '='.repeat(pad)));
       steamId = decoded.steamId;
-      // Check token freshness (5 min)
-      if (!steamId || Date.now() - decoded.ts > 300_000) throw new Error('expired');
+      if (!steamId || Date.now() - decoded.ts > 600_000) throw new Error('expired');
     } catch {
       router.replace('/login?error=steam');
       return;

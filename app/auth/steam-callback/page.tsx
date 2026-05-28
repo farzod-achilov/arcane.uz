@@ -209,8 +209,10 @@ function Inner() {
     const data = params.get('data');
     if (!data) { router.replace('/login?error=steam'); return; }
     try {
-      const parsed = JSON.parse(Buffer.from(data, 'base64url').toString()) as SteamData & { ts: number };
-      if (!parsed.steamId || Date.now() - parsed.ts > 300_000) throw new Error('expired');
+      const base64 = data.replace(/-/g, '+').replace(/_/g, '/');
+      const pad    = (4 - base64.length % 4) % 4;
+      const parsed = JSON.parse(atob(base64 + '='.repeat(pad))) as SteamData & { ts: number };
+      if (!parsed.steamId || Date.now() - parsed.ts > 600_000) throw new Error('expired');
       setSteamData({ steamId: parsed.steamId, displayName: parsed.displayName, avatar: parsed.avatar });
     } catch {
       router.replace('/login?error=steam');
