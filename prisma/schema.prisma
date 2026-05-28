@@ -297,6 +297,7 @@ model users {
   notifications          notifications[]
   password_reset_tokens  password_reset_tokens[]
   steam_users            steam_users?
+  telegram_users         telegram_users?
 
   @@index([email])
   @@index([username])
@@ -499,6 +500,7 @@ model telegram_users {
   firstName        String
   userId           String    @unique
   userName         String
+  users            users     @relation(fields: [userId], references: [id])
   linkedAt         DateTime  @default(now())
   rewardStreak     Int       @default(0)
   lastRewardClaim  DateTime?
