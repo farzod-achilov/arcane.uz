@@ -14,4 +14,6 @@ jobs:
           host: 89.39.95.250
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
-          script: bash /var/www/arcane/deploy.sh
+          script: |
+            bash /var/www/arcane/deploy.sh
+            cd /var/www/arcane && npx prisma db push --accept-data-loss 2>&1 | tail -5

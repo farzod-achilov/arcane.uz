@@ -296,6 +296,7 @@ model users {
   support_messages support_messages[] @relation("SupportMessageAuthor")
   notifications          notifications[]
   password_reset_tokens  password_reset_tokens[]
+  steam_users            steam_users?
 
   @@index([email])
   @@index([username])
@@ -517,6 +518,25 @@ model telegram_users {
   @@index([telegramId])
   @@index([userId])
   @@index([referralCode])
+}
+
+// ═══════════════════════════════════════════════════════
+//  STEAM
+// ═══════════════════════════════════════════════════════
+
+model steam_users {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  steamId     String   @unique
+  displayName String
+  avatar      String?
+  profileUrl  String?
+  linkedAt    DateTime @default(now())
+
+  users users @relation(fields: [userId], references: [id])
+
+  @@index([steamId])
+  @@index([userId])
 }
 
 model pending_tokens {

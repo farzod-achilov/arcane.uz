@@ -79,7 +79,7 @@ const ORDER_STATUS: Record<string, { label: string; color: string }> = {
 
 /* ── Data fetchers ───────────────────────────────────── */
 async function getBaseData(userId: string) {
-  const [user, wishlistCount, tgLink] = await Promise.all([
+  const [user, wishlistCount, tgLink, steamLink] = await Promise.all([
     prisma.users.findUnique({
       where:  { id: userId },
       select: {
@@ -94,8 +94,12 @@ async function getBaseData(userId: string) {
       where:  { userId },
       select: { telegramUsername: true, firstName: true },
     }),
+    prisma.steam_users.findUnique({
+      where:  { userId },
+      select: { displayName: true, steamId: true },
+    }),
   ]);
-  return { user, wishlistCount, tgLink };
+  return { user, wishlistCount, tgLink, steamLink };
 }
 
 async function getInventory(userId: string) {
@@ -191,7 +195,7 @@ export default async function ProfilePage({
     ? searchParams.tab as Tab
     : 'overview');
 
-  const { user, wishlistCount, tgLink } = await getBaseData(session.user.id);
+  const { user, wishlistCount, tgLink, steamLink } = await getBaseData(session.user.id);
   if (!user) redirect('/login');
 
   const [inventory, caseHistory, deposits, recentOrders, referralData] = await Promise.all([
@@ -260,7 +264,9 @@ export default async function ProfilePage({
               )}
 
               {/* Social links row */}
-              <SocialLinks tgLinked={!!tgLink} tgUsername={tgLink?.telegramUsername ?? tgLink?.firstName ?? null} />
+              <SocialLinks
+                tgLinked={!!tgLink}    tgUsername={tgLink?.telegramUsername ?? tgLink?.firstName ?? null}
+                steamLinked={!!steamLink} steamName={steamLink?.displayName ?? null} />
               <div className="mb-1 flex items-center justify-between">
                 <span className="font-body text-[#6B7280]" style={{ fontSize: '11px' }}>
                   {user.xp.toLocaleString('ru')} XP

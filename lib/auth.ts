@@ -211,6 +211,47 @@ export const authOptions: NextAuthOptions = {
         };
       },
     }),
+
+    // Steam sign-in provider — receives steamId after server-side OpenID verification
+    CredentialsProvider({
+      id:   'steam',
+      name: 'Steam',
+      credentials: { steamId: {} },
+      async authorize(creds) {
+        if (!creds?.steamId) return null;
+
+        const steamRow = await prisma.steam_users.findUnique({
+          where:  { steamId: creds.steamId },
+          select: { userId: true },
+        });
+        if (!steamRow) return null;
+
+        const user = await prisma.users.findUnique({
+          where:  { id: steamRow.userId },
+          select: {
+            id: true, email: true, username: true, avatar: true,
+            isAdmin: true, isBanned: true, arcCoins: true, xp: true, level: true,
+          },
+        });
+        if (!user || user.isBanned) return null;
+
+        await prisma.users.update({
+          where: { id: user.id },
+          data:  { lastLoginAt: new Date(), updatedAt: new Date() },
+        });
+
+        return {
+          id:       user.id,
+          email:    user.email,
+          name:     user.username,
+          image:    user.avatar ?? null,
+          isAdmin:  user.isAdmin,
+          arcCoins: user.arcCoins,
+          xp:       user.xp,
+          level:    user.level,
+        };
+      },
+    }),
   ],
 
   session: { strategy: 'jwt' },
