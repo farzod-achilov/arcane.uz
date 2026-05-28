@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createHash, createHmac } from 'crypto';
+import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,6 +39,31 @@ export async function POST(req: Request) {
   const authDate  = Number(raw.auth_date ?? 0);
   const ageSec    = now - authDate;
 
+  // Check DB state
+  let dbState: Record<string, unknown> = {};
+  try {
+    if (raw.id) {
+      const tgRow = await prisma.telegram_users.findUnique({
+        where:  { telegramId: BigInt(raw.id) },
+        select: { userId: true },
+      });
+      dbState.telegramLinked = !!tgRow;
+      dbState.linkedUserId   = tgRow?.userId ?? null;
+
+      if (tgRow?.userId) {
+        const user = await prisma.users.findUnique({
+          where:  { id: tgRow.userId },
+          select: { id: true, username: true, isBanned: true },
+        });
+        dbState.userExists  = !!user;
+        dbState.userBanned  = user?.isBanned ?? null;
+        dbState.username    = user?.username ?? null;
+      }
+    }
+  } catch (e) {
+    dbState.dbError = String(e);
+  }
+
   return NextResponse.json({
     decodeError:    decodeError || null,
     allFields:      Object.keys(raw),
@@ -49,5 +75,6 @@ export async function POST(req: Request) {
     fresh:          ageSec <= 86400,
     botTokenSet:    !!botToken,
     botTokenPrefix: botToken.slice(0, 10) + '…',
+    db:             dbState,
   });
 }

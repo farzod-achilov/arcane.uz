@@ -54,21 +54,27 @@ export const authOptions: NextAuthOptions = {
         if (!freshOk) return null;
 
         const telegramId = BigInt(raw.id);
-        // Normalise fields for the rest of the function
         const creds_id         = raw.id;
         const creds_first_name = raw.first_name ?? '';
         const creds_username   = raw.username   ?? undefined;
         const creds_photo_url  = raw.photo_url  ?? undefined;
 
-        const tgRow = await prisma.telegram_users.findUnique({
-          where:  { telegramId },
-          select: { userId: true },
-        });
+        let tgRow: { userId: string } | null = null;
+        try {
+          tgRow = await prisma.telegram_users.findUnique({
+            where:  { telegramId },
+            select: { userId: true },
+          });
+        } catch (e) {
+          console.error('[TG] DB error finding telegram_users:', e);
+          return null;
+        }
 
         let userId: string;
 
         if (tgRow) {
           userId = tgRow.userId;
+          console.log('[TG] found existing user:', userId);
         } else {
           // Create a new account linked to this Telegram identity
           const newId    = crypto.randomUUID();
@@ -80,7 +86,7 @@ export const authOptions: NextAuthOptions = {
           const taken = await prisma.users.findUnique({ where: { username: baseUser }, select: { id: true } });
           const username = taken ? `${baseUser}_${crypto.randomBytes(2).toString('hex')}` : baseUser;
 
-          await prisma.$transaction([
+          try { await prisma.$transaction([
             prisma.users.create({
               data: {
                 id:           newId,
@@ -114,7 +120,10 @@ export const authOptions: NextAuthOptions = {
                 description:   'Приветственный бонус за регистрацию',
               },
             }),
-          ]);
+          ]); } catch (e) {
+            console.error('[TG] DB error creating user:', e);
+            return null;
+          }
 
           userId = newId;
         }
@@ -127,7 +136,8 @@ export const authOptions: NextAuthOptions = {
           },
         });
 
-        if (!user || user.isBanned) return null;
+        if (!user)         { console.error('[TG] user record not found for userId:', userId); return null; }
+        if (user.isBanned) { console.error('[TG] user is banned:', userId); return null; }
 
         await prisma.users.update({
           where: { id: userId },
