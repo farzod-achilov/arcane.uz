@@ -6,6 +6,33 @@ import { prisma } from '@/lib/prisma';
 import { sendWelcomeEmail } from '@/lib/email';
 import { createNotification } from '@/lib/notifications';
 
+async function notifyReferrer(referrerId: string, newUsername: string) {
+  const tgRow = await prisma.telegram_users.findUnique({
+    where:  { userId: referrerId },
+    select: { telegramId: true },
+  });
+  if (!tgRow) return;
+
+  const referralCount = await (prisma.users.count as AnyData)({ where: { referredBy: referrerId } });
+  const bonus = referralCount >= 50 ? 500 : referralCount >= 30 ? 400 : referralCount >= 15 ? 300 : referralCount >= 5 ? 250 : 200;
+
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) return;
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://arcane.com.uz';
+  const text = `🎉 По вашей реферальной ссылке зарегистрировался новый игрок!\n\n👤 ${newUsername}\n💰 Вам начислено +${bonus} ARC Coins\n\n[Открыть профиль](${appUrl}/profile?tab=referral)`;
+
+  await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({
+      chat_id:    tgRow.telegramId.toString(),
+      text,
+      parse_mode: 'Markdown',
+    }),
+  });
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyData = any;
 
@@ -50,9 +77,19 @@ export async function POST(req: NextRequest) {
     const referrer = refCode
       ? await (prisma.users.findFirst as AnyData)({
           where:  { referralCode: refCode },
-          select: { id: true, arcCoins: true },
+          select: { id: true, arcCoins: true, _count: { select: { /* referrals */ } } },
         })
       : null;
+
+    // Calculate tiered bonus based on referrer's existing referral count
+    const getReferralBonus = async (referrerId: string): Promise<number> => {
+      const count = await (prisma.users.count as AnyData)({ where: { referredBy: referrerId } });
+      if (count >= 50) return 500;
+      if (count >= 30) return 400;
+      if (count >= 15) return 300;
+      if (count >= 5)  return 250;
+      return 200;
+    };
 
     const hashedPassword = await hash(password, 12);
     const now            = new Date();
@@ -87,18 +124,19 @@ export async function POST(req: NextRequest) {
       });
 
       if (referrer) {
+        const bonus = await getReferralBonus(referrer.id);
         await (tx.users.update as AnyData)({
           where: { id: referrer.id },
-          data:  { arcCoins: { increment: 200 } },
+          data:  { arcCoins: { increment: bonus } },
         });
         await tx.transactions.create({
           data: {
             id:            nanoid(),
             userId:        referrer.id,
             type:          'REFERRAL_BONUS',
-            amount:        200,
+            amount:        bonus,
             balanceBefore: referrer.arcCoins,
-            balanceAfter:  referrer.arcCoins + 200,
+            balanceAfter:  referrer.arcCoins + bonus,
             description:   `Реферальный бонус за ${normalUsername}`,
           },
         });
@@ -114,6 +152,11 @@ export async function POST(req: NextRequest) {
       body:  '+500 Arcane Coins зачислены на счёт',
       href:  '/catalog',
     }).catch(() => {});
+
+    // Telegram notification to referrer
+    if (referrer) {
+      notifyReferrer(referrer.id, normalUsername).catch(() => {});
+    }
 
     return NextResponse.json({ success: true, user }, { status: 201 });
   } catch (err) {

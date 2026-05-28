@@ -163,8 +163,13 @@ async function getReferralData(userId: string) {
     user = { referralCode: code };
   }
 
-  const [totalReferrals, coinsAgg] = await Promise.all([
-    (prisma.users.count as AnyDB)({ where: { referredBy: userId } }),
+  const [referredUsers, coinsAgg] = await Promise.all([
+    (prisma.users.findMany as AnyDB)({
+      where:   { referredBy: userId },
+      select:  { username: true, avatar: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+      take:    20,
+    }),
     prisma.transactions.aggregate({
       where: { userId, type: 'REFERRAL_BONUS' },
       _sum:  { amount: true },
@@ -175,8 +180,9 @@ async function getReferralData(userId: string) {
   return {
     code:             user.referralCode as string,
     referralLink:     `${baseUrl}/register?ref=${user.referralCode}`,
-    totalReferrals:   totalReferrals as number,
+    totalReferrals:   (referredUsers as unknown[]).length,
     totalCoinsEarned: (coinsAgg._sum?.amount ?? 0) as number,
+    referredUsers:    referredUsers as { username: string; avatar: string | null; createdAt: Date }[],
   };
 }
 
@@ -671,6 +677,7 @@ export default async function ProfilePage({
             referralLink={referralData.referralLink}
             totalReferrals={referralData.totalReferrals}
             totalCoinsEarned={referralData.totalCoinsEarned}
+            referredUsers={referralData.referredUsers}
           />
         )}
 
