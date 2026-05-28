@@ -684,19 +684,29 @@ export default function Navbar() {
                   {/* Avatar + name */}
                   <Link
                     href="/profile"
-                    className="group flex items-center gap-2.5 rounded-xl transition-all duration-200 relative"
+                    className="group inline-flex items-center gap-2 rounded-xl transition-all duration-200"
                     style={{
                       background: 'rgba(124,58,237,0.08)',
-                      border: '1px solid rgba(124,58,237,0.3)',
-                      padding: '6px 14px 6px 8px',
-                      height: '46px',
+                      border:     '1px solid rgba(124,58,237,0.3)',
+                      padding:    '5px 12px 5px 6px',
                     }}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={user.avatar} alt={user.name} className="w-7 h-7 rounded-lg object-cover" />
-                    <span className="font-heading font-semibold text-[#C4B5FD]"
+                    {user.avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={user.avatar} alt={user.name}
+                        className="flex-shrink-0 object-cover rounded-lg"
+                        style={{ width: '26px', height: '26px' }}
+                      />
+                    ) : (
+                      <div className="flex-shrink-0 rounded-lg flex items-center justify-center font-heading font-bold text-white"
+                           style={{ width: '26px', height: '26px', background: 'rgba(124,58,237,0.4)', fontSize: '11px' }}>
+                        {user.name?.[0]?.toUpperCase() ?? 'U'}
+                      </div>
+                    )}
+                    <span className="font-heading font-semibold text-[#C4B5FD] whitespace-nowrap"
                           style={{ fontSize: '13px' }}>
-                      {user.name.split(' ')[0]}
+                      {user.name?.split(' ')[0] ?? ''}
                     </span>
                   </Link>
                   <button
