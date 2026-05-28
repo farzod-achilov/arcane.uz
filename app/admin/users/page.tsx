@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Search, Send, Crown, Zap, ShoppingBag, X,
-  RefreshCw, Shield, Ban, Users, CheckCircle2, Loader2, Wallet, Plus, Download, ShieldOff, AlertTriangle,
+  RefreshCw, Shield, Ban, Users, CheckCircle2, Loader2, Wallet, Plus, Download, ShieldOff, AlertTriangle, Copy, Check,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 
@@ -21,7 +21,46 @@ interface AdminUser {
   isBanned:    boolean;
   createdAt:   string;
   lastLoginAt: string | null;
-  _count:      { orders: number; wishlists: number };
+  _count:          { orders: number; wishlists: number };
+  telegram_users?: { telegramUsername: string | null; firstName: string } | null;
+  steam_users?:    { displayName: string; steamId: string } | null;
+}
+
+function TelegramIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+    </svg>
+  );
+}
+
+function SteamIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.187.008l2.861-4.142V8.91c0-2.495 2.028-4.524 4.524-4.524 2.494 0 4.524 2.031 4.524 4.527s-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.727L.436 15.27C1.862 20.307 6.486 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.605 0 11.979 0z"/>
+    </svg>
+  );
+}
+
+function CopyBtn({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={async (e) => {
+        e.stopPropagation();
+        try { await navigator.clipboard.writeText(text); } catch {}
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      title="Копировать"
+      className="transition-colors"
+      style={{ color: copied ? '#22C55E' : '#374151' }}
+    >
+      {copied
+        ? <Check  style={{ width: '10px', height: '10px' }} />
+        : <Copy   style={{ width: '10px', height: '10px' }} />}
+    </button>
+  );
 }
 
 const LEVEL_COLORS: Record<number, string> = {
@@ -251,9 +290,34 @@ export default function AdminUsersPage() {
                         >
                           {user.username[0]?.toUpperCase()}
                         </div>
-                        <div>
-                          <p className="font-body text-white"    style={{ fontSize: '13px' }}>{user.username}</p>
-                          <p className="font-body text-[#374151]" style={{ fontSize: '10.5px' }}>{user.email}</p>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-body text-white" style={{ fontSize: '13px' }}>{user.username}</p>
+                            <CopyBtn text={user.id} />
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-body text-[#374151]" style={{ fontSize: '10.5px' }}>{user.email}</p>
+                            <CopyBtn text={user.email} />
+                          </div>
+                          {/* TG / Steam badges */}
+                          <div className="flex items-center gap-1 mt-1 flex-wrap">
+                            {user.telegram_users && (
+                              <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5"
+                                    style={{ fontSize: '9px', background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.25)', color: '#22D3EE' }}>
+                                <TelegramIcon />
+                                {user.telegram_users.telegramUsername
+                                  ? `@${user.telegram_users.telegramUsername}`
+                                  : user.telegram_users.firstName}
+                              </span>
+                            )}
+                            {user.steam_users && (
+                              <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5"
+                                    style={{ fontSize: '9px', background: 'rgba(102,192,244,0.1)', border: '1px solid rgba(102,192,244,0.25)', color: '#66C0F4' }}>
+                                <SteamIcon />
+                                {user.steam_users.displayName}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </td>
