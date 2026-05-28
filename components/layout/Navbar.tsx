@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Search, Bell, User, Menu, X, LogOut, TrendingUp, TrendingDown, Heart, Wallet, Home, LayoutGrid } from 'lucide-react';
+import { ShoppingCart, Search, Bell, User, Menu, X, LogOut, TrendingUp, TrendingDown, Heart, Wallet, Home, LayoutGrid, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import SearchOverlay from '@/components/ui/SearchOverlay';
 import SearchBar from '@/components/ui/SearchBar';
