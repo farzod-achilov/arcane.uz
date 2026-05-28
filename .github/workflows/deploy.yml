@@ -21,4 +21,6 @@ jobs:
             grep -q "NEXT_PUBLIC_TELEGRAM_BOT_ID" .env || echo "NEXT_PUBLIC_TELEGRAM_BOT_ID=8889652013" >> .env
             npx prisma generate 2>&1 | tail -2
             npx prisma db push --accept-data-loss 2>&1 | tail -5
-            pm2 restart arcane 2>/dev/null || true
+            pm2 restart all 2>/dev/null || pm2 start ecosystem.config.js 2>/dev/null || true
+            sleep 3
+            pm2 status
