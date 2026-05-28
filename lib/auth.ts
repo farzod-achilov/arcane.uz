@@ -4,7 +4,7 @@ import { compare } from 'bcryptjs';
 import crypto from 'crypto';
 import { nanoid } from 'nanoid';
 import { prisma } from '@/lib/prisma';
-import { verifyTelegramAuth, isTelegramAuthFresh, type TelegramAuthData } from '@/lib/telegram-auth';
+import { verifyTelegramRaw, decodeTgAuthResult, isTelegramAuthFresh } from '@/lib/telegram-auth';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -12,41 +12,53 @@ export const authOptions: NextAuthOptions = {
       id:   'telegram',
       name: 'Telegram',
       credentials: {
-        id:         {},
-        first_name: {},
-        last_name:  {},
-        username:   {},
-        photo_url:  {},
-        auth_date:  {},
-        hash:       {},
+        tgAuthResult: {}, // raw base64url from OIDC flow — decoded server-side
+        id:           {}, // fallback: classic widget params
+        first_name:   {},
+        last_name:    {},
+        username:     {},
+        photo_url:    {},
+        auth_date:    {},
+        hash:         {},
       },
       async authorize(creds) {
-        if (!creds?.id || !creds?.hash) {
-          console.error('[TG] missing id or hash', creds);
-          return null;
-        }
-
         const botToken = process.env.TELEGRAM_BOT_TOKEN;
         if (!botToken) { console.error('[TG] no TELEGRAM_BOT_TOKEN'); return null; }
 
-        const authData: TelegramAuthData = {
-          id:         creds.id,
-          first_name: creds.first_name ?? '',
-          last_name:  creds.last_name  || undefined,
-          username:   creds.username   || undefined,
-          photo_url:  creds.photo_url  || undefined,
-          auth_date:  creds.auth_date,
-          hash:       creds.hash,
-        };
+        // Decode all fields — use raw tgAuthResult if available so we include ALL fields in hash check
+        let raw: Record<string, string>;
+        try {
+          if (creds?.tgAuthResult) {
+            raw = decodeTgAuthResult(creds.tgAuthResult);
+          } else {
+            raw = {};
+            for (const [k, v] of Object.entries(creds ?? {})) {
+              if (v) raw[k] = v;
+            }
+          }
+        } catch (e) {
+          console.error('[TG] decode error', e);
+          return null;
+        }
 
-        const hashOk = verifyTelegramAuth(authData, botToken);
-        const freshOk = isTelegramAuthFresh(authData.auth_date);
-        console.log('[TG] verify:', { hashOk, freshOk, id: creds.id, auth_date: creds.auth_date });
+        if (!raw.id || !raw.hash) {
+          console.error('[TG] missing id or hash after decode', raw);
+          return null;
+        }
+
+        const hashOk  = verifyTelegramRaw(raw, botToken);
+        const freshOk = isTelegramAuthFresh(raw.auth_date);
+        console.log('[TG] verify:', { hashOk, freshOk, id: raw.id, fields: Object.keys(raw).join(',') });
 
         if (!hashOk)  return null;
         if (!freshOk) return null;
 
-        const telegramId = BigInt(creds.id);
+        const telegramId = BigInt(raw.id);
+        // Normalise fields for the rest of the function
+        const creds_id         = raw.id;
+        const creds_first_name = raw.first_name ?? '';
+        const creds_username   = raw.username   ?? undefined;
+        const creds_photo_url  = raw.photo_url  ?? undefined;
 
         const tgRow = await prisma.telegram_users.findUnique({
           where:  { telegramId },
@@ -60,7 +72,7 @@ export const authOptions: NextAuthOptions = {
         } else {
           // Create a new account linked to this Telegram identity
           const newId    = crypto.randomUUID();
-          const baseUser = creds.username || `tg${creds.id}`;
+          const baseUser = creds_username || `tg${creds_id}`;
           const refCode  = crypto.randomBytes(4).toString('hex').toUpperCase();
           const tgCode   = crypto.randomBytes(4).toString('hex').toUpperCase();
 
@@ -72,10 +84,10 @@ export const authOptions: NextAuthOptions = {
             prisma.users.create({
               data: {
                 id:           newId,
-                email:        `tg_${creds.id}@arcane.internal`,
+                email:        `tg_${creds_id}@arcane.internal`,
                 username,
-                password:     '$tg$', // no password — Telegram-only account
-                avatar:       creds.photo_url || null,
+                password:     '$tg$',
+                avatar:       creds_photo_url || null,
                 arcCoins:     500,
                 referralCode: refCode,
                 updatedAt:    new Date(),
@@ -83,11 +95,11 @@ export const authOptions: NextAuthOptions = {
             }),
             prisma.telegram_users.create({
               data: {
-                userId:          newId,
+                userId:           newId,
                 telegramId,
-                telegramUsername: creds.username || null,
-                firstName:        creds.first_name,
-                userName:         creds.username || creds.first_name,
+                telegramUsername: creds_username || null,
+                firstName:        creds_first_name,
+                userName:         creds_username || creds_first_name,
                 referralCode:     tgCode,
               },
             }),

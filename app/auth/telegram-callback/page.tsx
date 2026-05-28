@@ -39,7 +39,7 @@ function LoadingScreen() {
 }
 
 /* ─── Link-or-create screen ───────────────────────────────── */
-function LinkOrCreateScreen({ tgData, firstName }: { tgData: TgData; firstName: string }) {
+function LinkOrCreateScreen({ tgData, tgAuthResult, firstName }: { tgData: TgData; tgAuthResult: string | null; firstName: string }) {
   const router = useRouter();
   const [tab,        setTab]        = useState<'link' | 'new'>('link');
   const [email,      setEmail]      = useState('');
@@ -79,7 +79,8 @@ function LinkOrCreateScreen({ tgData, firstName }: { tgData: TgData; firstName: 
 
   async function handleCreateNew() {
     setLoading(true);
-    const result = await signIn('telegram', { ...tgData, redirect: false });
+    const signInArgs = tgAuthResult ? { tgAuthResult } : { ...tgData };
+    const result = await signIn('telegram', { ...signInArgs, redirect: false });
     if (result?.ok) {
       router.replace('/library');
     } else {
@@ -304,7 +305,7 @@ function TelegramCallbackInner() {
 
   const [state, setState] = useState<
     | { phase: 'loading' }
-    | { phase: 'choose'; tgData: TgData; firstName: string }
+    | { phase: 'choose'; tgData: TgData; tgAuthResult: string | null; firstName: string }
     | { phase: 'error';  msg: string }
   >({ phase: 'loading' });
 
@@ -359,8 +360,11 @@ function TelegramCallbackInner() {
       const check = await fetch(`/api/auth/check-telegram?telegramId=${tgData.id}`).then(r => r.json());
 
       if (check.linked) {
-        // Already linked — sign in directly
-        const result = await signIn('telegram', { ...tgData, redirect: false });
+        // Already linked — sign in directly using raw tgAuthResult if available
+        const signInArgs = tgAuthResult
+          ? { tgAuthResult }
+          : { ...tgData };
+        const result = await signIn('telegram', { ...signInArgs, redirect: false });
         if (result?.ok) {
           router.replace('/library');
         } else {
@@ -370,7 +374,7 @@ function TelegramCallbackInner() {
       }
 
       // 3. Not linked — show choice screen
-      setState({ phase: 'choose', tgData, firstName: tgData.first_name ?? 'пользователь' });
+      setState({ phase: 'choose', tgData, tgAuthResult: tgAuthResult ?? null, firstName: tgData.first_name ?? 'пользователь' });
     }
 
     run().catch(e => setState({ phase: 'error', msg: String(e) }));
@@ -398,7 +402,7 @@ function TelegramCallbackInner() {
     );
   }
 
-  return <LinkOrCreateScreen tgData={state.tgData} firstName={state.firstName} />;
+  return <LinkOrCreateScreen tgData={state.tgData} tgAuthResult={state.tgAuthResult} firstName={state.firstName} />;
 }
 
 export default function TelegramCallbackPage() {
