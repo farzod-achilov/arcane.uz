@@ -16,4 +16,8 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             bash /var/www/arcane/deploy.sh
-            cd /var/www/arcane && npx prisma db push --accept-data-loss 2>&1 | tail -5
+            cd /var/www/arcane
+            grep -q "STEAM_API_KEY" .env || echo "STEAM_API_KEY=B2B69ECB5C26E4DBBD14CB51032BEF2D" >> .env
+            grep -q "NEXT_PUBLIC_TELEGRAM_BOT_ID" .env || echo "NEXT_PUBLIC_TELEGRAM_BOT_ID=8889652013" >> .env
+            npx prisma generate 2>&1 | tail -2
+            npx prisma db push --accept-data-loss 2>&1 | tail -5
