@@ -70,12 +70,26 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        let userId: string;
+        let userId: string = '';
 
         if (tgRow) {
-          userId = tgRow.userId;
-          console.log('[TG] found existing user:', userId);
-        } else {
+          // Check if the linked user actually exists (guard against orphaned records)
+          const linkedUser = await prisma.users.findUnique({
+            where:  { id: tgRow.userId },
+            select: { id: true },
+          });
+          if (linkedUser) {
+            userId = tgRow.userId;
+            console.log('[TG] found existing user:', userId);
+          } else {
+            // Orphaned telegram_users record — delete it and fall through to create new account
+            console.log('[TG] orphaned telegram_users record, deleting and creating new account');
+            await prisma.telegram_users.delete({ where: { telegramId } });
+            tgRow = null;
+          }
+        }
+
+        if (!tgRow) {
           // Create a new account linked to this Telegram identity
           const newId    = crypto.randomUUID();
           const baseUser = creds_username || `tg${creds_id}`;
