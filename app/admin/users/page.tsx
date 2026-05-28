@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Search, Send, Crown, Zap, ShoppingBag, X,
-  RefreshCw, Shield, Ban, Users, CheckCircle2, Loader2, Wallet, Plus, Download, ShieldOff, AlertTriangle, Copy, Check,
+  RefreshCw, Shield, Ban, Users, CheckCircle2, Loader2, Wallet, Plus, Download, ShieldOff, AlertTriangle, Copy, Check, Trash2,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 
@@ -93,6 +93,9 @@ export default function AdminUsersPage() {
   const [topUpSaving,   setTopUpSaving]   = useState(false);
   const [confirmAdmin,  setConfirmAdmin]  = useState<AdminUser | null>(null);
   const [togglingAdmin, setTogglingAdmin] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<AdminUser | null>(null);
+  const [deleting,      setDeleting]      = useState<string | null>(null);
+  const [deleteError,   setDeleteError]   = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -138,6 +141,22 @@ export default function AdminUsersPage() {
         setUsers(prev => prev.map(u => u.id === user.id ? { ...u, isAdmin: data.user.isAdmin } : u));
       }
     } finally { setTogglingAdmin(null); }
+  }
+
+  async function deleteUser(user: AdminUser) {
+    setDeleting(user.id);
+    setDeleteError('');
+    try {
+      const res  = await fetch(`/api/admin/users/${user.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.ok) {
+        setUsers(prev => prev.filter(u => u.id !== user.id));
+        setTotal(prev => prev - 1);
+        setConfirmDelete(null);
+      } else {
+        setDeleteError(data.error ?? 'Ошибка удаления');
+      }
+    } finally { setDeleting(null); }
   }
 
   const withTelegram = 0; // would need telegram_users join — skip for now
@@ -466,6 +485,18 @@ export default function AdminUsersPage() {
                               : <Shield style={{ width: '10px', height: '10px' }} />}
                           {user.isAdmin ? 'Снять' : 'Админ'}
                         </button>
+
+                        <button
+                          onClick={() => { setConfirmDelete(user); setDeleteError(''); }}
+                          disabled={deleting === user.id}
+                          title="Удалить аккаунт"
+                          className="flex items-center gap-1 rounded-lg px-2 py-1.5 font-body transition-all disabled:opacity-50"
+                          style={{ fontSize: '10.5px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#F87171' }}
+                        >
+                          {deleting === user.id
+                            ? <Loader2 style={{ width: '10px', height: '10px' }} className="animate-spin" />
+                            : <Trash2  style={{ width: '10px', height: '10px' }} />}
+                        </button>
                       </div>
                     </td>
                   </motion.tr>
@@ -540,6 +571,61 @@ export default function AdminUsersPage() {
                 {confirmAdmin.isAdmin
                   ? <><ShieldOff style={{ width: '13px', height: '13px' }} /> Снять</>
                   : <><Shield style={{ width: '13px', height: '13px' }} /> Выдать</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirm modal */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+             style={{ background: 'rgba(0,0,0,0.8)' }}
+             onClick={() => setConfirmDelete(null)}>
+          <div className="rounded-2xl p-6 w-full max-w-sm space-y-4"
+               style={{ background: '#0D0D1A', border: '1px solid rgba(239,68,68,0.35)' }}
+               onClick={e => e.stopPropagation()}>
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                   style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)' }}>
+                <Trash2 style={{ width: '18px', height: '18px', color: '#EF4444' }} />
+              </div>
+              <div>
+                <p className="font-heading font-bold text-white" style={{ fontSize: '15px' }}>
+                  Удалить аккаунт?
+                </p>
+                <p className="font-body text-[#6B7280] mt-1" style={{ fontSize: '12px' }}>
+                  Пользователь: <span className="text-white">@{confirmDelete.username}</span>
+                </p>
+                <p className="font-body text-[#EF4444] mt-2" style={{ fontSize: '11px' }}>
+                  Это действие необратимо. Будут удалены: профиль, уведомления, транзакции, сессии, привязки TG/Steam.
+                  Заказы и отзывы сохранятся.
+                </p>
+              </div>
+            </div>
+
+            {deleteError && (
+              <p className="font-body rounded-xl px-3 py-2"
+                 style={{ fontSize: '11.5px', color: '#F87171', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                {deleteError}
+              </p>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <button onClick={() => setConfirmDelete(null)}
+                className="flex-1 rounded-xl py-2.5 font-heading font-semibold transition-all"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#6B7280', fontSize: '13px' }}>
+                Отмена
+              </button>
+              <button
+                onClick={() => deleteUser(confirmDelete)}
+                disabled={deleting === confirmDelete.id}
+                className="flex-1 rounded-xl py-2.5 font-heading font-semibold text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                style={{ background: 'linear-gradient(135deg,#DC2626,#991B1B)', fontSize: '13px' }}>
+                {deleting === confirmDelete.id
+                  ? <Loader2 style={{ width: '13px', height: '13px' }} className="animate-spin" />
+                  : <Trash2  style={{ width: '13px', height: '13px' }} />}
+                {deleting === confirmDelete.id ? 'Удаляем…' : 'Удалить'}
               </button>
             </div>
           </div>

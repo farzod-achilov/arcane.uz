@@ -28,3 +28,29 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   return NextResponse.json({ ok: true, user });
 }
+
+export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+  // Prevent self-deletion
+  if (params.id === session.user.id) {
+    return NextResponse.json({ error: 'Нельзя удалить собственный аккаунт' }, { status: 400 });
+  }
+
+  try {
+    await prisma.$transaction([
+      prisma.telegram_users.deleteMany({ where: { userId: params.id } }),
+      prisma.steam_users.deleteMany(   { where: { userId: params.id } }),
+      prisma.wishlists.deleteMany(     { where: { userId: params.id } }),
+      prisma.notifications.deleteMany( { where: { userId: params.id } }),
+      prisma.transactions.deleteMany(  { where: { userId: params.id } }),
+      prisma.sessions.deleteMany(      { where: { userId: params.id } }),
+      prisma.users.delete(             { where: { id: params.id } }),
+    ]);
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: `Не удалось удалить: ${msg}` }, { status: 409 });
+  }
+}
