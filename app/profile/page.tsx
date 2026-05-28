@@ -295,13 +295,14 @@ export default async function ProfilePage({
 
             {/* Balance chips */}
             <div className="flex flex-col gap-2 flex-shrink-0">
-              <div className="flex items-center gap-2 rounded-xl px-3 py-2"
-                   style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.18)' }}>
+              <Link href="/arc-shop"
+                className="flex items-center gap-2 rounded-xl px-3 py-2 transition-all hover:opacity-90"
+                style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.18)' }}>
                 <Zap style={{ width: '12px', height: '12px', color: '#F59E0B' }} />
                 <span className="font-heading font-bold text-white" style={{ fontSize: '12px' }}>
                   {user.arcCoins.toLocaleString('ru')} ARC
                 </span>
-              </div>
+              </Link>
               <div className="flex items-center gap-2 rounded-xl px-3 py-2"
                    style={{ background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.18)' }}>
                 <Wallet style={{ width: '12px', height: '12px', color: '#06B6D4' }} />

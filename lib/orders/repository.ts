@@ -57,11 +57,17 @@ export async function findWaitingOrders() {
 export async function createOrderTx(dto: CreateOrderDto) {
   const { userId, items, paymentMethod, promoId } = dto;
 
+  // Cashback % by level
+  const CASHBACK_PCT: Record<number, number> = { 1: 2, 2: 3, 3: 4, 4: 5 };
+  function getCashbackPct(level: number) { return CASHBACK_PCT[Math.min(level, 4)] ?? 6; }
+  // Coin exchange: 1000 ARC = 10 000 сум
+  const COINS_TO_SUM = 10;
+
   return prisma.$transaction(async tx => {
     // 1. Verify user
     const user = await tx.users.findUnique({
       where:  { id: userId },
-      select: { id: true, balanceUzs: true },
+      select: { id: true, balanceUzs: true, arcCoins: true, level: true },
     });
     if (!user) throw new OrderError('User not found', 'USER_NOT_FOUND', 404);
 
@@ -101,7 +107,29 @@ export async function createOrderTx(dto: CreateOrderDto) {
       }
     }
 
-    const totalPrice = Math.max(0, subtotal - promoDiscount);
+    // 2c. Apply ARC coins discount (max 30% of subtotal after promo)
+    const afterPromo = Math.max(0, subtotal - promoDiscount);
+    const maxCoinDiscount = Math.floor(afterPromo * 0.3);
+    const requestedCoinDiscount = dto.coinsToUse ? dto.coinsToUse * COINS_TO_SUM : 0;
+    const coinDiscount = Math.min(requestedCoinDiscount, maxCoinDiscount);
+    const coinsSpent   = coinDiscount > 0 ? Math.ceil(coinDiscount / COINS_TO_SUM) : 0;
+
+    if (coinsSpent > 0 && user.arcCoins < coinsSpent) {
+      throw new OrderError(
+        `Недостаточно ARC Coins. Есть: ${user.arcCoins}, нужно: ${coinsSpent}`,
+        'INSUFFICIENT_COINS', 400,
+      );
+    }
+
+    const totalPrice = Math.max(0, afterPromo - coinDiscount);
+
+    // Deduct coins if used
+    if (coinsSpent > 0) {
+      await tx.users.update({
+        where: { id: userId },
+        data:  { arcCoins: { decrement: coinsSpent } },
+      });
+    }
 
     // 3a. Balance payment — check and deduct immediately
     if (paymentMethod === 'balance') {
@@ -118,8 +146,8 @@ export async function createOrderTx(dto: CreateOrderDto) {
       });
     }
 
-    // 3b. Create order — PAID immediately for balance, PENDING for external payment
-    return tx.orders.create({
+    // 3b. Create order
+    const order = await tx.orders.create({
       data: {
         userId,
         totalPrice,
@@ -134,6 +162,31 @@ export async function createOrderTx(dto: CreateOrderDto) {
       },
       include: ORDER_INCLUDE,
     });
+
+    // 3c. Cashback — award ARC coins based on level (balance orders only, PAID immediately)
+    if (totalPrice > 0 && paymentMethod === 'balance') {
+      const pct      = getCashbackPct(user.level);
+      const cashback = Math.floor(totalPrice * pct / 100 / COINS_TO_SUM); // convert сум → ARC
+      if (cashback > 0) {
+        await tx.users.update({
+          where: { id: userId },
+          data:  { arcCoins: { increment: cashback }, totalSpent: { increment: totalPrice } },
+        });
+        await tx.transactions.create({
+          data: {
+            id:            `cb_${order.id}`,
+            userId,
+            type:          'ADMIN_GRANT',
+            amount:        cashback,
+            balanceBefore: user.arcCoins - coinsSpent,
+            balanceAfter:  user.arcCoins - coinsSpent + cashback,
+            description:   `Кэшбэк ${pct}% с заказа #${order.id.slice(-6)}`,
+          },
+        });
+      }
+    }
+
+    return order;
   }, { timeout: 8_000 });
 }
 

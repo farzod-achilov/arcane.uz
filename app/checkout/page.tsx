@@ -435,6 +435,7 @@ function CheckoutInner() {
             items:         items.map(i => ({ gameId: i.gameId })),
             paymentMethod: payMethod === 'balance' ? 'balance' : undefined,
             promoId:       promoData?.promoId ?? undefined,
+            coinsToUse:    useCoins && coinsDiscount > 0 ? Math.ceil(coinsDiscount / 10) : 0,
           }),
         });
         const data = await res.json() as { success?: boolean; order?: { id: string }; error?: string; code?: string };

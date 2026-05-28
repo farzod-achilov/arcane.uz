@@ -68,6 +68,7 @@ export interface CreateOrderDto {
   items:          CreateOrderItemDto[];
   paymentMethod?: string;
   promoId?:       string;
+  coinsToUse?:    number; // ARC coins to spend as discount (1000 ARC = 10 000 сум)
 }
 
 export interface OrderFilters {

@@ -38,11 +38,16 @@ function validateCreateOrder(body: unknown): CreateOrderDto {
     throw new OrderError('Maximum 10 items per order', 'TOO_MANY_ITEMS', 400);
   }
 
+  const coinsToUse = typeof b.coinsToUse === 'number' && b.coinsToUse > 0
+    ? Math.floor(b.coinsToUse)
+    : undefined;
+
   return {
     userId:         b.userId.trim(),
     items,
     paymentMethod:  typeof b.paymentMethod === 'string' ? b.paymentMethod : undefined,
     promoId:        typeof b.promoId === 'string' && b.promoId.trim() ? b.promoId.trim() : undefined,
+    coinsToUse,
   };
 }
 
