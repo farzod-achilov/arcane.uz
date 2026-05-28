@@ -3,26 +3,9 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { nanoid } from 'nanoid';
+import { SHOP_ITEMS } from '@/lib/arc-shop';
 
 export const dynamic = 'force-dynamic';
-
-export interface ShopItem {
-  id:          string;
-  title:       string;
-  description: string;
-  icon:        string;
-  cost:        number;        // ARC coins
-  type:        'promo' | 'coins' | 'badge';
-  value:       number | string; // % discount or amount
-}
-
-export const SHOP_ITEMS: ShopItem[] = [
-  { id: 'promo5',   title: 'Скидка 5%',    description: 'Промокод на 5% скидку',    icon: '🎟️', cost: 300,  type: 'promo',  value: 5  },
-  { id: 'promo10',  title: 'Скидка 10%',   description: 'Промокод на 10% скидку',   icon: '🎫', cost: 600,  type: 'promo',  value: 10 },
-  { id: 'promo15',  title: 'Скидка 15%',   description: 'Промокод на 15% скидку',   icon: '🏷️', cost: 1000, type: 'promo',  value: 15 },
-  { id: 'coins50',  title: '+50 000 сум',  description: 'Пополнить баланс на 50 000 сум',  icon: '💰', cost: 2000, type: 'coins',  value: 50000  },
-  { id: 'coins100', title: '+100 000 сум', description: 'Пополнить баланс на 100 000 сум', icon: '💎', cost: 3500, type: 'coins',  value: 100000 },
-];
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);

@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react';
 import { Zap, CheckCircle2, Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { SHOP_ITEMS } from '@/app/api/arc-shop/buy/route';
+import { SHOP_ITEMS } from '@/lib/arc-shop';
 
 export default function ArcShopPage() {
   const { data: session, update } = useSession();
