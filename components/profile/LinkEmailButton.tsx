@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, Send, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { signIn, signOut } from 'next-auth/react';
 
 export default function LinkEmailButton() {
   const [open,     setOpen]     = useState(false);
@@ -29,6 +30,19 @@ export default function LinkEmailButton() {
 
     if (!res.ok) {
       setError(data.error ?? 'Ошибка');
+      return;
+    }
+
+    if (data.merged) {
+      // Accounts merged — re-login with the main account credentials
+      toast.success('Аккаунты объединены! Выполняем вход…');
+      await signOut({ redirect: false });
+      const result = await signIn('credentials', { email, password, redirect: false });
+      if (result?.ok) {
+        window.location.href = '/profile';
+      } else {
+        window.location.href = '/login';
+      }
       return;
     }
 
