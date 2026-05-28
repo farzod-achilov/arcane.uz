@@ -311,11 +311,17 @@ export default function AdminUsersPage() {
                               </span>
                             )}
                             {user.steam_users && (
-                              <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5"
-                                    style={{ fontSize: '9px', background: 'rgba(102,192,244,0.1)', border: '1px solid rgba(102,192,244,0.25)', color: '#66C0F4' }}>
+                              <a
+                                href={`https://steamcommunity.com/profiles/${user.steam_users.steamId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={e => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 transition-all hover:opacity-80"
+                                style={{ fontSize: '9px', background: 'rgba(102,192,244,0.1)', border: '1px solid rgba(102,192,244,0.25)', color: '#66C0F4' }}
+                              >
                                 <SteamIcon />
                                 {user.steam_users.displayName}
-                              </span>
+                              </a>
                             )}
                           </div>
                         </div>
