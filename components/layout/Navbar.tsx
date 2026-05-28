@@ -73,11 +73,14 @@ export default function Navbar() {
   }, []);
 
   const navLinks = [
-    { href: '/',            label: 'Главная'   },
-    { href: '/catalog',     label: 'Каталог'   },
-    { href: '/deals',       label: 'Скидки'    },
-    { href: '/new-releases', label: 'Новинки'  },
-    ...(isLoggedIn ? [{ href: '/library', label: 'Библиотека' }] : []),
+    { href: '/',             label: 'Главная'    },
+    { href: '/catalog',      label: 'Каталог'    },
+    { href: '/deals',        label: 'Скидки'     },
+    { href: '/new-releases', label: 'Новинки'   },
+    ...(isLoggedIn ? [
+      { href: '/library',  label: 'Библиотека' },
+      { href: '/arc-shop', label: '⚡ Магазин'  },
+    ] : []),
   ];
 
   // Cmd/Ctrl+K and "/" global shortcuts
@@ -567,14 +570,19 @@ export default function Navbar() {
                           ))}
                         </div>
 
-                        {/* Footer */}
+                        {/* Footer — shop link */}
                         <div className="px-4 py-3"
                           style={{ borderTop: '1px solid rgba(245,158,11,0.08)',
                             background: 'linear-gradient(180deg, transparent, rgba(245,158,11,0.03))' }}>
-                          <p className="font-pixel text-center"
-                            style={{ fontSize: '7px', color: 'rgba(245,158,11,0.3)', letterSpacing: '0.14em' }}>
-                            ЗАРАБАТЫВАЙ ПРОДАВАЯ ДРОПЫ В КЕЙСАХ
-                          </p>
+                          <Link
+                            href="/arc-shop"
+                            onClick={() => setIsCoinOpen(false)}
+                            className="flex items-center justify-center gap-2 w-full rounded-xl py-2 font-heading font-semibold text-white transition-all hover:opacity-90"
+                            style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(180,83,9,0.25))',
+                                     border: '1px solid rgba(245,158,11,0.3)', fontSize: '12px' }}>
+                            <Zap style={{ width: '12px', height: '12px', color: '#F59E0B' }} />
+                            Магазин монет
+                          </Link>
                         </div>
 
                         <div className="h-[1px]"
