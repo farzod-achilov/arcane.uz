@@ -57,6 +57,7 @@ export async function POST(req: Request) {
   }
 
   // Move telegram_users record from TG-only account → existing account
+  // Do NOT delete the TG placeholder — it may have FK references; just neutralise it
   await prisma.$transaction(async (tx) => {
     // Re-link telegram record to the main account
     await tx.telegram_users.updateMany({
@@ -64,13 +65,13 @@ export async function POST(req: Request) {
       data:  { userId: existing.id },
     });
 
-    // Merge wishlists (skip duplicates)
+    // Merge wishlists into the main account (skip duplicates)
     const tgWishlists = await tx.wishlists.findMany({ where: { userId: session.user.id } });
     for (const w of tgWishlists) {
-      const exists = await tx.wishlists.findUnique({
+      const alreadyExists = await tx.wishlists.findUnique({
         where: { userId_gameId: { userId: existing.id, gameId: w.gameId } },
       });
-      if (!exists) {
+      if (!alreadyExists) {
         await tx.wishlists.update({
           where: { userId_gameId: { userId: session.user.id, gameId: w.gameId } },
           data:  { userId: existing.id },
@@ -82,8 +83,16 @@ export async function POST(req: Request) {
       }
     }
 
-    // Delete the now-empty TG-only account
-    await tx.users.delete({ where: { id: session.user.id } });
+    // Neutralise the TG placeholder (can't delete due to FK constraints)
+    // Mark with a special prefix so it's invisible and can't be logged into
+    await tx.users.update({
+      where: { id: session.user.id },
+      data:  {
+        email:     `_merged_${session.user.id}@arcane.internal`,
+        isBanned:  true,
+        updatedAt: new Date(),
+      },
+    });
   });
 
   return NextResponse.json({ ok: true, merged: true, targetEmail: normalEmail });
