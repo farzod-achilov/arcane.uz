@@ -1,6 +1,7 @@
 'use client';
 
 import { CheckCircle2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 const APP_URL   = process.env.NEXT_PUBLIC_APP_URL ?? 'https://arcane.com.uz';
 const TG_BOT_ID = process.env.NEXT_PUBLIC_TELEGRAM_BOT_ID ?? '8889652013';
@@ -22,13 +23,26 @@ function SteamIcon({ size = 12 }: { size?: number }) {
 }
 
 export default function SocialLinks({
-  tgLinked, tgUsername, steamLinked, steamName,
+  tgLinked, tgUsername, steamLinked, steamName: initialSteamName,
 }: {
-  tgLinked:   boolean;
-  tgUsername: string | null;
+  tgLinked:    boolean;
+  tgUsername:  string | null;
   steamLinked: boolean;
-  steamName:  string | null;
+  steamName:   string | null;
 }) {
+  const [steamName, setSteamName] = useState(initialSteamName);
+
+  // Auto-refresh Steam name if it looks like a raw Steam ID
+  useEffect(() => {
+    if (!steamLinked) return;
+    const looksLikeId = !initialSteamName || /^Steam \d+$/.test(initialSteamName);
+    if (!looksLikeId) return;
+    fetch('/api/profile/refresh-steam', { method: 'POST' })
+      .then(r => r.json())
+      .then(d => { if (d.displayName) setSteamName(d.displayName); })
+      .catch(() => {});
+  }, [steamLinked, initialSteamName]);
+
   function linkTelegram() {
     const returnTo = `${APP_URL}/auth/telegram-callback`;
     window.location.href = [
