@@ -12,6 +12,7 @@ import { prisma }      from '@/lib/prisma';
 import { formatPrice } from '@/lib/utils';
 import ReferralCard    from '@/components/profile/ReferralCard';
 import LinkEmailButton from '@/components/profile/LinkEmailButton';
+import SocialLinks    from '@/components/profile/SocialLinks';
 import crypto          from 'crypto';
 import type { Metadata } from 'next';
 
@@ -78,7 +79,7 @@ const ORDER_STATUS: Record<string, { label: string; color: string }> = {
 
 /* ── Data fetchers ───────────────────────────────────── */
 async function getBaseData(userId: string) {
-  const [user, wishlistCount] = await Promise.all([
+  const [user, wishlistCount, tgLink] = await Promise.all([
     prisma.users.findUnique({
       where:  { id: userId },
       select: {
@@ -89,8 +90,12 @@ async function getBaseData(userId: string) {
       },
     }),
     prisma.wishlists.count({ where: { userId } }),
+    prisma.telegram_users.findUnique({
+      where:  { userId },
+      select: { telegramUsername: true, firstName: true },
+    }),
   ]);
-  return { user, wishlistCount };
+  return { user, wishlistCount, tgLink };
 }
 
 async function getInventory(userId: string) {
@@ -186,7 +191,7 @@ export default async function ProfilePage({
     ? searchParams.tab as Tab
     : 'overview');
 
-  const { user, wishlistCount } = await getBaseData(session.user.id);
+  const { user, wishlistCount, tgLink } = await getBaseData(session.user.id);
   if (!user) redirect('/login');
 
   const [inventory, caseHistory, deposits, recentOrders, referralData] = await Promise.all([
@@ -251,8 +256,11 @@ export default async function ProfilePage({
               {user.email.endsWith('@arcane.internal') ? (
                 <LinkEmailButton />
               ) : (
-                <p className="font-body text-[#4B5563] mb-3" style={{ fontSize: '12px' }}>{user.email}</p>
+                <p className="font-body text-[#4B5563] mb-1" style={{ fontSize: '12px' }}>{user.email}</p>
               )}
+
+              {/* Social links row */}
+              <SocialLinks tgLinked={!!tgLink} tgUsername={tgLink?.telegramUsername ?? tgLink?.firstName ?? null} />
               <div className="mb-1 flex items-center justify-between">
                 <span className="font-body text-[#6B7280]" style={{ fontSize: '11px' }}>
                   {user.xp.toLocaleString('ru')} XP
