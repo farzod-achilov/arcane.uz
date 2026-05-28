@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Search, Bell, User, Menu, X, LogOut, TrendingUp, TrendingDown, Heart, Wallet, Home, LayoutGrid } from 'lucide-react';
+import { toast } from 'sonner';
 import SearchOverlay from '@/components/ui/SearchOverlay';
 import SearchBar from '@/components/ui/SearchBar';
 import NotificationDropdown from '@/components/user/NotificationDropdown';
@@ -37,6 +38,21 @@ export default function Navbar() {
   const router   = useRouter();
   const { user, isLoggedIn, unreadCount, logout } = useUser();
   const { balance, history } = useCoin();
+  const prevUnread = useRef(unreadCount);
+  const [bellRing, setBellRing] = useState(false);
+
+  // Show toast + animate bell when new notification arrives
+  useEffect(() => {
+    if (unreadCount > prevUnread.current && prevUnread.current >= 0) {
+      setBellRing(true);
+      setTimeout(() => setBellRing(false), 1000);
+      toast('🔔 Новое уведомление', {
+        description: 'Нажмите на колокольчик чтобы посмотреть',
+        duration: 3500,
+      });
+    }
+    prevUnread.current = unreadCount;
+  }, [unreadCount]);
 
   // Close coin dropdown on outside click
   useEffect(() => {
@@ -605,9 +621,15 @@ export default function Navbar() {
                     className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                     style={{ background: 'rgba(124,58,237,0.08)' }}
                   />
-                  <Bell
-                    className="relative z-10 w-[18px] h-[18px] transition-colors duration-200 text-[#6B7280] group-hover:text-[#9D60FA]"
-                  />
+                  <motion.div
+                    animate={bellRing ? { rotate: [0, -15, 15, -10, 10, 0] } : {}}
+                    transition={{ duration: 0.5 }}
+                  >
+                    <Bell
+                      className="relative z-10 w-[18px] h-[18px] transition-colors duration-200 text-[#6B7280] group-hover:text-[#9D60FA]"
+                      style={bellRing ? { color: '#9D60FA' } : {}}
+                    />
+                  </motion.div>
                   {unreadCount > 0 && (
                     <motion.span
                       animate={{ scale: [1, 1.35, 1], opacity: [1, 0.5, 1] }}

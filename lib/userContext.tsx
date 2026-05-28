@@ -74,23 +74,56 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [wishlist,      setWList] = useState<string[]>([]);
   const [notifications, setNotifs] = useState<Notification[]>([]);
 
-  /* Poll notifications from DB every 30 s when authenticated */
+  /* Real-time notifications via SSE (Server-Sent Events) */
   useEffect(() => {
     if (status !== 'authenticated') return;
-    let alive = true;
+    let es: EventSource | null = null;
+    let fallbackId: ReturnType<typeof setInterval> | null = null;
 
-    const load = () => {
-      fetch('/api/notifications')
-        .then(r => r.json())
-        .then((d: { notifications?: Notification[] }) => {
-          if (alive && Array.isArray(d.notifications)) setNotifs(d.notifications);
-        })
-        .catch(() => {});
+    function connectSSE() {
+      es = new EventSource('/api/notifications/stream');
+
+      es.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data) as {
+            type: 'init' | 'new';
+            notifications: Notification[];
+          };
+          if (payload.type === 'init') {
+            setNotifs(payload.notifications);
+          } else if (payload.type === 'new' && payload.notifications.length > 0) {
+            setNotifs(prev => {
+              const ids = new Set(prev.map(n => n.id));
+              const fresh = payload.notifications.filter(n => !ids.has(n.id));
+              return fresh.length ? [...fresh, ...prev] : prev;
+            });
+          }
+        } catch {}
+      };
+
+      es.onerror = () => {
+        // SSE failed — fall back to 15s polling
+        es?.close();
+        es = null;
+        if (!fallbackId) {
+          const poll = () =>
+            fetch('/api/notifications')
+              .then(r => r.json())
+              .then((d: { notifications?: Notification[] }) => {
+                if (Array.isArray(d.notifications)) setNotifs(d.notifications);
+              })
+              .catch(() => {});
+          poll();
+          fallbackId = setInterval(poll, 15_000);
+        }
+      };
+    }
+
+    connectSSE();
+    return () => {
+      es?.close();
+      if (fallbackId) clearInterval(fallbackId);
     };
-
-    load();
-    const id = setInterval(load, 30_000);
-    return () => { alive = false; clearInterval(id); };
   }, [status]);
 
   /* Sync NextAuth session → user state + load wishlist from DB */
