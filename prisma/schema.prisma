@@ -294,10 +294,11 @@ model users {
   reviews          reviews[]
   support_tickets  support_tickets[]
   support_messages support_messages[] @relation("SupportMessageAuthor")
-  notifications          notifications[]
-  password_reset_tokens  password_reset_tokens[]
-  steam_users            steam_users?
-  telegram_users         telegram_users?
+  notifications               notifications[]
+  password_reset_tokens       password_reset_tokens[]
+  steam_users                 steam_users?
+  telegram_users              telegram_users?
+  daily_quest_completions     daily_quest_completions[]
 
   @@index([email])
   @@index([username])
@@ -561,6 +562,24 @@ model banners {
   updatedAt   DateTime @updatedAt
 
   @@index([isActive, sortOrder])
+}
+
+// ═══════════════════════════════════════════════════════
+//  DAILY QUESTS
+// ═══════════════════════════════════════════════════════
+
+model daily_quest_completions {
+  id        String   @id @default(uuid())
+  userId    String
+  questId   String
+  date      String   // YYYY-MM-DD — for daily reset
+  reward    Int
+  createdAt DateTime @default(now())
+
+  users users @relation(fields: [userId], references: [id])
+
+  @@unique([userId, questId, date])
+  @@index([userId, date])
 }
 
 model pending_tokens {

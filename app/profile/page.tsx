@@ -14,6 +14,8 @@ import ReferralCard    from '@/components/profile/ReferralCard';
 import LinkEmailButton from '@/components/profile/LinkEmailButton';
 import SocialLinks          from '@/components/profile/SocialLinks';
 import ChangePasswordForm   from '@/components/profile/ChangePasswordForm';
+import DailyQuestsWidget   from '@/components/ui/DailyQuestsWidget';
+import QuestTrigger        from '@/components/ui/QuestTrigger';
 import crypto          from 'crypto';
 import type { Metadata } from 'next';
 
@@ -340,6 +342,14 @@ export default async function ProfilePage({
         ════════════════════════════════════════════════ */}
         {tab === 'overview' && (
           <>
+            {/* Auto-complete login quest */}
+            <QuestTrigger questId="login" />
+
+            {/* Daily quests */}
+            <div className="mb-5">
+              <DailyQuestsWidget />
+            </div>
+
             {/* Stats row */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
               {[

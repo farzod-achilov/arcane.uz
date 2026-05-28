@@ -1,5 +1,6 @@
 import { getGames, getDistinctGenres } from '@/lib/db/games';
 import CatalogContent from './CatalogContent';
+import QuestTrigger   from '@/components/ui/QuestTrigger';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -42,6 +43,7 @@ export default async function CatalogPage({ searchParams }: Props) {
 
   return (
     <div className="min-h-screen" style={{ background: '#0A0A0F', paddingTop: '96px' }}>
+      <QuestTrigger questId="catalog" />
       {/* Grid background */}
       <div
         className="fixed inset-0 pointer-events-none"
