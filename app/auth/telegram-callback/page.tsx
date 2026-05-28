@@ -314,7 +314,11 @@ function TelegramCallbackInner() {
 
     async function run() {
       // 1. Decode Telegram data
-      const tgAuthResult = params.get('tgAuthResult');
+      // Telegram may pass tgAuthResult in query (?tgAuthResult=) or in hash (#tgAuthResult=)
+      const hashParams = new URLSearchParams(
+        typeof window !== 'undefined' ? window.location.hash.replace(/^#/, '') : ''
+      );
+      const tgAuthResult = params.get('tgAuthResult') || hashParams.get('tgAuthResult');
       let tgData: TgData | null = null;
 
       if (tgAuthResult) {
@@ -328,15 +332,26 @@ function TelegramCallbackInner() {
           return;
         }
       } else {
-        const id = params.get('id'), hash = params.get('hash');
+        // Classic redirect: id + hash as plain query params
+        const id   = params.get('id')   || hashParams.get('id');
+        const hash = params.get('hash') || hashParams.get('hash');
         if (id && hash) {
           tgData = {};
-          params.forEach((v, k) => { tgData![k] = v; });
+          // merge both query and hash params
+          params.forEach((v, k)     => { tgData![k] = v; });
+          hashParams.forEach((v, k) => { if (!tgData![k]) tgData![k] = v; });
         }
       }
 
       if (!tgData?.id || !tgData?.hash) {
-        setState({ phase: 'error', msg: 'Telegram не вернул данные авторизации' });
+        // Show full URL so we can see what Telegram actually sent
+        const allQ: Record<string, string> = {};
+        params.forEach((v, k) => { allQ[k] = v; });
+        const hash = typeof window !== 'undefined' ? window.location.hash : '';
+        setState({
+          phase: 'error',
+          msg: `Нет id/hash.\nQuery: ${JSON.stringify(allQ)}\nHash: ${hash || '(пусто)'}\nFull URL: ${typeof window !== 'undefined' ? window.location.href : ''}`,
+        });
         return;
       }
 
@@ -370,11 +385,12 @@ function TelegramCallbackInner() {
         <p className="font-heading font-semibold text-red-400" style={{ fontSize: '16px' }}>
           Ошибка входа через Telegram
         </p>
-        <p className="font-body text-[#6B7280] text-center" style={{ fontSize: '13px' }}>
+        <pre className="font-body text-[#9CA3AF] rounded-xl p-4 max-w-lg w-full overflow-auto text-left"
+             style={{ fontSize: '11px', background: '#09090E', border: '1px solid rgba(255,255,255,0.07)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
           {state.msg}
-        </p>
+        </pre>
         <button onClick={() => router.replace('/login')}
-                className="font-heading text-white rounded-xl px-6 py-2.5 mt-2"
+                className="font-heading text-white rounded-xl px-6 py-2.5"
                 style={{ background: 'rgba(124,58,237,0.25)', border: '1px solid rgba(124,58,237,0.4)', fontSize: '13px' }}>
           Вернуться на вход
         </button>
