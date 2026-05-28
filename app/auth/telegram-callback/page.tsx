@@ -345,14 +345,7 @@ function TelegramCallbackInner() {
       }
 
       if (!tgData?.id || !tgData?.hash) {
-        // Show full URL so we can see what Telegram actually sent
-        const allQ: Record<string, string> = {};
-        params.forEach((v, k) => { allQ[k] = v; });
-        const hash = typeof window !== 'undefined' ? window.location.hash : '';
-        setState({
-          phase: 'error',
-          msg: `Нет id/hash.\nQuery: ${JSON.stringify(allQ)}\nHash: ${hash || '(пусто)'}\nFull URL: ${typeof window !== 'undefined' ? window.location.href : ''}`,
-        });
+        setState({ phase: 'error', msg: 'Telegram не вернул данные авторизации. Попробуйте ещё раз.' });
         return;
       }
 
@@ -366,19 +359,7 @@ function TelegramCallbackInner() {
         if (result?.ok) {
           router.replace('/library');
         } else {
-          // Run debug to show what failed
-          let debugInfo = `signIn error: ${result?.error}`;
-          if (tgAuthResult) {
-            try {
-              const dbg = await fetch('/api/auth/telegram-debug', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tgAuthResult }),
-              }).then(r => r.json());
-              debugInfo += '\n\n' + JSON.stringify(dbg, null, 2);
-            } catch {}
-          }
-          setState({ phase: 'error', msg: debugInfo });
+          setState({ phase: 'error', msg: `Ошибка входа: ${result?.error ?? 'unknown'}` });
         }
         return;
       }
