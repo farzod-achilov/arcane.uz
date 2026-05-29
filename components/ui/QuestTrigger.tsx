@@ -1,11 +1,14 @@
 'use client';
 
 import { useEffect } from 'react';
-import { completeQuest } from '@/lib/completeQuest';
+import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 
 export default function QuestTrigger({ questId }: { questId: string }) {
+  const { status } = useSession();
+
   useEffect(() => {
+    if (status !== 'authenticated') return; // только для залогиненных
     fetch('/api/quests/daily/complete', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -22,7 +25,7 @@ export default function QuestTrigger({ questId }: { questId: string }) {
       })
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [status]);
 
   return null;
 }
