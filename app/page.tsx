@@ -105,23 +105,26 @@ async function getHomeReviews() {
 }
 
 async function getBanners(): Promise<Banner[]> {
-  return prisma.banners.findMany({
-    where:   { isActive: true },
-    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
-    select: { id: true, title: true, subtitle: true, buttonText: true,
-              buttonLink: true, imageUrl: true, badgeText: true, colorFrom: true, colorTo: true },
-  });
+  try {
+    return await prisma.banners.findMany({
+      where:   { isActive: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+      select: { id: true, title: true, subtitle: true, buttonText: true,
+                buttonLink: true, imageUrl: true, badgeText: true, colorFrom: true, colorTo: true },
+    });
+  } catch { return []; }
 }
 
 export default async function HomePage() {
-  const [{ games: trending }, genres, deals, flashData, reviewsRaw, banners] = await Promise.all([
-    getGames({ sort: 'popular', limit: 6 }),
-    getGenreCounts(),
-    getDeals(),
-    getFlashDeals(),
-    getHomeReviews(),
+  const [gamesResult, genres, deals, flashData, reviewsRaw, banners] = await Promise.all([
+    getGames({ sort: 'popular', limit: 6 }).catch(() => ({ games: [] as NonNullable<Awaited<ReturnType<typeof getGames>>['games']> })),
+    getGenreCounts().catch(() => []),
+    getDeals().catch(() => []),
+    getFlashDeals().catch(() => ({ deals: [], endTime: Date.now() + 3_600_000 })),
+    getHomeReviews().catch(() => []),
     getBanners(),
   ]);
+  const trending = gamesResult.games;
 
   const dealItems = deals.map(d => ({
     gameId:          d.games.id,
