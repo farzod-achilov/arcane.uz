@@ -65,19 +65,30 @@ export async function GET(req: Request) {
       },
     }),
     prisma.orders.count({ where: { status: { in: ['WAITING_MANUAL', 'PAID'] as never[] } } }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (prisma.order_items.groupBy as any)({
-      by: ['gameId'],
-      where: { order: { createdAt: { gte: periodStart }, status: { in: paidStatuses } }, gameId: { not: null } },
-      _count: { id: true },
-      _sum:   { price: true },
-      orderBy: { _count: { id: 'desc' } },
-      take:   8,
-    }) as Promise<{ gameId: string | null; _count: { id: number }; _sum: { price: number | null } }[]>,
+    // top games: fetch paid order items in period, aggregate in JS
+    prisma.order_items.findMany({
+      where: {
+        order: { createdAt: { gte: periodStart }, status: { in: paidStatuses } },
+        gameId: { not: undefined },
+      },
+      select: { gameId: true, price: true },
+    }),
   ]);
 
+  // Aggregate top games in JS from raw order items
+  const gameAggMap = new Map<string, { count: number; revenue: number }>();
+  for (const item of topGamesRaw) {
+    if (!item.gameId) continue;
+    const existing = gameAggMap.get(item.gameId) ?? { count: 0, revenue: 0 };
+    gameAggMap.set(item.gameId, { count: existing.count + 1, revenue: existing.revenue + (item.price ?? 0) });
+  }
+  const topGamesAgg = Array.from(gameAggMap.entries())
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 8)
+    .map(([gameId, agg]) => ({ gameId, _count: { id: agg.count }, _sum: { price: agg.revenue } }));
+
   // Fetch game details for top games
-  const topGameIds = topGamesRaw.map(r => r.gameId).filter((id): id is string => !!id);
+  const topGameIds = topGamesAgg.map(r => r.gameId).filter((id): id is string => !!id);
   const topGameDetails = topGameIds.length
     ? await prisma.games.findMany({
         where:  { id: { in: topGameIds } },
@@ -85,7 +96,7 @@ export async function GET(req: Request) {
       })
     : [];
 
-  const topGames = topGamesRaw.map(r => {
+  const topGames = topGamesAgg.map(r => {
     const game = topGameDetails.find(g => g.id === r.gameId);
     return {
       gameId:  r.gameId,
@@ -93,7 +104,7 @@ export async function GET(req: Request) {
       cover:   game?.cover  ?? null,
       genres:  game?.genres ?? [],
       sales:   r._count.id,
-      revenue: r._sum.price ?? 0,
+      revenue: r._sum.price,
     };
   }).filter(g => g.title !== '—');
 
