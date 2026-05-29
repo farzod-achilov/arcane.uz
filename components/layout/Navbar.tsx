@@ -682,10 +682,10 @@ export default function Navbar() {
               {/* ── LOGIN / USER BUTTON ── */}
               {isLoggedIn && user ? (
                 <div className="hidden sm:flex items-center gap-1.5">
-                  {/* Deposit link */}
+                  {/* Deposit link — only on very wide screens to save navbar space */}
                   <Link
                     href="/deposit"
-                    className="group relative flex items-center gap-1.5 rounded-xl transition-all duration-200 px-3 py-2"
+                    className="group relative hidden 2xl:flex items-center gap-1.5 rounded-xl transition-all duration-200 px-3 py-2"
                     title="Пополнить баланс"
                     style={{
                       background: 'rgba(6,182,212,0.08)',
@@ -696,7 +696,7 @@ export default function Navbar() {
                     <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                          style={{ background: 'rgba(6,182,212,0.12)' }} />
                     <Wallet className="relative z-10 w-[14px] h-[14px]" />
-                    <span className="relative z-10 font-heading font-semibold hidden lg:block" style={{ fontSize: '12px' }}>
+                    <span className="relative z-10 font-heading font-semibold" style={{ fontSize: '12px' }}>
                       Пополнить
                     </span>
                   </Link>
