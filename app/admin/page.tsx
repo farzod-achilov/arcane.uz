@@ -139,18 +139,19 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       const res  = await fetch(`/api/admin/dashboard?days=${p}`);
-      const json = await res.json() as DashData;
-      setData(json);
-    } finally { setLoading(false); }
+      const json = await res.json();
+      if (json && !json.error && json.kpis) setData(json as DashData);
+    } catch {} finally { setLoading(false); }
   }, [period]);
 
   useEffect(() => { load(period); }, [period]); // eslint-disable-line
 
-  const kpis   = data?.kpis;
-  const daily  = data?.daily ?? [];
-  const recent = data?.recentOrders ?? [];
-  const top    = data?.topGames ?? [];
-  const today  = daily[daily.length - 1];
+  const kpis      = data?.kpis;
+  const daily     = data?.daily ?? [];
+  const recent    = data?.recentOrders ?? [];
+  const top       = data?.topGames ?? [];
+  const statusDist = data?.statusDist ?? {};
+  const today     = daily[daily.length - 1];
 
   const revPeriod    = kpis?.revPeriod    ?? kpis?.rev7 ?? 0;
   const ordersPeriod = kpis?.ordersPeriod ?? kpis?.orders7 ?? 0;
@@ -293,9 +294,9 @@ export default function AdminDashboard() {
           {data && (
             <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
               <p className="font-body text-[#4B5563] mb-2.5" style={{ fontSize: '10.5px' }}>Статусы заказов</p>
-              {Object.entries(data.statusDist).map(([status, count]) => {
+              {Object.entries(statusDist).map(([status, count]) => {
                 const cfg = STATUS_CFG[status];
-                const total = Object.values(data.statusDist).reduce((a, b) => a + b, 0);
+                const total = Object.values(statusDist).reduce((a, b) => a + b, 0);
                 const pct = total > 0 ? Math.round((count / total) * 100) : 0;
                 return (
                   <div key={status} className="flex items-center gap-2 mb-1.5">
