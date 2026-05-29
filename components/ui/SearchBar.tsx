@@ -111,10 +111,10 @@ export default function SearchBar({ onOpenOverlay }: Props) {
   const noMatch = query.trim().length >= 2 && !loading && results.length === 0;
 
   return (
-    <div ref={wrapRef} className="relative hidden lg:block">
+    <div ref={wrapRef} className="relative hidden xl:block">
       {/* Input */}
       <motion.div
-        animate={{ width: focused ? 280 : 160 }}
+        animate={{ width: focused ? 320 : 200 }}
         transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
         className="relative flex items-center gap-2.5 rounded-xl px-3.5"
         style={{

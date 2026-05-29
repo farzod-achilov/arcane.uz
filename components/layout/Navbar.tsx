@@ -376,10 +376,10 @@ export default function Navbar() {
             {/* ════════════════════════════════
                 RIGHT ZONE — COINS + ICONS
             ════════════════════════════════ */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 min-w-0">
 
               {/* ── ARCANE COIN BLOCK ── */}
-              <div ref={coinRef} className="hidden xl:block relative">
+              <div ref={coinRef} className="hidden xl:block relative flex-shrink-0">
                 <motion.button
                   onClick={() => setIsCoinOpen(v => !v)}
                   whileHover={{ scale: 1.03, y: -1 }}
@@ -602,10 +602,10 @@ export default function Navbar() {
                 }}
               />
 
-              {/* ── SEARCH: inline bar on desktop, icon on mobile ── */}
+              {/* ── SEARCH: full bar on xl+, icon on smaller ── */}
               <SearchBar onOpenOverlay={() => setIsSearchOpen(true)} />
               <button
-                className="lg:hidden group relative p-2.5 rounded-xl transition-all duration-200"
+                className="xl:hidden group relative p-2.5 rounded-xl transition-all duration-200"
                 aria-label="Поиск"
                 onClick={() => setIsSearchOpen(true)}
               >
@@ -681,7 +681,7 @@ export default function Navbar() {
 
               {/* ── LOGIN / USER BUTTON ── */}
               {isLoggedIn && user ? (
-                <div className="hidden sm:flex items-center gap-1.5">
+                <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0">
                   {/* Deposit link — only on very wide screens to save navbar space */}
                   <Link
                     href="/deposit"
