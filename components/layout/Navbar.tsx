@@ -379,7 +379,7 @@ export default function Navbar() {
             <div className="flex items-center gap-1.5">
 
               {/* ── ARCANE COIN BLOCK ── */}
-              <div ref={coinRef} className="hidden lg:block relative">
+              <div ref={coinRef} className="hidden xl:block relative">
                 <motion.button
                   onClick={() => setIsCoinOpen(v => !v)}
                   whileHover={{ scale: 1.03, y: -1 }}
@@ -595,7 +595,7 @@ export default function Navbar() {
 
               {/* Divider */}
               <div
-                className="hidden lg:block h-9 w-px mx-0.5"
+                className="hidden xl:block h-9 w-px mx-0.5"
                 style={{
                   background:
                     'linear-gradient(180deg, transparent, rgba(124,58,237,0.22) 30%, rgba(124,58,237,0.22) 70%, transparent)',
