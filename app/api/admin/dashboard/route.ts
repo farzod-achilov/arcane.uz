@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
@@ -150,4 +151,9 @@ export async function GET(req: Request) {
     })),
     topGames,
   });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('[dashboard]', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }
