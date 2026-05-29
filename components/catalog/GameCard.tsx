@@ -85,7 +85,7 @@ export default function GameCard({ game, index = 0 }: Props) {
 
             {/* Platforms overlay */}
             <div className="absolute bottom-2 left-2 flex gap-1">
-              {game.platforms.slice(0, 3).map((p) => (
+              {(game.platforms ?? []).slice(0, 3).map((p) => (
                 <span key={p} className="flex items-center gap-0.5 text-gray-400 rounded px-1.5 py-0.5"
                       style={{ fontSize: '8px', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.08)' }}>
                   <PlatformDot p={p} />
@@ -118,9 +118,9 @@ export default function GameCard({ game, index = 0 }: Props) {
             </div>
 
             {/* Genres */}
-            {game.genres.length > 0 && (
+            {(game.genres?.length ?? 0) > 0 && (
               <div className="flex flex-wrap gap-1">
-                {game.genres.slice(0, 2).map((g) => (
+                {(game.genres ?? []).slice(0, 2).map((g) => (
                   <span key={g} className="font-pixel rounded px-1.5 py-0.5"
                         style={{ fontSize: '7px', letterSpacing: '0.04em',
                                  background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)',
