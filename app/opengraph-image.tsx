@@ -1,5 +1,8 @@
 import { ImageResponse } from 'next/og';
 
+// Edge runtime — the documented default for opengraph-image. Runs dynamically
+// (no build-time prerender), which avoids the @vercel/og fileURLToPath crash
+// that the Node.js runtime hits on non-ASCII project paths.
 export const runtime = 'edge';
 export const alt     = 'ARCANE.UZ — Премиальный магазин игр';
 export const size    = { width: 1200, height: 630 };
