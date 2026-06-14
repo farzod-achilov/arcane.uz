@@ -1,6 +1,11 @@
 # Деплой ARCANE.UZ — VPS (Ubuntu) + PM2 + nginx + локальный Postgres
 
-Пошаговая инструкция от чистого сервера до живого магазина на `https://arcane.com.uz`.
+> **Прод уже развёрнут и работает.** Сервер `vds` (89.39.95.250, Ubuntu 24.04):
+> код в `/var/www/arcane`, PM2-процесс `arcane` (`npm start`), БД `arcanedb`,
+> секреты в `.env.local`. Рядом крутятся `arcane-api`, `arcane-bot`, `n8n`.
+> **Для обновления хватает шага [«Обновление»](#обновление-каждый-следующий-деплой)** —
+> `./deploy/deploy.sh`. Разделы 1–7 ниже — справка по установке с нуля (новый
+> сервер / disaster recovery).
 
 Целевая схема: Next.js (`next start`) под PM2 на `127.0.0.1:3000`, nginx — реверс-прокси с HTTPS, PostgreSQL на том же сервере.
 
@@ -39,11 +44,11 @@ sudo -u postgres psql
 В консоли psql (замени пароль на свой сильный):
 ```sql
 CREATE USER arcane WITH PASSWORD 'СИЛЬНЫЙ_ПАРОЛЬ';
-CREATE DATABASE arcane_db OWNER arcane;
-GRANT ALL PRIVILEGES ON DATABASE arcane_db TO arcane;
+CREATE DATABASE arcanedb OWNER arcane;
+GRANT ALL PRIVILEGES ON DATABASE arcanedb TO arcane;
 \q
 ```
-Этот пароль пойдёт в `DATABASE_URL`.
+Этот пароль пойдёт в `DATABASE_URL`. (Имя БД на проде — `arcanedb`, без подчёркивания.)
 
 ---
 
@@ -62,18 +67,19 @@ sudo mkdir -p /var/log/arcane && sudo chown $USER:$USER /var/log/arcane
 
 ## 4. Переменные окружения
 
+Секреты на этом сервере лежат в **`.env.local`** (Next грузит его и в проде). Шаблон — `.env.local.example`:
 ```bash
-cp .env.production.local.example .env.production.local
-nano .env.production.local
+cp .env.local.example .env.local
+nano .env.local
 ```
 Заполни как минимум **обязательные** блоки (см. комментарии в файле):
 
 | Переменная | Чем заполнить |
 |---|---|
-| `DATABASE_URL` | `postgresql://arcane:ПАРОЛЬ@localhost:5432/arcane_db` |
+| `DATABASE_URL` | `postgresql://arcane:ПАРОЛЬ@localhost:5432/arcanedb` |
 | `NEXTAUTH_SECRET` | `openssl rand -base64 32` |
 | `NEXTAUTH_URL` / `NEXT_PUBLIC_APP_URL` | `https://arcane.com.uz` |
-| `ADMIN_EMAIL` | твой email (уже `farzodachilov27@gmail.com`) |
+| `ADMIN_EMAIL` | твой email (`farzodachilov27@gmail.com`) |
 | `BOOTSTRAP_SECRET` | `openssl rand -hex 32` |
 | `KEY_ENCRYPTION_SECRET` | `openssl rand -hex 32` |
 | `RESEND_API_KEY` / `EMAIL_FROM` | из Resend |
@@ -126,7 +132,7 @@ sudo certbot --nginx -d arcane.com.uz -d www.arcane.com.uz
 ## 7. Bootstrap первого админа
 
 1. Зарегистрируй на сайте аккаунт с тем email, что в `ADMIN_EMAIL`.
-2. Выдай ему права (секрет — из `.env.production.local`):
+2. Выдай ему права (секрет — из `.env.local`):
 ```bash
 curl -H "x-bootstrap-secret: ТВОЙ_BOOTSTRAP_SECRET" https://arcane.com.uz/api/admin/bootstrap
 ```
@@ -165,5 +171,5 @@ sudo tail -f /var/log/nginx/error.log
 - **Схема БД — `prisma db push`** (миграций нет). Если перейдёшь на версионные миграции (`prisma migrate`), замени команду в `deploy/deploy.sh` на `prisma migrate deploy`.
 - **Бэкапы Postgres** на тебе (локальная БД). Минимум — cron с `pg_dump`:
   ```bash
-  0 3 * * * pg_dump -U arcane arcane_db | gzip > /var/backups/arcane_$(date +\%F).sql.gz
+  0 3 * * * pg_dump -U arcane arcanedb | gzip > /var/backups/arcane_$(date +\%F).sql.gz
   ```

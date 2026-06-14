@@ -18,8 +18,9 @@ module.exports = {
     {
       name:   'arcane',
       cwd:    '/var/www/arcane',
-      script: 'node_modules/next/dist/bin/next',
-      args:   'start -p 3000',
+      // Matches how the live process is started (`pm2 start npm --name arcane -- start`).
+      script: 'npm',
+      args:   'start',
 
       instances:  1,
       exec_mode:  'fork',
