@@ -8,6 +8,7 @@ import {
   ChevronRight, Zap, Shield, Clock, Star,
   ShoppingBag, Flame,
 } from 'lucide-react';
+import { useDict } from '@/lib/locale/client';
 
 /* ─────────────────────────────────────────────────────────
    Constants
@@ -114,6 +115,7 @@ function GameCard({
   const rxS = useSpring(rx, { stiffness: 250, damping: 26 });
   const ryS = useSpring(ry, { stiffness: 250, damping: 26 });
 
+  const h = useDict().home.hero;
   const isMain = slot === 1;
   const initRot = slot === 0 ? -5 : slot === 2 ? 5 : 0;
 
@@ -197,7 +199,7 @@ function GameCard({
               boxShadow: `0 0 14px ${game.badgeColor}70, 0 2px 8px rgba(0,0,0,0.4)`,
             }}
           >
-            {game.badge}
+            {game.badge === 'НОВИНКА' ? h.badgeNew : game.badge}
           </motion.div>
 
           {/* Platform chip */}
@@ -234,7 +236,7 @@ function GameCard({
                 <div className="flex items-center gap-1.5">
                   <Star className="w-3 h-3 text-[#F59E0B] fill-[#F59E0B]" />
                   <span className="font-body text-white" style={{ fontSize: '11px' }}>{game.rating}</span>
-                  <span className="font-body text-gray-600 ml-1" style={{ fontSize: '10px' }}>· 12K отзывов</span>
+                  <span className="font-body text-gray-600 ml-1" style={{ fontSize: '10px' }}>· {h.reviewsCount}</span>
                 </div>
                 <div className="text-right">
                   {game.originalPrice && (
@@ -246,7 +248,7 @@ function GameCard({
                     className="font-heading font-bold leading-none"
                     style={{ color: game.accent, fontSize: '16px' }}
                   >
-                    {(game.price / 1000).toFixed(0)}K сум
+                    {(game.price / 1000).toFixed(0)}K {h.priceSuffix}
                   </p>
                 </div>
               </div>
@@ -262,6 +264,7 @@ function GameCard({
    Main Hero
 ───────────────────────────────────────────────────────── */
 export default function Hero() {
+  const h = useDict().home.hero;
   return (
     <section
       className="relative min-h-screen flex flex-col overflow-hidden"
@@ -370,7 +373,7 @@ export default function Hero() {
                     transition={{ duration: 2, repeat: Infinity }}
                   />
                   <span className="font-pixel text-[#9D60FA]" style={{ fontSize: '7.5px', letterSpacing: '0.14em' }}>
-                    ИГРОВОЙ МАГАЗИН №1 В УЗБЕКИСТАНЕ
+                    {h.eyebrow}
                   </span>
                   <span
                     className="font-pixel rounded-full px-2 py-0.5"
@@ -397,7 +400,7 @@ export default function Hero() {
                   className="font-heading font-bold text-white leading-[1.03] tracking-tight"
                   style={{ fontSize: 'clamp(44px, 5.8vw, 74px)' }}
                 >
-                  Игры{' '}
+                  {h.headlinePre && <>{h.headlinePre}{' '}</>}
                   <span
                     style={{
                       background: 'linear-gradient(135deg, #A78BFA 0%, #7C3AED 35%, #22D3EE 100%)',
@@ -406,9 +409,9 @@ export default function Hero() {
                       backgroundClip: 'text',
                     }}
                   >
-                    нового
+                    {h.headlineAccent}
                   </span>
-                  <br />уровня
+                  <br />{h.headlinePost}
                 </h1>
               </motion.div>
 
@@ -434,10 +437,9 @@ export default function Hero() {
                 className="font-body text-gray-400 leading-relaxed mb-9 max-w-[490px]"
                 style={{ fontSize: 'clamp(14px, 1.4vw, 16px)' }}
               >
-                Мгновенная доставка лицензионных ключей для PC, PlayStation и Xbox.
-                Эксклюзивные скидки, Mystery Cases и{' '}
-                <span className="text-[#F59E0B] font-medium">Arcane Coins</span>{' '}
-                с каждой покупкой.
+                {h.subPre}
+                <span className="text-[#F59E0B] font-medium">Arcane Coins</span>
+                {h.subPost}
               </motion.p>
 
               {/* ── CTA Buttons ── */}
@@ -466,7 +468,7 @@ export default function Hero() {
                     animate={{ boxShadow: ['0 0 0 rgba(124,58,237,0)', '0 0 22px rgba(124,58,237,0.55)', '0 0 0 rgba(124,58,237,0)'] }}
                     transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
                   />
-                  <span className="relative">Перейти в каталог</span>
+                  <span className="relative">{h.ctaCatalog}</span>
                   <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform duration-200 relative flex-shrink-0" />
                 </Link>
 
@@ -484,7 +486,7 @@ export default function Hero() {
                 >
                   <span className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 bg-gradient-to-r from-transparent via-[#F59E0B]/10 to-transparent" />
                   <Zap className="w-4 h-4 relative flex-shrink-0" />
-                  <span className="relative">Горячие скидки</span>
+                  <span className="relative">{h.ctaDeals}</span>
                 </Link>
               </motion.div>
 
@@ -496,9 +498,9 @@ export default function Hero() {
                 className="flex items-center gap-6 sm:gap-10 mb-9"
               >
                 {[
-                  { to: 500,   suffix: '+',  label: 'Игр'        },
-                  { to: 50000, suffix: '+',  label: 'Игроков'    },
-                  { to: 99,    suffix: '%',  label: 'Довольных'  },
+                  { to: 500,   suffix: '+',  label: h.statGames   },
+                  { to: 50000, suffix: '+',  label: h.statPlayers },
+                  { to: 99,    suffix: '%',  label: h.statHappy   },
                 ].map((s, i, arr) => (
                   <div key={s.label} className="flex items-center gap-6 sm:gap-10">
                     <div>
@@ -525,9 +527,9 @@ export default function Hero() {
                 className="flex flex-wrap items-center gap-5"
               >
                 {[
-                  { icon: Shield, label: 'Защита платежей'    },
-                  { icon: Clock,  label: 'Мгновенная доставка' },
-                  { icon: Zap,    label: 'Поддержка 24/7'      },
+                  { icon: Shield, label: h.trustPayment  },
+                  { icon: Clock,  label: h.trustDelivery },
+                  { icon: Zap,    label: h.trustSupport  },
                 ].map(({ icon: Icon, label }) => (
                   <div key={label} className="flex items-center gap-2 text-gray-500">
                     <Icon className="w-3.5 h-3.5" style={{ color: 'rgba(124,58,237,0.5)' }} />
@@ -607,7 +609,7 @@ export default function Hero() {
                           transition={{ duration: 1.6, repeat: Infinity }}
                         />
                       </div>
-                      <p className="font-body text-gray-400" style={{ fontSize: '11px' }}>+250 с каждой покупки</p>
+                      <p className="font-body text-gray-400" style={{ fontSize: '11px' }}>{h.coinPerBuy}</p>
                     </div>
                   </motion.div>
                 </motion.div>
@@ -657,7 +659,7 @@ export default function Hero() {
                   >
                     <ShoppingBag className="w-3 h-3 flex-shrink-0" style={{ color: '#22C55E' }} />
                     <span className="font-pixel" style={{ fontSize: '7px', color: '#22C55E' }}>
-                      127 КУПЛЕНО СЕГОДНЯ
+                      {h.purchasedToday}
                     </span>
                   </div>
                 </motion.div>
@@ -714,10 +716,10 @@ export default function Hero() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
             {[
-              { icon: '⚡', label: 'Мгновенная доставка', desc: 'Ключ сразу после оплаты' },
-              { icon: '🛡️', label: 'Лицензионные ключи',  desc: '100% подлинность'       },
-              { icon: '💬', label: 'Поддержка 24/7',       desc: 'Telegram и Email'        },
-              { icon: '🪙', label: 'Arcane Coins',         desc: 'Бонусы за каждую покупку'},
+              { icon: '⚡', label: h.bar.deliveryLabel, desc: h.bar.deliveryDesc },
+              { icon: '🛡️', label: h.bar.licenseLabel,  desc: h.bar.licenseDesc  },
+              { icon: '💬', label: h.bar.supportLabel,  desc: h.bar.supportDesc  },
+              { icon: '🪙', label: h.bar.coinsLabel,    desc: h.bar.coinsDesc    },
             ].map((item, i) => (
               <motion.div
                 key={item.label}

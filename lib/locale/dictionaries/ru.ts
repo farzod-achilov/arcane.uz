@@ -62,6 +62,40 @@ const ru = {
     accept:  'Принять',
     decline: 'Отказаться',
   },
+
+  home: {
+    hero: {
+      eyebrow:        'ИГРОВОЙ МАГАЗИН №1 В УЗБЕКИСТАНЕ',
+      headlinePre:    'Игры',
+      headlineAccent: 'нового',
+      headlinePost:   'уровня',
+      subPre:         'Мгновенная доставка лицензионных ключей для PC, PlayStation и Xbox. Эксклюзивные скидки, Mystery Cases и ',
+      subPost:        ' с каждой покупкой.',
+      ctaCatalog:     'Перейти в каталог',
+      ctaDeals:       'Горячие скидки',
+      statGames:      'Игр',
+      statPlayers:    'Игроков',
+      statHappy:      'Довольных',
+      trustPayment:   'Защита платежей',
+      trustDelivery:  'Мгновенная доставка',
+      trustSupport:   'Поддержка 24/7',
+      badgeNew:       'НОВИНКА',
+      reviewsCount:   '12K отзывов',
+      priceSuffix:    'сум',
+      coinPerBuy:     '+250 с каждой покупки',
+      purchasedToday: '127 КУПЛЕНО СЕГОДНЯ',
+      bar: {
+        deliveryLabel: 'Мгновенная доставка',
+        deliveryDesc:  'Ключ сразу после оплаты',
+        licenseLabel:  'Лицензионные ключи',
+        licenseDesc:   '100% подлинность',
+        supportLabel:  'Поддержка 24/7',
+        supportDesc:   'Telegram и Email',
+        coinsLabel:    'Arcane Coins',
+        coinsDesc:     'Бонусы за каждую покупку',
+      },
+    },
+  },
 };
 
 export type Dictionary = typeof ru;

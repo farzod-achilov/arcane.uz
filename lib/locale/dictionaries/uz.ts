@@ -62,6 +62,40 @@ const uz: Dictionary = {
     accept:  'Qabul qilish',
     decline: 'Rad etish',
   },
+
+  home: {
+    hero: {
+      eyebrow:        "O'ZBEKISTONDAGI №1 O'YIN DO'KONI",
+      headlinePre:    '',
+      headlineAccent: 'Yangi',
+      headlinePost:   "darajadagi o'yinlar",
+      subPre:         "PC, PlayStation va Xbox uchun litsenziyali kalitlarni bir zumda yetkazib berish. Eksklyuziv chegirmalar, Mystery Cases va ",
+      subPost:        ' har bir xaridingiz bilan.',
+      ctaCatalog:     "Katalogga o'tish",
+      ctaDeals:       'Issiq chegirmalar',
+      statGames:      "O'yinlar",
+      statPlayers:    "O'yinchilar",
+      statHappy:      'Mamnun',
+      trustPayment:   "To'lovlar himoyasi",
+      trustDelivery:  'Bir zumda yetkazish',
+      trustSupport:   "24/7 qo'llab-quvvatlash",
+      badgeNew:       'YANGI',
+      reviewsCount:   '12K sharh',
+      priceSuffix:    "so'm",
+      coinPerBuy:     '+250 har bir xariddan',
+      purchasedToday: 'BUGUN 127 TA SOTIB OLINDI',
+      bar: {
+        deliveryLabel: 'Bir zumda yetkazish',
+        deliveryDesc:  "To'lovdan keyin darhol kalit",
+        licenseLabel:  'Litsenziyali kalitlar',
+        licenseDesc:   '100% haqiqiy',
+        supportLabel:  "24/7 qo'llab-quvvatlash",
+        supportDesc:   'Telegram va Email',
+        coinsLabel:    'Arcane Coins',
+        coinsDesc:     'Har bir xarid uchun bonuslar',
+      },
+    },
+  },
 };
 
 export default uz;
