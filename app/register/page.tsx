@@ -32,8 +32,8 @@ const STARS = [
 /* ── Password strength ─────────────────────────────────── */
 function PasswordStrength({ password }: { password: string }) {
   const score = [
-    password.length >= 6,
     password.length >= 8,
+    password.length >= 12,
     /[A-Z]/.test(password),
     /[0-9]/.test(password),
   ].filter(Boolean).length;
@@ -85,7 +85,7 @@ function RegisterForm() {
   const validate = (): string | null => {
     if (!name.trim() || name.trim().length < 2) return 'Имя минимум 2 символа';
     if (!email.includes('@'))                    return 'Введите корректный email';
-    if (password.length < 6)                     return 'Пароль минимум 6 символов';
+    if (password.length < 8)                     return 'Пароль минимум 8 символов';
     if (!agreed)                                 return 'Примите условия использования';
     return null;
   };
@@ -249,7 +249,7 @@ function RegisterForm() {
               <div>
                 <div className="relative">
                   <CheckoutInput
-                    label="Пароль (минимум 6 символов)"
+                    label="Пароль (минимум 8 символов)"
                     type={showPw ? 'text' : 'password'}
                     placeholder="••••••••"
                     value={password}

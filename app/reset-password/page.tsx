@@ -24,7 +24,7 @@ function ResetPasswordForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirm) { setError('Пароли не совпадают'); return; }
-    if (password.length < 6)  { setError('Пароль минимум 6 символов'); return; }
+    if (password.length < 8)  { setError('Пароль минимум 8 символов'); return; }
 
     setLoading(true); setError('');
     try {
@@ -116,7 +116,7 @@ function ResetPasswordForm() {
                   type={showPwd ? 'text' : 'password'}
                   value={password}
                   onChange={e => { setPassword(e.target.value); setError(''); }}
-                  placeholder="Минимум 6 символов"
+                  placeholder="Минимум 8 символов"
                   required
                   className="w-full rounded-xl pl-10 pr-10 py-3 text-white font-body outline-none placeholder:text-[#1F2937] transition-all"
                   style={{
@@ -142,7 +142,7 @@ function ResetPasswordForm() {
                     ))}
                   </div>
                   <span className="font-body text-[#4B5563]" style={{ fontSize: '10px' }}>
-                    {password.length < 6 ? 'Слабый' : password.length < 8 ? 'Нормальный' : password.length < 12 ? 'Хороший' : 'Сильный'}
+                    {password.length < 8 ? 'Слабый' : password.length < 12 ? 'Нормальный' : password.length < 16 ? 'Хороший' : 'Сильный'}
                   </span>
                 </div>
               )}

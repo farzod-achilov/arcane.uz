@@ -18,6 +18,10 @@ function normPlatform(name: string) {
 }
 
 export async function GET(request: Request) {
+  const { requireAdmin } = await import('@/lib/apiGuard');
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   const { searchParams } = new URL(request.url);
   const q       = searchParams.get('q')?.trim();
   const limit   = Math.min(parseInt(searchParams.get('limit') ?? '10'), 20);

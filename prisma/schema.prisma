@@ -130,6 +130,9 @@ model games {
 
   @@unique([externalId, source])
   @@index([slug])
+  @@index([isActive])
+  @@index([isActive, createdAt])
+  @@index([salesCount])
 }
 
 model discounts {
@@ -240,6 +243,7 @@ model transactions {
 
   @@index([type])
   @@index([userId])
+  @@index([createdAt])
 }
 
 model deposit_requests {
@@ -302,6 +306,8 @@ model users {
 
   @@index([email])
   @@index([username])
+  @@index([createdAt])
+  @@index([isBanned])
 }
 
 model notifications {

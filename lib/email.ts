@@ -59,7 +59,7 @@ function layout(content: string): string {
         <tr>
           <td style="background:#080812;border-radius:0 0 16px 16px;padding:20px 32px;border-top:1px solid rgba(255,255,255,0.05);">
             <p style="margin:0;color:#374151;font-size:11px;text-align:center;">
-              © 2025 ARCANE.UZ ·
+              © ${new Date().getFullYear()} ARCANE.UZ ·
               <a href="${SITE_URL}/support" style="color:#7C3AED;text-decoration:none;">Поддержка</a> ·
               <a href="${SITE_URL}/faq" style="color:#7C3AED;text-decoration:none;">FAQ</a>
             </p>

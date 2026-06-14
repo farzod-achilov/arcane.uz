@@ -46,7 +46,7 @@ export class VerificationService {
     }
 
     // Notify website that verification succeeded
-    await this.confirmWithWebsite(entry.userId, from.id, from.username);
+    await this.confirmWithWebsite(entry.userId, from.id, from.username, from.first_name);
 
     const newUser: TelegramUser = {
       telegramId:       from.id,
@@ -87,6 +87,7 @@ export class VerificationService {
     userId: string,
     telegramId: number,
     username: string | undefined,
+    firstName: string,
   ): Promise<void> {
     try {
       await fetch(`${config.website.url}/api/telegram/confirm`, {
@@ -95,7 +96,7 @@ export class VerificationService {
           'Content-Type': 'application/json',
           'x-api-secret': config.website.secret,
         },
-        body: JSON.stringify({ userId, telegramId, username }),
+        body: JSON.stringify({ userId, telegramId, username, firstName }),
       });
     } catch (err) {
       console.error('[Verify] Could not confirm with website:', err);

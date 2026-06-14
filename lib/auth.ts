@@ -48,7 +48,6 @@ export const authOptions: NextAuthOptions = {
 
         const hashOk  = verifyTelegramRaw(raw, botToken);
         const freshOk = isTelegramAuthFresh(raw.auth_date);
-        console.log('[TG] verify:', { hashOk, freshOk, id: raw.id, fields: Object.keys(raw).join(',') });
 
         if (!hashOk)  return null;
         if (!freshOk) return null;
@@ -80,10 +79,8 @@ export const authOptions: NextAuthOptions = {
           });
           if (linkedUser) {
             userId = tgRow.userId;
-            console.log('[TG] found existing user:', userId);
           } else {
             // Orphaned telegram_users record — delete it and fall through to create new account
-            console.log('[TG] orphaned telegram_users record, deleting and creating new account');
             await prisma.telegram_users.delete({ where: { telegramId } });
             tgRow = null;
           }

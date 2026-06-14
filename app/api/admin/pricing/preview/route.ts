@@ -2,10 +2,14 @@ import { NextResponse } from 'next/server';
 import { PriceEngineService } from '@/lib/smartPricing/engine';
 import { getPriceSettings, getCurrencySettings } from '@/lib/smartPricing/repository';
 import type { PreviewRequest } from '@/lib/smartPricing/types';
+import { requireAdmin } from '@/lib/apiGuard';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   try {
     const body = await req.json() as PreviewRequest;
 

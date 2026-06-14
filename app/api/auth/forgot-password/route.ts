@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { sendPasswordResetEmail } from '@/lib/email';
+import { rateLimit } from '@/lib/rateLimit';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any;
 
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, { limit: 3, windowSec: 900 });
+  if (limited) return limited;
+
   try {
     const { email } = await req.json() as { email?: string };
     const normalEmail = email?.toLowerCase().trim() ?? '';

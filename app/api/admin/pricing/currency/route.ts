@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getCurrencySettings, upsertCurrencySettings } from '@/lib/smartPricing/repository';
 import { prisma } from '@/lib/prisma';
+import { requireAdmin } from '@/lib/apiGuard';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   try {
     const [current, history] = await Promise.all([
       getCurrencySettings(),
@@ -20,6 +24,9 @@ export async function GET() {
 }
 
 export async function PATCH(req: Request) {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   try {
     const body = await req.json() as { exchangeRate?: number; autoUpdateRate?: boolean };
 

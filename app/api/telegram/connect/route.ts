@@ -7,12 +7,20 @@
 export const dynamic = 'force-dynamic';
 
 import { requestTelegramToken } from '@/lib/telegramService';
+import { requireSession } from '@/lib/apiGuard';
 
 export async function POST(req: Request): Promise<Response> {
+  const { guard, session } = await requireSession();
+  if (guard) return guard;
+
   const body = (await req.json()) as { userId?: string; userName?: string };
 
   if (!body.userId || !body.userName) {
     return Response.json({ error: 'userId and userName required' }, { status: 400 });
+  }
+
+  if (body.userId !== session!.user.id) {
+    return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const result = await requestTelegramToken(body.userId, body.userName);

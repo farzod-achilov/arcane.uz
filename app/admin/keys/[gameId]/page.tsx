@@ -366,7 +366,7 @@ export default function GameKeyManagerPage({ params }: { params: { gameId: strin
 
           {/* KEY LIST */}
           {activeTab === 'keys' && (
-            <KeysTable keys={keysForTable} onDisable={(ids) => console.log('Disable:', ids)} />
+            <KeysTable keys={keysForTable} onDisable={() => {}} />
           )}
 
           {/* MOVE */}

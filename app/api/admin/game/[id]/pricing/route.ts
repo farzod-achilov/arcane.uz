@@ -4,12 +4,16 @@ import { getPriceSettings, getCurrencySettings, getGamePricing, upsertGamePricin
 import { prisma } from '@/lib/prisma';
 import { notifyWishlistPriceDrop } from '@/lib/delivery/notify';
 import type { PricingStrategy, SmartMarkupType } from '@/lib/smartPricing/types';
+import { requireAdmin } from '@/lib/apiGuard';
 
 export const dynamic = 'force-dynamic';
 
 type Ctx = { params: { id: string } };
 
 export async function GET(_req: Request, { params }: Ctx) {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   try {
     const [pricing, game] = await Promise.all([
       getGamePricing(params.id),
@@ -22,6 +26,9 @@ export async function GET(_req: Request, { params }: Ctx) {
 }
 
 export async function PATCH(req: Request, { params }: Ctx) {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   try {
     const body = await req.json() as {
       supplierPriceUsd?:      number;

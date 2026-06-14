@@ -17,8 +17,8 @@ export async function POST(req: Request) {
 
   if (!currentPassword || !newPassword)
     return NextResponse.json({ error: 'Заполните все поля' }, { status: 400 });
-  if (newPassword.length < 6)
-    return NextResponse.json({ error: 'Новый пароль минимум 6 символов' }, { status: 400 });
+  if (newPassword.length < 8)
+    return NextResponse.json({ error: 'Новый пароль минимум 8 символов' }, { status: 400 });
   if (currentPassword === newPassword)
     return NextResponse.json({ error: 'Новый пароль совпадает со старым' }, { status: 400 });
 

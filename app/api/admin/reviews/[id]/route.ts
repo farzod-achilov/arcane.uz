@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAdmin } from '@/lib/apiGuard';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyWhere = any;
@@ -7,6 +8,9 @@ type AnyWhere = any;
 type Ctx = { params: { id: string } };
 
 export async function PATCH(req: Request, { params }: Ctx) {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   try {
     const { isApproved } = await req.json() as { isApproved: boolean };
 
@@ -37,6 +41,9 @@ export async function PATCH(req: Request, { params }: Ctx) {
 }
 
 export async function DELETE(_req: Request, { params }: Ctx) {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   try {
     await prisma.reviews.delete({ where: { id: params.id } });
     return NextResponse.json({ success: true });

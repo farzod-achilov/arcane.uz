@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   const { email, password } = await req.json() as { email?: string; password?: string };
 
   if (!email || !password)          return NextResponse.json({ error: 'Введите email и пароль' },   { status: 400 });
-  if (password.length < 6)          return NextResponse.json({ error: 'Пароль минимум 6 символов' }, { status: 400 });
+  if (password.length < 8)          return NextResponse.json({ error: 'Пароль минимум 8 символов' }, { status: 400 });
   if (!/\S+@\S+\.\S+/.test(email))  return NextResponse.json({ error: 'Некорректный email' },        { status: 400 });
 
   const normalEmail = email.toLowerCase().trim();

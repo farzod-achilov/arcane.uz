@@ -11,6 +11,21 @@ npm run start    # Serve production build
 npm run lint     # ESLint via next lint
 ```
 
+### Database setup (required before first run)
+
+```bash
+# Push schema to PostgreSQL (creates all tables)
+npx prisma db push
+
+# Or create a versioned migration (preferred for production)
+npx prisma migrate dev --name init
+
+# After schema changes, regenerate Prisma client
+npx prisma generate
+```
+
+`DATABASE_URL` is read from `.env` (see `.env` in repo root, default: `postgresql://arcane:arcane_secret@localhost:5432/arcane_db`).
+
 No test suite is configured. TypeScript errors surface during `npm run build`.
 
 ## Architecture
@@ -24,7 +39,7 @@ No test suite is configured. TypeScript errors surface during `npm run build`.
 
 Static mock data lives in [`lib/mockData.ts`](lib/mockData.ts) (products, mystery cases, categories). Types are in [`lib/types.ts`](lib/types.ts). When Digiseller env vars are present, live product data is fetched from the Digiseller API and cached in-memory; otherwise all endpoints fall back to mock data transparently (`source: 'mock'` in responses).
 
-Orders are stored in an **in-memory `Map`** in [`lib/orders.ts`](lib/orders.ts) — this resets on every server restart and must be replaced with a database before production.
+Orders are stored in **PostgreSQL** via Prisma. The service layer lives in [`lib/orders/`](lib/orders/) (`service.ts` → `repository.ts`). Delivery logic is in [`lib/delivery/`](lib/delivery/).
 
 ### Digiseller integration
 
@@ -56,9 +71,9 @@ Client-side access goes through React hooks in [`hooks/`](hooks/): `useDigiselle
 
 ### Order flow
 
-`POST /api/orders` → in-memory store (`lib/orders.ts`) → Telegram admin notification via `lib/adminTelegram.ts` → admin manually buys & delivers key via `POST /api/orders/[id]/deliver` → key sent to customer (Telegram-first, email fallback).
+`POST /api/orders` → Prisma (`lib/orders/service.ts`) → Telegram admin notification via `lib/adminTelegram.ts` → `lib/delivery/` dispatches auto or manual delivery → admin delivers key via `POST /api/orders/[id]/deliver` → key written to `order_items.keyValue`, user notified.
 
-Status machine: `pending` → `paid` → `processing` → `delivered`.
+Status machine: `PENDING` → `PAID` → `WAITING_MANUAL` → `COMPLETED` (or `CANCELLED`).
 
 ### Page → component tree
 

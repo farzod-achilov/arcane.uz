@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/apiGuard';
 
 export const dynamic = 'force-dynamic';
 
@@ -209,6 +210,9 @@ async function fetchSteam(title: string): Promise<SteamResult | null> {
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 export async function GET(request: Request) {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   const { searchParams } = new URL(request.url);
   const title = searchParams.get('title')?.trim();
   if (!title) return NextResponse.json({ success: false, error: 'title is required' }, { status: 400 });

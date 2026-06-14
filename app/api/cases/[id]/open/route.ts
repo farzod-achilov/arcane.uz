@@ -4,6 +4,7 @@ import { authOptions }               from '@/lib/auth';
 import { prisma }                    from '@/lib/prisma';
 import { nanoid }                    from 'nanoid';
 import { CASES, pickWeightedReward, CaseTier } from '@/lib/casesData';
+import { rateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,10 @@ export async function POST(
   if (!session?.user?.id) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
 
   const userId = session.user.id;
+
+  // 20 opens per minute per user to prevent abuse while allowing normal play
+  const limited = rateLimit(_req, { limit: 20, windowSec: 60, key: `cases:${userId}` });
+  if (limited) return limited;
   const price  = caseConfig.price;
 
   const user = await prisma.users.findUnique({ where: { id: userId }, select: { arcCoins: true, balanceUzs: true } });

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { hash } from 'bcryptjs';
+import { rateLimit } from '@/lib/rateLimit';
 import crypto from 'crypto';
 import { nanoid } from 'nanoid';
 import { prisma } from '@/lib/prisma';
@@ -41,6 +42,9 @@ function genCode(): string {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, { limit: 5, windowSec: 900 });
+  if (limited) return limited;
+
   try {
     const body = await req.json() as {
       name?: string; email?: string; password?: string; referralCode?: string;
@@ -53,8 +57,8 @@ export async function POST(req: NextRequest) {
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: 'Введите корректный email' }, { status: 400 });
     }
-    if (!password || password.length < 6) {
-      return NextResponse.json({ error: 'Пароль минимум 6 символов' }, { status: 400 });
+    if (!password || password.length < 8) {
+      return NextResponse.json({ error: 'Пароль минимум 8 символов' }, { status: 400 });
     }
 
     const normalEmail    = email.toLowerCase().trim();

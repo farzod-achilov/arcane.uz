@@ -13,6 +13,8 @@ import Reviews from '@/components/home/Reviews';
 import RecentlyViewed from '@/components/home/RecentlyViewed';
 import FlashSale, { type FlashDeal } from '@/components/home/FlashSale';
 import PromoBanner, { type Banner } from '@/components/home/PromoBanner';
+import NewArrivals from '@/components/home/NewArrivals';
+import TopRated from '@/components/home/TopRated';
 
 /* ── Data helpers ── */
 
@@ -116,15 +118,19 @@ async function getBanners(): Promise<Banner[]> {
 }
 
 export default async function HomePage() {
-  const [gamesResult, genres, deals, flashData, reviewsRaw, banners] = await Promise.all([
+  const [gamesResult, newGamesResult, topRatedResult, genres, deals, flashData, reviewsRaw, banners] = await Promise.all([
     getGames({ sort: 'popular', limit: 6 }).catch(() => ({ games: [] as NonNullable<Awaited<ReturnType<typeof getGames>>['games']> })),
+    getGames({ sort: 'newest',  limit: 6 }).catch(() => ({ games: [] as NonNullable<Awaited<ReturnType<typeof getGames>>['games']> })),
+    getGames({ sort: 'rating',  limit: 6 }).catch(() => ({ games: [] as NonNullable<Awaited<ReturnType<typeof getGames>>['games']> })),
     getGenreCounts().catch(() => []),
     getDeals().catch(() => []),
     getFlashDeals().catch(() => ({ deals: [], endTime: Date.now() + 3_600_000 })),
     getHomeReviews().catch(() => []),
     getBanners(),
   ]);
-  const trending = gamesResult.games;
+  const trending    = gamesResult.games;
+  const newArrivals = newGamesResult.games;
+  const topRated    = topRatedResult.games;
 
   const dealItems = deals.map(d => ({
     gameId:          d.games.id,
@@ -162,6 +168,8 @@ export default async function HomePage() {
       {banners.length > 0 && <PromoBanner banners={banners} />}
       <Categories genres={genres} />
       {trending.length > 0 && <TrendingProducts games={trending} />}
+      {newArrivals.length > 0 && <NewArrivals games={newArrivals} />}
+      {topRated.length > 0 && <TopRated games={topRated} />}
       <MysteryCases />
       {dealItems.length > 0 && <DailyDeals deals={dealItems} endTime={dealsEndTime} />}
       {flashData.deals.length > 0 && <FlashSale deals={flashData.deals} endTime={flashData.endTime} />}

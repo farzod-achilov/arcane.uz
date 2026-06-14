@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { syncProducts, getLastSyncResult, isDigisellerEnabled } from '@/lib/digiseller';
+import { requireAdmin } from '@/lib/apiGuard';
 
 /* ─────────────────────────────────────────────────────────
    POST /api/digiseller/sync  — trigger a full product re-sync
@@ -17,11 +18,14 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  // Optional: protect with a secret header in production
+  // Allow either admin session OR matching sync secret (for cron/CI use)
   const secret = request.headers.get('x-sync-secret');
   const expected = process.env.SYNC_SECRET;
-  if (expected && secret !== expected) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+  const secretOk = expected && secret === expected;
+
+  if (!secretOk) {
+    const guard = await requireAdmin();
+    if (guard) return guard;
   }
 
   if (!isDigisellerEnabled()) {

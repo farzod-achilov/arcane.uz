@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { PriceEngineService } from '@/lib/smartPricing/engine';
 import { getPriceSettings, getCurrencySettings, upsertGamePricing } from '@/lib/smartPricing/repository';
 import type { PricingStrategy } from '@/lib/smartPricing/types';
+import { requireAdmin } from '@/lib/apiGuard';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -34,6 +35,9 @@ function delay(ms: number) {
 }
 
 export async function POST() {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   try {
     const games = await prisma.games.findMany({
       where:  { source: 'steam', externalId: { not: null } },

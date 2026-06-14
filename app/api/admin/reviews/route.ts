@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAdmin } from '@/lib/apiGuard';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,6 +8,9 @@ export const dynamic = 'force-dynamic';
 type AnyWhere = any;
 
 export async function GET(req: NextRequest) {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   const { searchParams } = new URL(req.url);
   const status = searchParams.get('status') ?? 'pending';
   const page   = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));

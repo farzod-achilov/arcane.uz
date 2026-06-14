@@ -21,7 +21,7 @@ const SECTIONS = [
   },
   {
     title: '6. Ваши права',
-    body: 'Вы имеете право запросить доступ к своим данным, исправить неточные данные, удалить свои данные, ограничить обработку. Для реализации прав напишите на support@arcane.uz или в Telegram @arcaneuz_support.',
+    body: 'Вы имеете право запросить доступ к своим данным, исправить неточные данные, удалить свои данные, ограничить обработку. Для реализации прав напишите на support@arcane.com.uz или в Telegram @arcaneuz_support.',
   },
 ];
 
@@ -55,8 +55,8 @@ export default function PrivacyPage() {
              style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)' }}>
           <p className="font-body text-[#6B7280]" style={{ fontSize: '13px', lineHeight: '1.65' }}>
             По вопросам конфиденциальности:{' '}
-            <a href="mailto:support@arcane.uz" className="text-[#7C3AED] hover:text-[#9D60FA] transition-colors">
-              support@arcane.uz
+            <a href="mailto:support@arcane.com.uz" className="text-[#7C3AED] hover:text-[#9D60FA] transition-colors">
+              support@arcane.com.uz
             </a>
             {' '}или{' '}
             <a href="https://t.me/arcaneuz_support" target="_blank" rel="noopener noreferrer"

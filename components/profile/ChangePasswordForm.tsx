@@ -23,7 +23,8 @@ export default function ChangePasswordForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (next !== confirm) { setError('Пароли не совпадают'); return; }
+    if (next !== confirm)   { setError('Пароли не совпадают'); return; }
+    if (next.length < 8)    { setError('Новый пароль минимум 8 символов'); return; }
     setError(''); setLoading(true);
 
     const res  = await fetch('/api/profile/change-password', {
@@ -42,7 +43,7 @@ export default function ChangePasswordForm() {
   }
 
   // Password strength
-  const strength = [next.length >= 6, next.length >= 8, /[A-Z]/.test(next), /[0-9]/.test(next)].filter(Boolean).length;
+  const strength = [next.length >= 8, next.length >= 12, /[A-Z]/.test(next), /[0-9]/.test(next)].filter(Boolean).length;
   const strengthColor = ['#EF4444', '#F59E0B', '#22C55E', '#06B6D4'][strength - 1] ?? '#374151';
   const strengthLabel = ['', 'Слабый', 'Нормальный', 'Хороший', 'Сильный'][strength] ?? '';
 
@@ -126,7 +127,7 @@ export default function ChangePasswordForm() {
                       type={showNew ? 'text' : 'password'}
                       value={next}
                       onChange={e => { setNext(e.target.value); setError(''); }}
-                      placeholder="Минимум 6 символов"
+                      placeholder="Минимум 8 символов"
                       className="flex-1 bg-transparent outline-none font-body text-white placeholder-[#374151]"
                       style={{ fontSize: '13px' }}
                       autoComplete="new-password"

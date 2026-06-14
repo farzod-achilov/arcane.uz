@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { gameStore } from '@/lib/gameStore';
 import type { ArcaneGame, CreateGamePayload } from '@/lib/arcaneApi';
+import { requireAdmin } from '@/lib/apiGuard';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,6 +69,9 @@ export async function GET(request: Request) {
 // Saves game to PostgreSQL (always) and best-effort syncs to arcane-api backend.
 
 export async function POST(request: Request) {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   try {
     const body: CreateGamePayload = await request.json();
 

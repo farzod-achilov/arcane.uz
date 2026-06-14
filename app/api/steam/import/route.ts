@@ -34,6 +34,10 @@ function parseReleaseDate(raw: string | undefined): string | null {
 // ── GET — recent Steam imports ────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
+  const { requireAdmin } = await import('@/lib/apiGuard');
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   const { searchParams } = new URL(req.url);
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '20', 10), 100);
 
@@ -55,6 +59,10 @@ export async function GET(req: NextRequest) {
 // ── POST — import a single game from Steam URL ────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  const { requireAdmin } = await import('@/lib/apiGuard');
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   try {
     const body  = await req.json() as {
       url:       string;

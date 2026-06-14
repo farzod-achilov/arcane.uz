@@ -7,6 +7,7 @@ import BackToTop from '@/components/ui/BackToTop';
 import NavigationProgress from '@/components/ui/NavigationProgress';
 import Providers from '@/app/providers';
 import ConditionalLayout from '@/app/ConditionalLayout';
+import CookieBanner from '@/components/ui/CookieBanner';
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
@@ -31,6 +32,7 @@ export const metadata: Metadata = {
   title: 'ARCANE.UZ — Премиальный магазин игр',
   description: 'Цифровые игры для PC, PS5 и Xbox по лучшим ценам в Узбекистане. Мгновенная доставка ключей, Mystery Cases и Arcane Coins.',
   keywords: ['игры', 'цифровые игры', 'PC игры', 'PS5', 'Xbox', 'Узбекистан', 'arcane uz'],
+  manifest: '/manifest.json',
   icons: {
     icon:     [{ url: '/favicon.svg', type: 'image/svg+xml' }],
     shortcut: '/favicon.svg',
@@ -64,6 +66,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <InitialLoader />
           <ConditionalLayout>{children}</ConditionalLayout>
           <BackToTop />
+          <CookieBanner />
         </Providers>
       </body>
     </html>

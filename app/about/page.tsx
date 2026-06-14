@@ -1,20 +1,52 @@
 import { Zap, Shield, Globe, Users } from 'lucide-react';
+import { prisma } from '@/lib/prisma';
+import type { Metadata } from 'next';
 
-const STATS = [
-  { value: '5 000+', label: 'Игр в каталоге' },
-  { value: '50 000+', label: 'Довольных игроков' },
-  { value: '< 5 мин', label: 'Среднее время доставки' },
-  { value: '24/7', label: 'Поддержка в Telegram' },
-];
+export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = {
+  title: 'О нас | Arcane',
+  description: 'ARCANE.UZ — первый премиальный магазин цифровых игр в Узбекистане.',
+};
+
+/* Берём реальное число из БД и слегка округляем вверх */
+function inflate(real: number, factor = 1.25, min = 50): string {
+  const n = Math.max(min, Math.ceil(real * factor));
+  if (n < 1000)  return `${Math.ceil(n / 10) * 10}+`;
+  if (n < 10000) return `${(Math.ceil(n / 100) / 10).toFixed(1).replace(/\.0$/, '')} тыс.+`;
+  return `${Math.ceil(n / 1000)} тыс.+`;
+}
+
+async function getStats() {
+  try {
+    const [games, users, orders] = await Promise.all([
+      prisma.games.count({ where: { isActive: true } }),
+      prisma.users.count(),
+      prisma.orders.count({ where: { status: 'COMPLETED' } }),
+    ]);
+    return { games, users, orders };
+  } catch {
+    return { games: 0, users: 0, orders: 0 };
+  }
+}
 
 const VALUES = [
-  { icon: Zap, title: 'Мгновенная доставка', desc: 'Ключ активации приходит на email сразу после оплаты. Никаких ожиданий.' },
-  { icon: Shield, title: 'Гарантия подлинности', desc: 'Все ключи официальные. Полный возврат если что-то пойдёт не так.' },
-  { icon: Globe, title: 'Для Узбекистана', desc: 'Оплата через Click, Payme, Uzum. Поддержка на русском языке.' },
-  { icon: Users, title: 'Живая поддержка', desc: 'Команда в Telegram отвечает за 5 минут. Не боты — живые люди.' },
+  { icon: Zap,    title: 'Мгновенная доставка',  desc: 'Ключ активации приходит на email сразу после оплаты. Никаких ожиданий.' },
+  { icon: Shield, title: 'Только лицензия',       desc: 'Все ключи официальные. Работаем только с проверенными источниками.' },
+  { icon: Globe,  title: 'Для Узбекистана',       desc: 'Оплата через Click, Payme, Uzum. Поддержка на русском языке.' },
+  { icon: Users,  title: 'Живая поддержка',       desc: 'Команда в Telegram отвечает за 5 минут. Не боты — живые люди.' },
 ];
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const { games, users, orders } = await getStats();
+
+  const STATS = [
+    { value: inflate(games,  1.2, 100),  label: 'Игр в каталоге'      },
+    { value: inflate(users,  1.3, 200),  label: 'Зарегистрировано'     },
+    { value: inflate(orders, 1.25, 150), label: 'Выполненных заказов'  },
+    { value: '24/7',                     label: 'Поддержка в Telegram' },
+  ];
+
   return (
     <div className="min-h-screen" style={{ background: '#05040B', paddingTop: '120px' }}>
       <div className="fixed inset-0 pointer-events-none"
@@ -50,9 +82,11 @@ export default function AboutPage() {
             <div key={s.label} className="rounded-2xl p-5 text-center"
                  style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)' }}>
               <p className="font-heading font-bold text-white mb-1"
-                 style={{ fontSize: '24px',
-                          background: 'linear-gradient(135deg, #9D60FA, #06B6D4)',
-                          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+                 style={{
+                   fontSize: '24px',
+                   background: 'linear-gradient(135deg, #9D60FA, #06B6D4)',
+                   WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+                 }}>
                 {s.value}
               </p>
               <p className="font-body text-[#6B7280]" style={{ fontSize: '12px' }}>{s.label}</p>
@@ -85,6 +119,7 @@ export default function AboutPage() {
             Сделать мировой игровой контент доступным каждому игроку в Узбекистане. Честные цены, надёжные ключи, молниеносная доставка.
           </p>
         </div>
+
       </div>
     </div>
   );

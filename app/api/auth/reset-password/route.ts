@@ -1,19 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { hash } from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
+import { rateLimit } from '@/lib/rateLimit';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any;
 
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, { limit: 5, windowSec: 900 });
+  if (limited) return limited;
+
   try {
     const { token, password } = await req.json() as { token?: string; password?: string };
 
     if (!token?.trim()) {
       return NextResponse.json({ error: 'Токен обязателен' }, { status: 400 });
     }
-    if (!password || password.length < 6) {
-      return NextResponse.json({ error: 'Пароль минимум 6 символов' }, { status: 400 });
+    if (!password || password.length < 8) {
+      return NextResponse.json({ error: 'Пароль минимум 8 символов' }, { status: 400 });
     }
 
     const record = await db.password_reset_tokens.findUnique({

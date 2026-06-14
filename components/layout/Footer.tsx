@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Send, Instagram, Youtube, Twitter } from 'lucide-react';
+import { Send, Instagram } from 'lucide-react';
 import LogoFull from '@/components/ui/LogoFull';
 
 export default function Footer() {
@@ -31,10 +31,8 @@ export default function Footer() {
   };
 
   const socials = [
-    { icon: Send,      href: 'https://t.me/phantomuz', label: 'Telegram' },
-    { icon: Instagram, href: '#',                       label: 'Instagram' },
-    { icon: Youtube,   href: '#',                       label: 'YouTube' },
-    { icon: Twitter,   href: '#',                       label: 'Twitter' },
+    { icon: Send,      href: 'https://t.me/arcaneuz_support',           label: 'Telegram'  },
+    { icon: Instagram, href: 'https://www.instagram.com/arcanecomuz',   label: 'Instagram' },
   ];
 
   const paymentMethods = ['Payme', 'Click', 'Uzum', 'Visa', 'MC'];

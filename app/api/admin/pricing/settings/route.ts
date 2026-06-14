@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getPriceSettings, upsertPriceSettings } from '@/lib/smartPricing/repository';
 import { DEFAULT_PRICE_SETTINGS } from '@/lib/smartPricing/engine';
+import { requireAdmin } from '@/lib/apiGuard';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   try {
     const data = await getPriceSettings();
     return NextResponse.json({ success: true, data });
@@ -14,10 +18,12 @@ export async function GET() {
 }
 
 export async function PATCH(req: Request) {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   try {
     const body = await req.json();
 
-    // Basic validation
     const numericFields = [
       'globalMarkupPercent', 'cheapGamesThreshold', 'cheapGamesFixedMarkup',
       'expensiveGamesPercentMarkup', 'minimumProfitUsd',
@@ -48,8 +54,10 @@ export async function PATCH(req: Request) {
   }
 }
 
-// PUT → reset to defaults
 export async function PUT() {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   try {
     const { id: _id, ...defaults } = DEFAULT_PRICE_SETTINGS;
     const data = await upsertPriceSettings(defaults);

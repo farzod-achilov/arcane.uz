@@ -6,6 +6,10 @@ export async function GET(
   _request: Request,
   { params }: { params: { id: string } }
 ) {
+  const { requireAdmin } = await import('@/lib/apiGuard');
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   const key = process.env.RAWG_API_KEY;
   if (!key) {
     return NextResponse.json({ success: false, error: 'RAWG_API_KEY not configured' });

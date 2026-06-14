@@ -18,8 +18,13 @@
 export const dynamic = 'force-dynamic';
 
 import { sendTelegramNotif } from '@/lib/telegramService';
+import { requireAdmin } from '@/lib/apiGuard';
+import { NextResponse } from 'next/server';
 
 export async function POST(req: Request): Promise<Response> {
+  const guard = await requireAdmin();
+  if (guard) return guard as NextResponse;
+
   const body = (await req.json()) as {
     userId?: string;
     event?:  string;

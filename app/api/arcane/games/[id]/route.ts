@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { gameStore } from '@/lib/gameStore';
+import { requireAdmin } from '@/lib/apiGuard';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,6 +45,9 @@ export async function DELETE(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   // 1. Try arcane-api backend first
   try {
     const res = await fetch(`${BACKEND}/api/games/admin/${params.id}`, {
@@ -71,6 +75,9 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   try {
     const body = await request.json();
     const res = await fetch(`${BACKEND}/api/games/admin/${params.id}`, {

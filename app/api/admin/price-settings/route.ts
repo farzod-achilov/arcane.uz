@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/apiGuard';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,10 +29,16 @@ const DEFAULT_SETTINGS: PriceSettings = {
 let settings: PriceSettings = { ...DEFAULT_SETTINGS };
 
 export async function GET() {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   return NextResponse.json({ success: true, data: settings });
 }
 
 export async function PATCH(request: Request) {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   try {
     const body = await request.json() as Partial<PriceSettings>;
 
@@ -57,6 +64,9 @@ export async function PATCH(request: Request) {
 }
 
 export async function PUT() {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
   settings = { ...DEFAULT_SETTINGS };
   return NextResponse.json({ success: true, data: settings });
 }

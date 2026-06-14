@@ -1,0 +1,43 @@
+{
+  "name": "ARCANE.UZ — Премиальный магазин игр",
+  "short_name": "ARCANE.UZ",
+  "description": "Цифровые игры для PC, PS5 и Xbox по лучшим ценам в Узбекистане. Мгновенная доставка ключей.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0A0A0F",
+  "theme_color": "#7C3AED",
+  "orientation": "portrait-primary",
+  "lang": "ru",
+  "categories": ["shopping", "games"],
+  "icons": [
+    {
+      "src": "/logo-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Каталог игр",
+      "short_name": "Каталог",
+      "description": "Перейти в каталог игр",
+      "url": "/catalog",
+      "icons": [{ "src": "/logo-mark.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Мои заказы",
+      "short_name": "Заказы",
+      "description": "История заказов",
+      "url": "/orders",
+      "icons": [{ "src": "/logo-mark.svg", "sizes": "any" }]
+    }
+  ]
+}

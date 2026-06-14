@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { encryptKey, hashKey, normalizeSteamKey, validateSteamKey } from '@/lib/keys/encryption';
+import { requireAdmin } from '@/lib/apiGuard';
 
 const BATCH_SIZE = 100;
 
@@ -13,6 +14,8 @@ export interface BulkImportResult {
 }
 
 export async function POST(req: NextRequest) {
+  const guard = await requireAdmin();
+  if (guard) return guard;
   try {
     const body = await req.json() as {
       gameId: string;

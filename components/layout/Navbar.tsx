@@ -618,7 +618,24 @@ export default function Navbar() {
                 />
               </button>
 
-              {/* ── NOTIFICATIONS ── */}
+              {/* ── NOTIFICATIONS (mobile — link to page) ── */}
+              {isLoggedIn && (
+                <Link
+                  href="/notifications"
+                  className="sm:hidden group relative p-2.5 rounded-xl transition-all duration-200"
+                  aria-label="Уведомления"
+                >
+                  <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                       style={{ background: 'rgba(124,58,237,0.08)' }} />
+                  <Bell className="relative z-10 w-[18px] h-[18px] text-[#6B7280] group-hover:text-[#9D60FA]" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#7C3AED]"
+                          style={{ boxShadow: '0 0 5px rgba(124,58,237,0.9)' }} />
+                  )}
+                </Link>
+              )}
+
+              {/* ── NOTIFICATIONS (desktop — dropdown) ── */}
               <div className="hidden sm:block relative">
                 <button
                   className="group relative p-2.5 rounded-xl transition-all duration-200"
