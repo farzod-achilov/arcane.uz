@@ -2,15 +2,18 @@
 
 import { motion } from 'framer-motion';
 import { Send, MessageCircle, Clock, Shield, Headphones, Zap } from 'lucide-react';
-
-const features = [
-  { icon: Zap,         text: 'Ответ за 5 минут',  sub: 'среднее время' },
-  { icon: Clock,       text: '24 / 7',             sub: 'без выходных'  },
-  { icon: Shield,      text: 'Безопасно',          sub: 'проверено'     },
-  { icon: Headphones,  text: 'На русском',         sub: 'живые агенты'  },
-];
+import { useDict } from '@/lib/locale/client';
 
 export default function TelegramSupport() {
+  const t = useDict().home.telegram;
+
+  const features = [
+    { icon: Zap,        text: t.feat.fastText, sub: t.feat.fastSub  },
+    { icon: Clock,      text: '24 / 7',        sub: t.feat.allDaySub },
+    { icon: Shield,     text: t.feat.safeText, sub: t.feat.safeSub  },
+    { icon: Headphones, text: t.feat.langText, sub: t.feat.langSub  },
+  ];
+
   return (
     <section className="py-12 sm:py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -120,7 +123,7 @@ export default function TelegramSupport() {
                       className="font-body text-[#22C55E]"
                       style={{ fontSize: '11px' }}
                     >
-                      Онлайн сейчас
+                      {t.online}
                     </span>
                   </div>
                 </div>
@@ -128,14 +131,14 @@ export default function TelegramSupport() {
 
               {/* Headline */}
               <h2 className="font-heading font-bold text-white mb-3" style={{ fontSize: 'clamp(24px, 3vw, 34px)', lineHeight: 1.2 }}>
-                Нужна помощь?{' '}
+                {t.headlinePre}{' '}
                 <span
                   style={{
                     color: '#22D3EE',
                     textShadow: '0 0 20px rgba(6,182,212,0.35)',
                   }}
                 >
-                  Мы рядом
+                  {t.headlineAccent}
                 </span>
               </h2>
 
@@ -144,7 +147,7 @@ export default function TelegramSupport() {
                 className="font-body leading-relaxed max-w-md mb-8"
                 style={{ fontSize: '14px', color: '#6B7280', lineHeight: '1.7' }}
               >
-                Команда поддержки помогает с покупками, активацией ключей и любыми вопросами. Быстро, честно, на вашем языке.
+                {t.desc}
               </p>
 
               {/* Feature badges */}
@@ -229,7 +232,7 @@ export default function TelegramSupport() {
                     }}
                   />
                   <MessageCircle className="w-[18px] h-[18px] relative z-10 flex-shrink-0" />
-                  <span className="relative z-10">Написать в Telegram</span>
+                  <span className="relative z-10">{t.cta}</span>
                 </motion.a>
 
                 {/* Handle */}
@@ -256,13 +259,13 @@ export default function TelegramSupport() {
                       className="font-heading font-bold text-[#22D3EE]"
                       style={{ fontSize: '16px', lineHeight: 1 }}
                     >
-                      &lt; 5 мин
+                      {t.lt5min}
                     </span>
                     <span
                       className="font-body text-[#4B5563] mt-1"
                       style={{ fontSize: '10px', letterSpacing: '0.06em' }}
                     >
-                      СРЕДНЕЕ ВРЕМЯ
+                      {t.avgTime}
                     </span>
                   </div>
                   <div
@@ -280,7 +283,7 @@ export default function TelegramSupport() {
                       className="font-body text-[#4B5563] mt-1"
                       style={{ fontSize: '10px', letterSpacing: '0.06em' }}
                     >
-                      БЕЗ ВЫХОДНЫХ
+                      {t.noWeekends}
                     </span>
                   </div>
                 </div>

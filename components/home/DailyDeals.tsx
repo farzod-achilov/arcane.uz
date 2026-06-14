@@ -6,6 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Clock, Star, ArrowRight } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
+import { useDict } from '@/lib/locale/client';
 
 export type DealItem = {
   gameId:          string;
@@ -22,6 +23,7 @@ export type DealItem = {
 
 /* ── Countdown ── */
 function Countdown({ endTime }: { endTime: number }) {
+  const tm = useDict().home.time;
   const [t, setT] = useState({ h: 0, m: 0, s: 0 });
 
   useEffect(() => {
@@ -41,7 +43,7 @@ function Countdown({ endTime }: { endTime: number }) {
   const pad = (n: number) => String(n).padStart(2, '0');
   return (
     <div className="flex items-center gap-1.5">
-      {([{ val: t.h, label: 'ЧАС' }, { val: t.m, label: 'МИН' }, { val: t.s, label: 'СЕК' }]).map((u, i) => (
+      {([{ val: t.h, label: tm.hours }, { val: t.m, label: tm.min }, { val: t.s, label: tm.sec }]).map((u, i) => (
         <div key={i} className="flex items-center gap-1.5">
           <div className="flex flex-col items-center rounded-xl px-3 py-2"
                style={{ minWidth: '52px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
@@ -66,6 +68,7 @@ function Countdown({ endTime }: { endTime: number }) {
 
 /* ── Main ── */
 export default function DailyDeals({ deals, endTime }: { deals: DealItem[]; endTime: number }) {
+  const d = useDict().home.deals;
   const stableEnd = useRef(endTime).current;
 
   return (
@@ -92,7 +95,7 @@ export default function DailyDeals({ deals, endTime }: { deals: DealItem[]; endT
                 <Clock className="w-3 h-3 text-[#EF4444]/70" />
                 <span className="font-heading font-semibold text-[#EF4444]/70"
                       style={{ fontSize: '10.5px', letterSpacing: '0.13em', textTransform: 'uppercase' }}>
-                  Ограниченное время
+                  {d.limited}
                 </span>
               </div>
             </div>
@@ -105,7 +108,7 @@ export default function DailyDeals({ deals, endTime }: { deals: DealItem[]; endT
             <Link href="/catalog?sort=price_asc"
                   className="hidden lg:inline-flex items-center gap-1.5 font-body transition-colors duration-200 group text-[#4B5563] hover:text-[#9D60FA]"
                   style={{ fontSize: '13px' }}>
-              <span>Все скидки</span>
+              <span>{d.seeAll}</span>
               <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
             </Link>
           </div>
@@ -123,7 +126,7 @@ export default function DailyDeals({ deals, endTime }: { deals: DealItem[]; endT
 
         <div className="mt-5 text-center lg:hidden">
           <Link href="/catalog" className="font-body transition-colors duration-200 text-[#4B5563] hover:text-[#9D60FA]" style={{ fontSize: '13px' }}>
-            Все скидки →
+            {d.seeAll} →
           </Link>
         </div>
       </div>
@@ -133,6 +136,7 @@ export default function DailyDeals({ deals, endTime }: { deals: DealItem[]; endT
 
 /* ── Deal Card ── */
 function DealCard({ deal }: { deal: DealItem }) {
+  const d = useDict().home.deals;
   return (
     <Link
       href={`/product/${deal.gameId}`}
@@ -197,7 +201,7 @@ function DealCard({ deal }: { deal: DealItem }) {
         <div className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-lg font-heading font-semibold text-white"
              style={{ background: 'linear-gradient(135deg, #7C3AED 0%, #5B21B6 60%, #06B6D4 130%)',
                       padding: '6px 12px', fontSize: '11.5px', boxShadow: '0 0 0 1px rgba(124,58,237,0.3)' }}>
-          Смотреть
+          {d.view}
         </div>
       </div>
     </Link>

@@ -4,80 +4,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { Zap, ArrowRight, TrendingUp, Percent, Gift, ChevronsUp, Layers } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-
-const perks = [
-  {
-    icon: TrendingUp,
-    title: 'Зарабатывай',
-    desc: '1% от каждой покупки возвращается монетами',
-    accent: '#22C55E',
-  },
-  {
-    icon: Percent,
-    title: 'Трать',
-    desc: 'До 30% от суммы заказа можно оплатить монетами',
-    accent: '#06B6D4',
-  },
-  {
-    icon: Gift,
-    title: 'Бонусы',
-    desc: 'Двойные монеты в день рождения и во время акций',
-    accent: '#F59E0B',
-  },
-  {
-    icon: ChevronsUp,
-    title: 'Уровни',
-    desc: 'Повышай статус — больше монет и привилегий',
-    accent: '#9D60FA',
-  },
-];
-
-const tiers = [
-  {
-    name: 'Bronze',
-    label: 'Начинающий',
-    min: 0,
-    color: '#CD7F32',
-    borderColor: 'rgba(205,127,50,0.25)',
-    bg: 'rgba(205,127,50,0.07)',
-    multiplier: '1×',
-    bonus: 'Базовый кэшбэк',
-    isTop: false,
-  },
-  {
-    name: 'Silver',
-    label: 'Опытный',
-    min: 5000,
-    color: '#9CA3AF',
-    borderColor: 'rgba(156,163,175,0.22)',
-    bg: 'rgba(156,163,175,0.06)',
-    multiplier: '1.5×',
-    bonus: '+50% монет',
-    isTop: false,
-  },
-  {
-    name: 'Gold',
-    label: 'Про',
-    min: 20000,
-    color: '#F59E0B',
-    borderColor: 'rgba(245,158,11,0.28)',
-    bg: 'rgba(245,158,11,0.07)',
-    multiplier: '2×',
-    bonus: 'Приоритет поддержки',
-    isTop: false,
-  },
-  {
-    name: 'Arcane',
-    label: 'Легенда',
-    min: 50000,
-    color: '#9D60FA',
-    borderColor: 'rgba(124,58,237,0.45)',
-    bg: 'linear-gradient(135deg, rgba(124,58,237,0.14) 0%, rgba(6,182,212,0.07) 100%)',
-    multiplier: '3×',
-    bonus: 'Эксклюзивный доступ',
-    isTop: true,
-  },
-];
+import { useDict } from '@/lib/locale/client';
 
 // Ambient floating particles around the coin
 const particles = [
@@ -95,6 +22,21 @@ const particles = [
 export default function ArcaneCoins() {
   const { data: session } = useSession();
   const ctaHref = session?.user ? '/profile' : '/register';
+  const c = useDict().home.coins;
+
+  const perks = [
+    { icon: TrendingUp, title: c.perks.earnTitle,   desc: c.perks.earnDesc,   accent: '#22C55E' },
+    { icon: Percent,    title: c.perks.spendTitle,  desc: c.perks.spendDesc,  accent: '#06B6D4' },
+    { icon: Gift,       title: c.perks.bonusTitle,  desc: c.perks.bonusDesc,  accent: '#F59E0B' },
+    { icon: ChevronsUp, title: c.perks.levelsTitle, desc: c.perks.levelsDesc, accent: '#9D60FA' },
+  ];
+
+  const tiers = [
+    { name: 'Bronze', label: c.tiers.bronze, min: 0,     color: '#CD7F32', borderColor: 'rgba(205,127,50,0.25)', bg: 'rgba(205,127,50,0.07)', multiplier: '1×',   bonus: c.tiers.bonusBronze, isTop: false },
+    { name: 'Silver', label: c.tiers.silver, min: 5000,  color: '#9CA3AF', borderColor: 'rgba(156,163,175,0.22)', bg: 'rgba(156,163,175,0.06)', multiplier: '1.5×', bonus: c.tiers.bonusSilver, isTop: false },
+    { name: 'Gold',   label: c.tiers.gold,   min: 20000, color: '#F59E0B', borderColor: 'rgba(245,158,11,0.28)', bg: 'rgba(245,158,11,0.07)', multiplier: '2×',   bonus: c.tiers.bonusGold,   isTop: false },
+    { name: 'Arcane', label: c.tiers.arcane, min: 50000, color: '#9D60FA', borderColor: 'rgba(124,58,237,0.45)', bg: 'linear-gradient(135deg, rgba(124,58,237,0.14) 0%, rgba(6,182,212,0.07) 100%)', multiplier: '3×', bonus: c.tiers.bonusArcane, isTop: true },
+  ];
 
   return (
     <section className="py-16 sm:py-24 relative overflow-hidden">
@@ -148,7 +90,7 @@ export default function ArcaneCoins() {
                 className="font-heading font-semibold text-[#9D60FA]"
                 style={{ fontSize: '11px', letterSpacing: '0.13em', textTransform: 'uppercase' }}
               >
-                Программа лояльности
+                {c.badge}
               </span>
             </div>
 
@@ -167,7 +109,7 @@ export default function ArcaneCoins() {
                   backgroundClip: 'text',
                 }}
               >
-                твои привилегии
+                {c.headlineAccent}
               </span>
             </h2>
 
@@ -176,7 +118,7 @@ export default function ArcaneCoins() {
               className="font-body leading-relaxed mb-9"
               style={{ fontSize: '14.5px', color: '#6B7280', maxWidth: '420px', lineHeight: '1.75' }}
             >
-              Система вознаграждений, которая работает за тебя. Каждая покупка приносит монеты — каждая монета приближает к скидке.
+              {c.desc}
             </p>
 
             {/* Perk cards */}
@@ -251,7 +193,7 @@ export default function ArcaneCoins() {
                       'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 55%)',
                   }}
                 />
-                <span className="relative z-10">Начать копить</span>
+                <span className="relative z-10">{c.cta}</span>
                 <ArrowRight className="w-4 h-4 relative z-10 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             </motion.div>
@@ -358,14 +300,14 @@ export default function ArcaneCoins() {
                     className="font-heading font-semibold text-[#9CA3AF]"
                     style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase' }}
                   >
-                    Уровни программы
+                    {c.tiersHeader}
                   </h4>
                 </div>
                 <span
                   className="font-body text-[#374151]"
                   style={{ fontSize: '11px' }}
                 >
-                  Множитель монет
+                  {c.multiplier}
                 </span>
               </div>
 
@@ -412,8 +354,8 @@ export default function ArcaneCoins() {
                           style={{ fontSize: '10px', marginTop: '1px' }}
                         >
                           {tier.min > 0
-                            ? `от ${tier.min.toLocaleString('ru')} монет`
-                            : 'Стартовый'}
+                            ? `${c.tierFromPre}${tier.min.toLocaleString('ru')}${c.tierFromSuf}`
+                            : c.tierStart}
                         </span>
                       </div>
                     </div>
@@ -453,7 +395,7 @@ export default function ArcaneCoins() {
                 className="font-body text-[#374151] mt-4 text-center"
                 style={{ fontSize: '11px' }}
               >
-                Уровень повышается автоматически при накоплении монет
+                {c.footer}
               </p>
             </div>
           </motion.div>

@@ -6,8 +6,10 @@ import { Clock } from 'lucide-react';
 import GameCard from '@/components/catalog/GameCard';
 import { useRecentlyViewed } from '@/hooks/useRecentlyViewed';
 import type { GameListItem } from '@/lib/db/games';
+import { useDict } from '@/lib/locale/client';
 
 export default function RecentlyViewed() {
+  const r = useDict().home.recent;
   const { ids } = useRecentlyViewed();
   const [games,   setGames]   = useState<GameListItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -39,11 +41,11 @@ export default function RecentlyViewed() {
             <div style={{ width: '3px', height: '20px', background: 'linear-gradient(to bottom, #06B6D4, #7C3AED)', borderRadius: '2px' }} />
             <Clock style={{ width: '15px', height: '15px', color: '#06B6D4' }} />
             <h2 className="font-heading font-bold text-white" style={{ fontSize: '18px' }}>
-              Вы смотрели
+              {r.title}
             </h2>
           </div>
           <span className="font-body text-[#374151]" style={{ fontSize: '12px' }}>
-            {games.length} {games.length === 1 ? 'игра' : games.length < 5 ? 'игры' : 'игр'}
+            {games.length} {games.length === 1 ? r.one : games.length < 5 ? r.few : r.many}
           </span>
         </motion.div>
 

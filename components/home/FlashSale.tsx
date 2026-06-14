@@ -6,6 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Zap, Star, ShoppingCart, ArrowRight, Flame } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
+import { useDict } from '@/lib/locale/client';
 
 export type FlashDeal = {
   gameId:          string;
@@ -22,6 +23,7 @@ export type FlashDeal = {
 
 /* ── Big countdown ── */
 function BigCountdown({ endTime }: { endTime: number }) {
+  const tm = useDict().home.time;
   const [t, setT] = useState({ h: 0, m: 0, s: 0 });
 
   useEffect(() => {
@@ -40,9 +42,9 @@ function BigCountdown({ endTime }: { endTime: number }) {
 
   const pad = (n: number) => String(n).padStart(2, '0');
   const units = [
-    { val: t.h, label: 'ЧАС' },
-    { val: t.m, label: 'МИН' },
-    { val: t.s, label: 'СЕК' },
+    { val: t.h, label: tm.hours },
+    { val: t.m, label: tm.min },
+    { val: t.s, label: tm.sec },
   ];
 
   return (
@@ -93,6 +95,7 @@ function BigCountdown({ endTime }: { endTime: number }) {
 
 /* ── Flash Sale Card ── */
 function FlashCard({ deal, index }: { deal: FlashDeal; index: number }) {
+  const f = useDict().home.flash;
   const [hovered, setHovered] = useState(false);
   const savings = deal.priceUzs - deal.discountedPrice;
 
@@ -205,7 +208,7 @@ function FlashCard({ deal, index }: { deal: FlashDeal; index: number }) {
                 color: '#4ADE80',
               }}
             >
-              Экономия {formatPrice(savings)}
+              {f.savings} {formatPrice(savings)}
             </div>
           </div>
         </div>
@@ -224,7 +227,7 @@ function FlashCard({ deal, index }: { deal: FlashDeal; index: number }) {
           }}
         >
           <ShoppingCart style={{ width: '14px', height: '14px' }} />
-          Купить со скидкой
+          {f.buy}
         </div>
       </Link>
     </motion.div>
@@ -233,6 +236,7 @@ function FlashCard({ deal, index }: { deal: FlashDeal; index: number }) {
 
 /* ── Section ── */
 export default function FlashSale({ deals, endTime }: { deals: FlashDeal[]; endTime: number }) {
+  const f = useDict().home.flash;
   const stableEnd = useRef(endTime).current;
 
   if (deals.length === 0) return null;
@@ -287,7 +291,7 @@ export default function FlashSale({ deals, endTime }: { deals: FlashDeal[]; endT
               <span className="font-heading font-semibold text-[#EF4444]/80 flex items-center gap-1.5"
                     style={{ fontSize: '11px', letterSpacing: '0.13em', textTransform: 'uppercase' }}>
                 <Flame style={{ width: '12px', height: '12px' }} />
-                Ограниченное предложение
+                {f.limited}
               </span>
             </div>
             <h2
@@ -310,7 +314,7 @@ export default function FlashSale({ deals, endTime }: { deals: FlashDeal[]; endT
               className="hidden lg:inline-flex items-center gap-1.5 font-body transition-colors group text-[#4B5563] hover:text-[#F87171]"
               style={{ fontSize: '13px' }}
             >
-              Все скидки
+              {f.seeAll}
               <ArrowRight style={{ width: '13px', height: '13px' }}
                           className="transition-transform group-hover:translate-x-0.5" />
             </Link>
@@ -327,7 +331,7 @@ export default function FlashSale({ deals, endTime }: { deals: FlashDeal[]; endT
         {/* Mobile link */}
         <div className="mt-6 text-center lg:hidden">
           <Link href="/deals" className="font-body text-[#4B5563] hover:text-[#F87171] transition-colors" style={{ fontSize: '13px' }}>
-            Все скидки →
+            {f.seeAll} →
           </Link>
         </div>
       </div>

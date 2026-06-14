@@ -7,9 +7,11 @@ import Link from 'next/link';
 import { CASES_LIST } from '@/lib/casesData';
 import { MACHINE_VIS, type MachineId, generateLiveWins, DROP_VFX } from '@/lib/arcaneDropData';
 import { formatPrice } from '@/lib/utils';
+import { useDict } from '@/lib/locale/client';
 
 // ── Live ticker ───────────────────────────────────────────────────────────────
 function LiveTicker() {
+  const cs = useDict().home.cases;
   const wins = useMemo(() => generateLiveWins(14), []);
   const [idx, setIdx] = useState(0);
   useEffect(() => {
@@ -30,7 +32,7 @@ function LiveTicker() {
           animate={{ scale: [1, 1.6, 1] }} transition={{ duration: 0.9, repeat: Infinity }} />
         <span className="font-pixel" style={{ fontSize: 8, color: vfx.color, letterSpacing: '0.1em' }}>{vfx.label}</span>
         <span className="font-body text-white/45 text-xs">
-          <span className="text-white/65">{w.user}</span> выиграл {w.reward}
+          <span className="text-white/65">{w.user}</span> {cs.won} {w.reward}
         </span>
       </motion.div>
     </AnimatePresence>
@@ -43,6 +45,7 @@ function MachineCard({ config, vis, index }: {
   vis: typeof MACHINE_VIS[MachineId];
   index: number;
 }) {
+  const cs = useDict().home.cases;
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -211,12 +214,12 @@ function MachineCard({ config, vis, index }: {
             <span className="font-pixel px-2.5 py-1.5 rounded-lg"
               style={{ fontSize: 7, background: `${vis.color}0E`, border: `1px solid ${vis.color}22`,
                 color: `${vis.color}BB`, letterSpacing: '0.1em' }}>
-              {config.rewards.length} ДРОПОВ
+              {config.rewards.length} {cs.drops}
             </span>
             <span className="font-pixel px-2.5 py-1.5 rounded-lg"
               style={{ fontSize: 7, background: 'rgba(255,200,87,0.07)', border: '1px solid rgba(255,200,87,0.18)',
                 color: 'rgba(255,200,87,0.7)', letterSpacing: '0.1em' }}>
-              ОТ {formatPrice(config.price)}
+              {cs.from} {formatPrice(config.price)}
             </span>
           </div>
         </div>
@@ -250,7 +253,7 @@ function MachineCard({ config, vis, index }: {
                 style={{ background: `linear-gradient(90deg, transparent, ${vis.color}80, transparent)` }} />
               <Zap className="w-4 h-4 relative z-10" style={{ color: vis.color }} />
               <span className="font-heading font-black text-white relative z-10 tracking-wider" style={{ fontSize: 13 }}>
-                ЗАПУСТИТЬ
+                {cs.launch}
               </span>
               <ChevronRight className="w-4 h-4 relative z-10 opacity-50" style={{ color: vis.color }} />
             </motion.div>
@@ -279,6 +282,7 @@ function MachineCard({ config, vis, index }: {
 
 // ── Section ───────────────────────────────────────────────────────────────────
 export default function MysteryCases() {
+  const cs = useDict().home.cases;
   return (
     <section className="py-20 sm:py-28 relative overflow-hidden">
 
@@ -353,7 +357,7 @@ export default function MysteryCases() {
           </h2>
 
           <p className="font-body mx-auto mb-2" style={{ fontSize: 15, color: '#6B7280', maxWidth: '440px', lineHeight: 1.7 }}>
-            Футуристические аркадные машины с реальными наградами. Каждая капсула — шанс выиграть AAA-игру.
+            {cs.desc}
           </p>
           <motion.p className="font-pixel"
             style={{ fontSize: 8.5, color: 'rgba(124,58,237,0.5)', letterSpacing: '0.2em' }}
@@ -380,7 +384,7 @@ export default function MysteryCases() {
               style={{ fontSize: 9.5, color: 'rgba(124,58,237,0.5)', letterSpacing: '0.2em' }}
               whileHover={{ color: 'rgba(124,58,237,0.9)' }}
               transition={{ duration: 0.2 }}>
-              ВСЕ МАШИНЫ И ДРОПЫ →
+              {cs.seeAll} →
             </motion.span>
           </Link>
         </motion.div>
