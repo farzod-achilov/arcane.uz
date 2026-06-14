@@ -95,6 +95,24 @@ const ru = {
         coinsDesc:     'Бонусы за каждую покупку',
       },
     },
+
+    sections: {
+      seeAll:        'Смотреть все',
+      catLabel:      'Разделы',
+      catTitle:      'Категории игр',
+      catSeeAll:     'Все категории',
+      gamesCount:    'игр',
+      trendLabel:    'Популярное',
+      trendTitle:    'Топ продаж',
+      newLabel:      'Только что добавлено',
+      newTitle:      'Новинки',
+      topLabel:      'Оценка игроков',
+      topTitle:      'Топ по рейтингу',
+      reviewsLabel:  'Отзывы',
+      reviewsTitle:  'Что говорят покупатели',
+      reviewsCount:  'отзывов',
+      reviewsBought: 'Покупка',
+    },
   },
 };
 

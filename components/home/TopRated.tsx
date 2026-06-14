@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { Star } from 'lucide-react';
 import GameCard from '@/components/catalog/GameCard';
 import type { GameListItem } from '@/lib/db/games';
+import { useDict } from '@/lib/locale/client';
 
 export default function TopRated({ games }: { games: GameListItem[] }) {
+  const s = useDict().home.sections;
   if (!games.length) return null;
 
   return (
@@ -22,15 +24,15 @@ export default function TopRated({ games }: { games: GameListItem[] }) {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <Star className="w-4 h-4 text-[#F59E0B]" />
-              <p className="text-[#F59E0B] text-xs font-heading font-semibold tracking-widest uppercase">Оценка игроков</p>
+              <p className="text-[#F59E0B] text-xs font-heading font-semibold tracking-widest uppercase">{s.topLabel}</p>
             </div>
-            <h2 className="font-heading font-bold text-2xl sm:text-3xl text-white">Топ по рейтингу</h2>
+            <h2 className="font-heading font-bold text-2xl sm:text-3xl text-white">{s.topTitle}</h2>
           </div>
           <Link
             href="/catalog?sort=rating"
             className="text-sm text-gray-400 hover:text-[#F59E0B] transition-colors font-body hidden sm:block"
           >
-            Смотреть все →
+            {s.seeAll} →
           </Link>
         </motion.div>
 
@@ -45,7 +47,7 @@ export default function TopRated({ games }: { games: GameListItem[] }) {
             href="/catalog?sort=rating"
             className="inline-flex items-center gap-2 bg-[#12121A] border border-[#1E1E2E] text-white text-sm font-heading font-semibold px-6 py-3 rounded-xl transition-all duration-200 hover:border-[#F59E0B]/50"
           >
-            Смотреть все →
+            {s.seeAll} →
           </Link>
         </div>
       </div>

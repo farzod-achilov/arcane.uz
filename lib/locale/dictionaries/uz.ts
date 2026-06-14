@@ -95,6 +95,24 @@ const uz: Dictionary = {
         coinsDesc:     'Har bir xarid uchun bonuslar',
       },
     },
+
+    sections: {
+      seeAll:        "Hammasini ko'rish",
+      catLabel:      "Bo'limlar",
+      catTitle:      'Oʻyin kategoriyalari',
+      catSeeAll:     'Barcha kategoriyalar',
+      gamesCount:    "o'yin",
+      trendLabel:    'Ommabop',
+      trendTitle:    'Sotuvlar lideri',
+      newLabel:      "Hozirgina qo'shilgan",
+      newTitle:      'Yangiliklar',
+      topLabel:      'Oʻyinchilar bahosi',
+      topTitle:      "Reyting bo'yicha top",
+      reviewsLabel:  'Sharhlar',
+      reviewsTitle:  'Xaridorlar nima deyishadi',
+      reviewsCount:  'sharh',
+      reviewsBought: 'Xarid',
+    },
   },
 };
 

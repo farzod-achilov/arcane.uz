@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { Star, CheckCircle2 } from 'lucide-react';
+import { useDict } from '@/lib/locale/client';
 
 export type ReviewItem = {
   id:        string;
@@ -16,6 +17,7 @@ export type ReviewItem = {
 };
 
 export default function Reviews({ reviews }: { reviews: ReviewItem[] }) {
+  const s = useDict().home.sections;
   return (
     <section className="py-16 sm:py-20 bg-[#0A0A0F]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -26,9 +28,9 @@ export default function Reviews({ reviews }: { reviews: ReviewItem[] }) {
           transition={{ duration: 0.5 }}
           className="text-center mb-12"
         >
-          <p className="text-[#7C3AED] text-xs font-heading font-semibold tracking-widest uppercase mb-2">Отзывы</p>
+          <p className="text-[#7C3AED] text-xs font-heading font-semibold tracking-widest uppercase mb-2">{s.reviewsLabel}</p>
           <h2 className="font-heading font-bold text-3xl sm:text-4xl text-white mb-3">
-            Что говорят покупатели
+            {s.reviewsTitle}
           </h2>
           <div className="flex items-center justify-center gap-3">
             <div className="flex items-center gap-0.5">
@@ -39,7 +41,7 @@ export default function Reviews({ reviews }: { reviews: ReviewItem[] }) {
             <span className="font-heading font-bold text-2xl text-white">
               {(reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)}
             </span>
-            <span className="text-gray-500 font-body text-sm">{reviews.length} отзывов</span>
+            <span className="text-gray-500 font-body text-sm">{reviews.length} {s.reviewsCount}</span>
           </div>
         </motion.div>
 
@@ -90,7 +92,7 @@ export default function Reviews({ reviews }: { reviews: ReviewItem[] }) {
               {review.gameTitle && (
                 <div className="flex items-center gap-1.5">
                   <div className="w-1 h-1 rounded-full bg-[#7C3AED]" />
-                  <span className="text-gray-600 text-xs font-body">Покупка: {review.gameTitle}</span>
+                  <span className="text-gray-600 text-xs font-body">{s.reviewsBought}: {review.gameTitle}</span>
                 </div>
               )}
             </motion.div>

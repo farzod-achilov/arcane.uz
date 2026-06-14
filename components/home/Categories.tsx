@@ -8,6 +8,7 @@ import {
   Sword, Puzzle, Cpu, Car, ArrowRight,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useDict } from '@/lib/locale/client';
 
 type GenreItem = { name: string; count: number };
 
@@ -29,6 +30,7 @@ function genreConfig(name: string): { icon: LucideIcon; color: string } {
 }
 
 export default function Categories({ genres }: { genres: GenreItem[] }) {
+  const s = useDict().home.sections;
   return (
     <section className="py-12 sm:py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -44,13 +46,13 @@ export default function Categories({ genres }: { genres: GenreItem[] }) {
               className="font-heading font-semibold text-[#7C3AED] mb-1.5"
               style={{ fontSize: '11px', letterSpacing: '0.13em', textTransform: 'uppercase' }}
             >
-              Разделы
+              {s.catLabel}
             </p>
             <h2
               className="font-heading font-bold text-white"
               style={{ fontSize: 'clamp(20px, 2.5vw, 26px)' }}
             >
-              Категории игр
+              {s.catTitle}
             </h2>
           </div>
           <Link
@@ -60,7 +62,7 @@ export default function Categories({ genres }: { genres: GenreItem[] }) {
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#9D60FA'; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#4B5563'; }}
           >
-            <span>Все категории</span>
+            <span>{s.catSeeAll}</span>
             <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
           </Link>
         </motion.div>
@@ -118,7 +120,7 @@ export default function Categories({ genres }: { genres: GenreItem[] }) {
                       {genre.name}
                     </p>
                     <p className="font-body mt-0.5" style={{ fontSize: '10px', color: '#4B5563' }}>
-                      {genre.count} игр
+                      {genre.count} {s.gamesCount}
                     </p>
                   </div>
                   <div
@@ -133,7 +135,7 @@ export default function Categories({ genres }: { genres: GenreItem[] }) {
 
         <div className="mt-5 text-center sm:hidden">
           <Link href="/catalog" className="font-body transition-colors duration-200 text-[#4B5563] hover:text-[#9D60FA]" style={{ fontSize: '13px' }}>
-            Все категории →
+            {s.catSeeAll} →
           </Link>
         </div>
       </div>
