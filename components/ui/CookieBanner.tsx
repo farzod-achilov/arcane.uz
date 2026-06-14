@@ -4,10 +4,12 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { Cookie, X, Check } from 'lucide-react';
+import { useDict } from '@/lib/locale/client';
 
 const STORAGE_KEY = 'arcane_cookie_consent';
 
 export default function CookieBanner() {
+  const d = useDict();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -66,12 +68,12 @@ export default function CookieBanner() {
 
               <div className="flex-1 min-w-0">
                 <p className="font-heading font-semibold text-white mb-1" style={{ fontSize: '14px' }}>
-                  Мы используем cookies
+                  {d.cookie.title}
                 </p>
                 <p className="font-body text-[#6B7280]" style={{ fontSize: '12px', lineHeight: '1.5' }}>
-                  Для корректной работы сайта, авторизации и аналитики.{' '}
+                  {d.cookie.body}{' '}
                   <Link href="/privacy" className="text-[#7C3AED] hover:text-[#9D60FA] transition-colors">
-                    Политика конфиденциальности
+                    {d.cookie.policy}
                   </Link>
                 </p>
               </div>
@@ -89,7 +91,7 @@ export default function CookieBanner() {
                 }}
               >
                 <Check style={{ width: '13px', height: '13px' }} />
-                Принять
+                {d.cookie.accept}
               </button>
               <button
                 onClick={decline}
@@ -101,7 +103,7 @@ export default function CookieBanner() {
                   border:     '1px solid rgba(255,255,255,0.08)',
                 }}
               >
-                Отказаться
+                {d.cookie.decline}
               </button>
             </div>
           </div>

@@ -8,6 +8,9 @@ import NavigationProgress from '@/components/ui/NavigationProgress';
 import Providers from '@/app/providers';
 import ConditionalLayout from '@/app/ConditionalLayout';
 import CookieBanner from '@/components/ui/CookieBanner';
+import { LanguageProvider } from '@/lib/locale/client';
+import { getLocale } from '@/lib/locale/server';
+import { getDictionary } from '@/lib/locale';
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
@@ -58,15 +61,20 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { themeColor: '#7C3AED' };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = getLocale();
+  const dict   = getDictionary(locale);
+
   return (
-    <html lang="ru" className={`${spaceGrotesk.variable} ${inter.variable} ${pressStart.variable}`}>
+    <html lang={locale} className={`${spaceGrotesk.variable} ${inter.variable} ${pressStart.variable}`}>
       <body className="bg-[#0A0A0F] text-white font-body antialiased">
         <Providers>
-          <Suspense><NavigationProgress /></Suspense>
-          <InitialLoader />
-          <ConditionalLayout>{children}</ConditionalLayout>
-          <BackToTop />
-          <CookieBanner />
+          <LanguageProvider locale={locale} dict={dict}>
+            <Suspense><NavigationProgress /></Suspense>
+            <InitialLoader />
+            <ConditionalLayout>{children}</ConditionalLayout>
+            <BackToTop />
+            <CookieBanner />
+          </LanguageProvider>
         </Providers>
       </body>
     </html>

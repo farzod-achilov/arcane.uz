@@ -3,30 +3,33 @@
 import Link from 'next/link';
 import { Send, Instagram } from 'lucide-react';
 import LogoFull from '@/components/ui/LogoFull';
+import { useDict } from '@/lib/locale/client';
 
 export default function Footer() {
+  const d = useDict();
+  const fl = d.footer.links;
   const year = new Date().getFullYear();
 
   const links = {
     catalog: [
-      { label: 'PC игры',  href: '/catalog?platform=PC' },
-      { label: 'PS5 игры', href: '/catalog?platform=PS5' },
-      { label: 'Xbox игры',href: '/catalog?platform=Xbox' },
-      { label: 'Скидки',   href: '/catalog?filter=deals' },
-      { label: 'Новинки',  href: '/catalog?filter=new' },
+      { label: fl.pcGames,   href: '/catalog?platform=PC' },
+      { label: fl.ps5Games,  href: '/catalog?platform=PS5' },
+      { label: fl.xboxGames, href: '/catalog?platform=Xbox' },
+      { label: fl.deals,     href: '/catalog?filter=deals' },
+      { label: fl.new,       href: '/catalog?filter=new' },
     ],
     info: [
-      { label: 'О нас',                href: '/about' },
-      { label: 'Доставка ключей',      href: '/faq' },
-      { label: 'Возврат и обмен',      href: '/terms' },
-      { label: 'Arcane Coins',         href: '/#arcane-coins' },
-      { label: 'Партнёрская программа',href: '/support' },
+      { label: fl.about,       href: '/about' },
+      { label: fl.keyDelivery, href: '/faq' },
+      { label: fl.returns,     href: '/terms' },
+      { label: fl.coins,       href: '/#arcane-coins' },
+      { label: fl.partner,     href: '/support' },
     ],
     support: [
-      { label: 'Telegram поддержка', href: 'https://t.me/arcaneuz_support' },
-      { label: 'FAQ',                href: '/faq' },
-      { label: 'Как оплатить',       href: '/faq' },
-      { label: 'Связаться с нами',   href: '/support' },
+      { label: fl.tgSupport, href: 'https://t.me/arcaneuz_support' },
+      { label: fl.faq,       href: '/faq' },
+      { label: fl.howToPay,  href: '/faq' },
+      { label: fl.contact,   href: '/support' },
     ],
   };
 
@@ -74,7 +77,7 @@ export default function Footer() {
                 className="font-body leading-relaxed max-w-[260px] mb-7 text-center lg:text-left text-[#6B7280]"
                 style={{ fontSize: '13.5px', lineHeight: '1.7' }}
               >
-                Премиальный магазин цифровых игр в Узбекистане. Мгновенная доставка ключей, выгодные цены и система наград Arcane&nbsp;Coins.
+                {d.footer.brandDesc}
               </p>
 
               {/* Social icons */}
@@ -96,7 +99,7 @@ export default function Footer() {
 
             {/* ── CATALOG ── */}
             <div>
-              <FooterColumnTitle>Каталог</FooterColumnTitle>
+              <FooterColumnTitle>{d.footer.colCatalog}</FooterColumnTitle>
               <ul className="space-y-3">
                 {links.catalog.map((l) => (
                   <li key={l.label}>
@@ -119,7 +122,7 @@ export default function Footer() {
 
             {/* ── INFO ── */}
             <div>
-              <FooterColumnTitle>Информация</FooterColumnTitle>
+              <FooterColumnTitle>{d.footer.colInfo}</FooterColumnTitle>
               <ul className="space-y-3">
                 {links.info.map((l) => (
                   <li key={l.label}>
@@ -142,7 +145,7 @@ export default function Footer() {
 
             {/* ── SUPPORT + PAYMENT ── */}
             <div>
-              <FooterColumnTitle>Поддержка</FooterColumnTitle>
+              <FooterColumnTitle>{d.footer.colSupport}</FooterColumnTitle>
               <ul className="space-y-3 mb-8">
                 {links.support.map((l) => (
                   <li key={l.label}>
@@ -173,7 +176,7 @@ export default function Footer() {
                   className="font-body text-[#374151] mb-3"
                   style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase' }}
                 >
-                  Способы оплаты
+                  {d.footer.paymentMethods}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {paymentMethods.map((pm) => (
@@ -197,7 +200,7 @@ export default function Footer() {
         <div className="border-t border-white/[0.05]">
           <div className="max-w-7xl mx-auto px-6 sm:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-3">
             <p className="font-body text-[#374151]" style={{ fontSize: '12px' }}>
-              © {year}&nbsp;ARCANE.UZ — Все права защищены
+              © {year}&nbsp;ARCANE.UZ — {d.footer.rights}
             </p>
 
             <div className="flex items-center gap-0">
@@ -206,7 +209,7 @@ export default function Footer() {
                 className="font-body text-[#374151] hover:text-[#6B7280] transition-colors duration-200"
                 style={{ fontSize: '12px' }}
               >
-                Конфиденциальность
+                {d.footer.privacy}
               </Link>
               <span className="mx-3 text-[#1F2937]" aria-hidden="true">·</span>
               <Link
@@ -214,7 +217,7 @@ export default function Footer() {
                 className="font-body text-[#374151] hover:text-[#6B7280] transition-colors duration-200"
                 style={{ fontSize: '12px' }}
               >
-                Условия использования
+                {d.footer.terms}
               </Link>
             </div>
           </div>

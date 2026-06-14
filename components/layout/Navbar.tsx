@@ -13,20 +13,27 @@ import CartDrawer from '@/components/cart/CartDrawer';
 import { useUser } from '@/lib/userContext';
 import { useCoin, coinTimeAgo } from '@/lib/coinContext';
 import { useCart } from '@/lib/cartContext';
+import { useDict } from '@/lib/locale/client';
+import LanguageToggle from '@/components/ui/LanguageToggle';
 
-const TICKER_ITEMS = [
+// Brand / arcade strings stay in English across locales
+const TICKER_BRAND = [
   'ARCANE.UZ',
   'INSERT COIN TO PLAY',
   'HIGH SCORE: 9 999 999',
   'PLAYER 1 — READY',
-  'БЕСПЛАТНАЯ ДОСТАВКА ОТ 500 000 СУМ',
-  'ЗАРАБАТЫВАЙ ARCANE COINS',
-  'НОВИНКИ КАЖДУЮ НЕДЕЛЮ',
-  '№1 ИГРОВОЙ МАГАЗИН В УЗБЕКИСТАНЕ',
-  'МГНОВЕННАЯ ДОСТАВКА КЛЮЧЕЙ',
 ];
 
 export default function Navbar() {
+  const d = useDict();
+  const tickerItems = [
+    ...TICKER_BRAND,
+    d.nav.ticker.freeShip,
+    d.nav.ticker.coins,
+    d.nav.ticker.weekly,
+    d.nav.ticker.number1,
+    d.nav.ticker.delivery,
+  ];
   const [isScrolled,   setIsScrolled]   = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -46,8 +53,8 @@ export default function Navbar() {
     if (unreadCount > prevUnread.current && prevUnread.current >= 0) {
       setBellRing(true);
       setTimeout(() => setBellRing(false), 1000);
-      toast('🔔 Новое уведомление', {
-        description: 'Нажмите на колокольчик чтобы посмотреть',
+      toast(`🔔 ${d.nav.notifyNew}`, {
+        description: d.nav.notifyHint,
         duration: 3500,
       });
     }
@@ -73,13 +80,13 @@ export default function Navbar() {
   }, []);
 
   const navLinks = [
-    { href: '/',             label: 'Главная'    },
-    { href: '/catalog',      label: 'Каталог'    },
-    { href: '/deals',        label: 'Скидки'     },
-    { href: '/new-releases', label: 'Новинки'   },
+    { href: '/',             label: d.nav.home    },
+    { href: '/catalog',      label: d.nav.catalog },
+    { href: '/deals',        label: d.nav.deals   },
+    { href: '/new-releases', label: d.nav.new     },
     ...(isLoggedIn ? [
-      { href: '/library',  label: 'Библиотека' },
-      { href: '/arc-shop', label: '⚡ Магазин'  },
+      { href: '/library',  label: d.nav.library    },
+      { href: '/arc-shop', label: `⚡ ${d.nav.shop}` },
     ] : []),
   ];
 
@@ -159,7 +166,7 @@ export default function Navbar() {
           className="flex items-center whitespace-nowrap"
           style={{ animation: 'marqueeScroll 50s linear infinite' }}
         >
-          {[...TICKER_ITEMS, ...TICKER_ITEMS].map((item, i) => (
+          {[...tickerItems, ...tickerItems].map((item, i) => (
             <span key={i} className="inline-flex items-center">
               <span
                 className="font-pixel"
@@ -667,6 +674,11 @@ export default function Navbar() {
                 <NotificationDropdown isOpen={isNotifOpen} onClose={() => setIsNotifOpen(false)} />
               </div>
 
+              {/* ── LANGUAGE TOGGLE ── */}
+              <div className="hidden sm:block">
+                <LanguageToggle />
+              </div>
+
               {/* ── CART ── */}
               <button
                 onClick={openCart}
@@ -714,7 +726,7 @@ export default function Navbar() {
                          style={{ background: 'rgba(6,182,212,0.12)' }} />
                     <Wallet className="relative z-10 w-[14px] h-[14px]" />
                     <span className="relative z-10 font-heading font-semibold" style={{ fontSize: '12px' }}>
-                      Пополнить
+                      {d.nav.deposit}
                     </span>
                   </Link>
                   {/* Wishlist link */}
@@ -784,7 +796,7 @@ export default function Navbar() {
                   <div className="absolute top-0 left-0 right-0 h-px pointer-events-none"
                        style={{ background: 'linear-gradient(90deg, transparent, rgba(157,96,250,0.55) 40%, rgba(157,96,250,0.55) 60%, transparent)' }} />
                   <User className="w-[14px] h-[14px] relative z-10" />
-                  <span className="relative z-10">Войти</span>
+                  <span className="relative z-10">{d.common.login}</span>
                 </motion.button>
               )}
 
@@ -921,8 +933,8 @@ export default function Navbar() {
         <div className="flex items-center justify-around px-2" style={{ height: '60px' }}>
           {/* Home */}
           {[
-            { href: '/',        icon: Home,       label: 'Главная' },
-            { href: '/catalog', icon: LayoutGrid,  label: 'Каталог' },
+            { href: '/',        icon: Home,       label: d.nav.home    },
+            { href: '/catalog', icon: LayoutGrid,  label: d.nav.catalog },
           ].map(({ href, icon: Icon, label }) => {
             const active = isActive(href);
             return (
@@ -973,11 +985,11 @@ export default function Navbar() {
 
           {/* Wishlist */}
           {[
-            { href: '/wishlist', icon: Heart,  label: 'Вишлист' },
+            { href: '/wishlist', icon: Heart,  label: d.nav.wishlist },
             {
               href: isLoggedIn ? '/profile' : '/login',
               icon: User,
-              label: isLoggedIn ? 'Профиль' : 'Войти',
+              label: isLoggedIn ? d.nav.profile : d.common.login,
             },
           ].map(({ href, icon: Icon, label }) => {
             const active = isActive(href);
