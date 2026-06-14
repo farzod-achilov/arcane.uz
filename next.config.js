@@ -18,10 +18,32 @@ const nextConfig = {
   },
 
   async headers() {
+    // Content-Security-Policy — pragmatic policy for a Next.js app that uses
+    // inline styles (Framer Motion), YouTube trailer embeds and Steam media CDNs.
+    // 'unsafe-inline'/'unsafe-eval' on script-src are required for Next.js
+    // hydration without a nonce-based setup. External API calls (RAWG, IGDB,
+    // Steam, Digiseller, Telegram) all run server-side, so connect-src stays 'self'.
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "img-src 'self' data: blob: https://*.steamstatic.com https://*.akamaihd.net https://*.steampowered.com https://steamcommunity.com https://picsum.photos https://fastly.picsum.photos https://via.placeholder.com https://placehold.co",
+      "media-src 'self' blob: https://*.steamstatic.com https://*.akamaihd.net",
+      "font-src 'self' data: https://fonts.gstatic.com",
+      "connect-src 'self'",
+      "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+      "upgrade-insecure-requests",
+    ].join('; ');
+
     return [
       {
         source: '/(.*)',
         headers: [
+          { key: 'Content-Security-Policy',  value: csp },
           { key: 'X-Frame-Options',        value: 'DENY' },
           { key: 'X-Content-Type-Options',  value: 'nosniff' },
           { key: 'Referrer-Policy',         value: 'strict-origin-when-cross-origin' },
