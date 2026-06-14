@@ -180,6 +180,41 @@ const uz: Dictionary = {
       seeAll: 'BARCHA MASHINA VA DROPLAR',
     },
   },
+
+  catalog: {
+    eyebrow:           'KATALOG',
+    title:             "Barcha o'yinlar",
+    searchLabel:       'Qidiruv',
+    genresLabel:       'Janrlar',
+    platformLabel:     'Platforma',
+    searchPlaceholder: "Nomi, ishlab chiqaruvchi yoki janr bo'yicha qidirish…",
+    filters:           'Filtrlar',
+    reset:             'Tozalash',
+    onlyDeals:         'Faqat chegirmalilar',
+    preorder:          'Oldindan buyurtma',
+    category:          'Kategoriya',
+    platform:          'Platforma',
+    price:             'Narx',
+    from:              'min',
+    to:                'maks',
+    gamesCount:        "o'yin",
+    notFound:          'Hech narsa topilmadi',
+    notFoundDesc:      "Filtrlarni yoki qidiruv so'rovini o'zgartirib ko'ring",
+    sort: {
+      newest:   'Yangiliklar',
+      popular:  'Ommabop',
+      rating:   "Reyting bo'yicha",
+      priceAsc: "Narx: o'sish bo'yicha",
+      priceDesc:"Narx: kamayish bo'yicha",
+      name:     "Nom bo'yicha",
+    },
+    card: {
+      key:        'Kalit',
+      noPrice:    "Narx ko'rsatilmagan",
+      instant:    'Bir zumda',
+      outOfStock: 'Mavjud emas',
+    },
+  },
 };
 
 export default uz;

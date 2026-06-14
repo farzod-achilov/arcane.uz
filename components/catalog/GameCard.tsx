@@ -7,6 +7,7 @@ import { Star, Zap, Package, Monitor, Apple, Terminal } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import type { GameListItem } from '@/lib/db/games';
 import WishlistButton from '@/components/ui/WishlistButton';
+import { useDict } from '@/lib/locale/client';
 
 function PlatformDot({ p }: { p: string }) {
   if (p === 'Mac')   return <Apple   className="w-2.5 h-2.5" />;
@@ -17,6 +18,7 @@ function PlatformDot({ p }: { p: string }) {
 interface Props { game: GameListItem; index?: number }
 
 export default function GameCard({ game, index = 0 }: Props) {
+  const cc = useDict().catalog.card;
   const inStock = game.stockStore > 0 || game.deliveryType === 'MANUAL';
 
   return (
@@ -113,7 +115,7 @@ export default function GameCard({ game, index = 0 }: Props) {
               )}
               <div className="flex items-center gap-1">
                 <Zap style={{ width: '10px', height: '10px', color: '#22C55E' }} />
-                <span className="font-body text-[#22C55E]" style={{ fontSize: '10px' }}>Ключ</span>
+                <span className="font-body text-[#22C55E]" style={{ fontSize: '10px' }}>{cc.key}</span>
               </div>
             </div>
 
@@ -140,7 +142,7 @@ export default function GameCard({ game, index = 0 }: Props) {
                     {formatPrice(game.priceUzs)}
                   </p>
                 ) : (
-                  <p className="font-body text-[#4B5563]" style={{ fontSize: '12px' }}>Цена не указана</p>
+                  <p className="font-body text-[#4B5563]" style={{ fontSize: '12px' }}>{cc.noPrice}</p>
                 )}
               </div>
               <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">

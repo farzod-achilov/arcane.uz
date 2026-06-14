@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, X, SlidersHorizontal } from 'lucide-react';
 import { categories, platforms, PRICE_MIN, PRICE_MAX } from '@/lib/mockData';
 import { formatPrice } from '@/lib/utils';
+import { useDict } from '@/lib/locale/client';
 
 export interface Filters {
   categories: string[];
@@ -76,6 +77,7 @@ function PriceRangeSlider({
   maxVal: number;
   onChange: (min: number, max: number) => void;
 }) {
+  const c = useDict().catalog;
   const trackRef = useRef<HTMLDivElement>(null);
   const step = 10000;
   const range = PRICE_MAX - PRICE_MIN;
@@ -156,7 +158,7 @@ function PriceRangeSlider({
           style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)' }}
         >
           <span className="font-body text-[#9D60FA]" style={{ fontSize: '11px' }}>
-            от {formatPrice(minVal)}
+            {c.from} {formatPrice(minVal)}
           </span>
         </div>
         <div
@@ -164,7 +166,7 @@ function PriceRangeSlider({
           style={{ background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.2)' }}
         >
           <span className="font-body text-[#22D3EE]" style={{ fontSize: '11px' }}>
-            до {formatPrice(maxVal)}
+            {c.to} {formatPrice(maxVal)}
           </span>
         </div>
       </div>
@@ -173,6 +175,7 @@ function PriceRangeSlider({
 }
 
 export default function CatalogSidebar({ filters, onChange }: SidebarProps) {
+  const c = useDict().catalog;
   const toggleCategory = (id: string) => {
     const next = filters.categories.includes(id)
       ? filters.categories.filter((c) => c !== id)
@@ -209,7 +212,7 @@ export default function CatalogSidebar({ filters, onChange }: SidebarProps) {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="w-4 h-4 text-[#7C3AED]" />
-            <h3 className="font-heading font-semibold text-white text-sm">Фильтры</h3>
+            <h3 className="font-heading font-semibold text-white text-sm">{c.filters}</h3>
             {hasActiveFilters && (
               <motion.span
                 initial={{ scale: 0 }}
@@ -227,7 +230,7 @@ export default function CatalogSidebar({ filters, onChange }: SidebarProps) {
               className="flex items-center gap-1 text-gray-500 hover:text-[#9D60FA] text-xs transition-colors"
             >
               <X className="w-3 h-3" />
-              Сбросить
+              {c.reset}
             </button>
           )}
         </div>
@@ -243,7 +246,7 @@ export default function CatalogSidebar({ filters, onChange }: SidebarProps) {
               border: `1px solid ${filters.onlyDeals ? 'rgba(239,68,68,0.25)' : 'rgba(124,58,237,0.15)'}`,
             }}
           >
-            <span className="text-sm font-body text-white">Только со скидкой</span>
+            <span className="text-sm font-body text-white">{c.onlyDeals}</span>
             <div
               className={`relative w-9 h-5 rounded-full transition-colors duration-200 flex-shrink-0`}
               style={{
@@ -270,7 +273,7 @@ export default function CatalogSidebar({ filters, onChange }: SidebarProps) {
               border: `1px solid ${filters.onlyPreorder ? 'rgba(6,182,212,0.25)' : 'rgba(124,58,237,0.15)'}`,
             }}
           >
-            <span className="text-sm font-body text-white">Предзаказы</span>
+            <span className="text-sm font-body text-white">{c.preorder}</span>
             <div
               className="relative w-9 h-5 rounded-full transition-colors duration-200 flex-shrink-0"
               style={{
@@ -290,7 +293,7 @@ export default function CatalogSidebar({ filters, onChange }: SidebarProps) {
         </div>
 
         {/* Categories */}
-        <Section title="Категория">
+        <Section title={c.category}>
           <div className="space-y-1">
             {categories.map((cat) => {
               const active = filters.categories.includes(cat.id);
@@ -323,7 +326,7 @@ export default function CatalogSidebar({ filters, onChange }: SidebarProps) {
         </Section>
 
         {/* Platforms */}
-        <Section title="Платформа">
+        <Section title={c.platform}>
           <div className="flex flex-wrap gap-2">
             {platforms.map((p) => {
               const active = filters.platforms.includes(p);
@@ -349,7 +352,7 @@ export default function CatalogSidebar({ filters, onChange }: SidebarProps) {
         </Section>
 
         {/* Price range */}
-        <Section title="Цена">
+        <Section title={c.price}>
           <PriceRangeSlider
             minVal={filters.minPrice}
             maxVal={filters.maxPrice}

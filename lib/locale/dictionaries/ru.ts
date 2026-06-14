@@ -180,6 +180,41 @@ const ru = {
       seeAll: 'ВСЕ МАШИНЫ И ДРОПЫ',
     },
   },
+
+  catalog: {
+    eyebrow:           'КАТАЛОГ',
+    title:             'Все игры',
+    searchLabel:       'Поиск',
+    genresLabel:       'Жанры',
+    platformLabel:     'Платформа',
+    searchPlaceholder: 'Поиск по названию, разработчику, жанру…',
+    filters:           'Фильтры',
+    reset:             'Сбросить',
+    onlyDeals:         'Только со скидкой',
+    preorder:          'Предзаказы',
+    category:          'Категория',
+    platform:          'Платформа',
+    price:             'Цена',
+    from:              'от',
+    to:                'до',
+    gamesCount:        'игр',
+    notFound:          'Ничего не найдено',
+    notFoundDesc:      'Попробуйте изменить фильтры или поисковый запрос',
+    sort: {
+      newest:   'Новинки',
+      popular:  'Популярные',
+      rating:   'По рейтингу',
+      priceAsc: 'Цена: по возрастанию',
+      priceDesc:'Цена: по убыванию',
+      name:     'По названию',
+    },
+    card: {
+      key:        'Ключ',
+      noPrice:    'Цена не указана',
+      instant:    'Мгновенно',
+      outOfStock: 'Нет в наличии',
+    },
+  },
 };
 
 export type Dictionary = typeof ru;

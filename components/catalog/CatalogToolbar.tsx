@@ -3,15 +3,7 @@
 import { useCallback, useTransition, useRef, useEffect, useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Search, X, LayoutGrid, List, ChevronDown, SlidersHorizontal } from 'lucide-react';
-
-const SORT_OPTIONS = [
-  { value: 'newest',     label: 'Новинки' },
-  { value: 'popular',    label: 'Популярные' },
-  { value: 'rating',     label: 'По рейтингу' },
-  { value: 'price_asc',  label: 'Цена: по возрастанию' },
-  { value: 'price_desc', label: 'Цена: по убыванию' },
-  { value: 'name',       label: 'По названию' },
-];
+import { useDict } from '@/lib/locale/client';
 
 interface Props {
   total:        number;
@@ -26,6 +18,15 @@ export default function CatalogToolbar({
   total, currentSort, currentView, currentQ,
   onMobileFilterToggle, activeFilters = 0,
 }: Props) {
+  const c = useDict().catalog;
+  const SORT_OPTIONS = [
+    { value: 'newest',     label: c.sort.newest },
+    { value: 'popular',    label: c.sort.popular },
+    { value: 'rating',     label: c.sort.rating },
+    { value: 'price_asc',  label: c.sort.priceAsc },
+    { value: 'price_desc', label: c.sort.priceDesc },
+    { value: 'name',       label: c.sort.name },
+  ];
   const router     = useRouter();
   const pathname   = usePathname();
   const searchParams = useSearchParams();
@@ -82,7 +83,7 @@ export default function CatalogToolbar({
                 style={{ color: '#4B5563', pointerEvents: 'none' }} />
         <input
           type="text"
-          placeholder="Поиск по названию, разработчику, жанру…"
+          placeholder={c.searchPlaceholder}
           value={localQ}
           onChange={(e) => onSearch(e.target.value)}
           className="w-full rounded-xl pl-10 pr-4 py-2.5 text-white text-sm font-body outline-none transition-all duration-200 placeholder:text-gray-600"
@@ -135,7 +136,7 @@ export default function CatalogToolbar({
           style={{ background: '#12121A', border: '1px solid rgba(255,255,255,0.07)' }}
         >
           <SlidersHorizontal className="w-4 h-4 text-[#7C3AED]" />
-          Фильтры
+          {c.filters}
           {activeFilters > 0 && (
             <span className="w-5 h-5 rounded-full flex items-center justify-center text-white font-bold"
                   style={{ fontSize: '9px', background: '#7C3AED' }}>
@@ -149,7 +150,7 @@ export default function CatalogToolbar({
       <div className="hidden lg:flex items-center px-4 rounded-xl"
            style={{ background: '#12121A', border: '1px solid rgba(255,255,255,0.07)' }}>
         <span className="font-body text-[#4B5563] text-sm">
-          <span className="text-white font-semibold">{total}</span> игр
+          <span className="text-white font-semibold">{total}</span> {c.gamesCount}
         </span>
       </div>
     </div>

@@ -5,10 +5,12 @@ import Link from 'next/link';
 import { Star, Zap, Package } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import type { GameListItem } from '@/lib/db/games';
+import { useDict } from '@/lib/locale/client';
 
 interface Props { game: GameListItem }
 
 export default function GameListCard({ game }: Props) {
+  const cc = useDict().catalog.card;
   const inStock = game.stockStore > 0 || game.deliveryType === 'MANUAL';
 
   return (
@@ -70,12 +72,12 @@ export default function GameListCard({ game }: Props) {
               )}
               <div className="flex items-center gap-1">
                 <Zap style={{ width: '10px', height: '10px', color: '#22C55E', flexShrink: 0 }} />
-                <span className="font-body text-[#22C55E]" style={{ fontSize: '10.5px' }}>Мгновенно</span>
+                <span className="font-body text-[#22C55E]" style={{ fontSize: '10.5px' }}>{cc.instant}</span>
               </div>
               {!inStock && (
                 <>
                   <span style={{ color: '#1F2937', fontSize: '10px' }}>·</span>
-                  <span className="font-body text-[#6B7280]" style={{ fontSize: '10.5px' }}>Нет в наличии</span>
+                  <span className="font-body text-[#6B7280]" style={{ fontSize: '10.5px' }}>{cc.outOfStock}</span>
                 </>
               )}
             </div>

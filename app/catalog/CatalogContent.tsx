@@ -9,6 +9,7 @@ import CatalogPagination from '@/components/catalog/CatalogPagination';
 import GameCard from '@/components/catalog/GameCard';
 import GameListCard from '@/components/catalog/GameListCard';
 import type { GameListItem } from '@/lib/db/games';
+import { useDict } from '@/lib/locale/client';
 
 interface Props {
   games:            GameListItem[];
@@ -30,6 +31,7 @@ export default function CatalogContent({
   currentGenres, currentPlatform, currentSort, currentView, currentQ,
   currentPriceMin, currentPriceMax,
 }: Props) {
+  const c = useDict().catalog;
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const PRICE_MAX = 3_000_000;
   const hasPriceFilter = (currentPriceMin != null && currentPriceMin > 0) || (currentPriceMax != null && currentPriceMax < PRICE_MAX);
@@ -83,7 +85,7 @@ export default function CatalogContent({
                 style={{ background: '#0A0A0F', borderRight: '1px solid rgba(124,58,237,0.15)' }}
               >
                 <div className="flex items-center justify-between mb-5">
-                  <h3 className="font-heading font-bold text-white">Фильтры</h3>
+                  <h3 className="font-heading font-bold text-white">{c.filters}</h3>
                   <button
                     onClick={() => setMobileFilterOpen(false)}
                     className="text-gray-400 hover:text-white transition-colors"
@@ -111,9 +113,9 @@ export default function CatalogContent({
                    style={{ background: '#12121A', border: '1px solid rgba(255,255,255,0.06)' }}>
                 🎮
               </div>
-              <h3 className="font-heading font-bold text-xl text-white mb-2">Ничего не найдено</h3>
+              <h3 className="font-heading font-bold text-xl text-white mb-2">{c.notFound}</h3>
               <p className="text-gray-500 font-body text-sm">
-                Попробуйте изменить фильтры или поисковый запрос
+                {c.notFoundDesc}
               </p>
             </div>
           ) : currentView === 'list' ? (
