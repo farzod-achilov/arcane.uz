@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Don't advertise the framework (removes "X-Powered-By: Next.js")
+  poweredByHeader: false,
+
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'picsum.photos' },
@@ -47,7 +50,9 @@ const nextConfig = {
           { key: 'X-Frame-Options',        value: 'DENY' },
           { key: 'X-Content-Type-Options',  value: 'nosniff' },
           { key: 'Referrer-Policy',         value: 'strict-origin-when-cross-origin' },
-          { key: 'X-XSS-Protection',        value: '1; mode=block' },
+          // 0 (not 1) is the modern recommendation when a strong CSP is present —
+          // the legacy XSS auditor can itself introduce vulnerabilities.
+          { key: 'X-XSS-Protection',        value: '0' },
           {
             key:   'Permissions-Policy',
             value: 'camera=(), microphone=(), geolocation=()',
