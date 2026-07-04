@@ -5,6 +5,7 @@ import { prisma }                    from '@/lib/prisma';
 import { nanoid }                    from 'nanoid';
 import { CASES, pickWeightedReward, CaseTier } from '@/lib/casesData';
 import { rateLimit } from '@/lib/rateLimit';
+import { CASES_COMING_SOON } from '@/lib/featureFlags';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,13 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  if (CASES_COMING_SOON) {
+    return NextResponse.json(
+      { ok: false, error: 'Раздел кейсов в разработке — запуск скоро' },
+      { status: 503 },
+    );
+  }
+
   const tier       = params.id as CaseTier;
   const caseConfig = CASES[tier];
   if (!caseConfig) return NextResponse.json({ ok: false, error: 'Case not found' }, { status: 404 });

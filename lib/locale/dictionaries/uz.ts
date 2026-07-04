@@ -178,6 +178,8 @@ const uz: Dictionary = {
       launch: 'ISHGA TUSHIRISH',
       desc:   "Haqiqiy mukofotlar bilan futuristik arkada mashinalari. Har bir kapsula — AAA-o'yin yutish imkoniyati.",
       seeAll: 'BARCHA MASHINA VA DROPLAR',
+      soon:   'TEZ ORADA',
+      inDev:  'ISHLAB CHIQILMOQDA',
     },
   },
 

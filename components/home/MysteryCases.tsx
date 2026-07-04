@@ -8,6 +8,7 @@ import { CASES_LIST } from '@/lib/casesData';
 import { MACHINE_VIS, type MachineId, generateLiveWins, DROP_VFX } from '@/lib/arcaneDropData';
 import { formatPrice } from '@/lib/utils';
 import { useDict } from '@/lib/locale/client';
+import { CASES_COMING_SOON } from '@/lib/featureFlags';
 
 // ── Live ticker ───────────────────────────────────────────────────────────────
 function LiveTicker() {
@@ -196,7 +197,7 @@ function MachineCard({ config, vis, index }: {
             <motion.span className="font-pixel"
               style={{ fontSize: 7.5, color: `${vis.color}70`, letterSpacing: '0.22em' }}
               animate={{ opacity: [1, 0.15, 1] }} transition={{ duration: 1.3, repeat: Infinity }}>
-              ◆ READY TO DROP ◆
+              {CASES_COMING_SOON ? '◆ COMING SOON ◆' : '◆ READY TO DROP ◆'}
             </motion.span>
           </div>
         </div>
@@ -219,14 +220,14 @@ function MachineCard({ config, vis, index }: {
             <span className="font-pixel px-2.5 py-1.5 rounded-lg"
               style={{ fontSize: 7, background: 'rgba(255,200,87,0.07)', border: '1px solid rgba(255,200,87,0.18)',
                 color: 'rgba(255,200,87,0.7)', letterSpacing: '0.1em' }}>
-              {cs.from} {formatPrice(config.price)}
+              {CASES_COMING_SOON ? cs.soon : `${cs.from} ${formatPrice(config.price)}`}
             </span>
           </div>
         </div>
 
         {/* CTA */}
         <div className="px-4 pb-5">
-          <Link href={`/cases/${config.id}`}>
+          <Link href={CASES_COMING_SOON ? '/cases' : `/cases/${config.id}`}>
             <motion.div
               className="relative w-full rounded-xl overflow-hidden cursor-pointer flex items-center justify-center gap-2.5"
               style={{
@@ -253,7 +254,7 @@ function MachineCard({ config, vis, index }: {
                 style={{ background: `linear-gradient(90deg, transparent, ${vis.color}80, transparent)` }} />
               <Zap className="w-4 h-4 relative z-10" style={{ color: vis.color }} />
               <span className="font-heading font-black text-white relative z-10 tracking-wider" style={{ fontSize: 13 }}>
-                {cs.launch}
+                {CASES_COMING_SOON ? cs.soon : cs.launch}
               </span>
               <ChevronRight className="w-4 h-4 relative z-10 opacity-50" style={{ color: vis.color }} />
             </motion.div>
@@ -338,13 +339,25 @@ export default function MysteryCases() {
           viewport={{ once: true }} transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
           className="text-center mb-14">
 
-          {/* Live badge */}
-          <div className="inline-flex items-center gap-3 mb-6 px-4 py-2 rounded-full"
-            style={{ background: 'rgba(255,0,170,0.07)', border: '1px solid rgba(255,0,170,0.22)' }}>
-            <motion.div className="w-1.5 h-1.5 rounded-full bg-[#FF00AA]"
-              animate={{ opacity: [1, 0.15, 1] }} transition={{ duration: 0.85, repeat: Infinity }} />
-            <LiveTicker />
-          </div>
+          {/* Live badge / In-dev badge */}
+          {CASES_COMING_SOON ? (
+            <div className="inline-flex items-center gap-2.5 mb-6 px-4 py-2 rounded-full"
+              style={{ background: 'rgba(255,200,87,0.07)', border: '1px solid rgba(255,200,87,0.25)' }}>
+              <motion.div className="w-1.5 h-1.5 rounded-full"
+                style={{ backgroundColor: '#FFC857' }}
+                animate={{ opacity: [1, 0.15, 1] }} transition={{ duration: 0.85, repeat: Infinity }} />
+              <span className="font-pixel" style={{ fontSize: 8.5, color: 'rgba(255,200,87,0.85)', letterSpacing: '0.18em' }}>
+                {cs.inDev}
+              </span>
+            </div>
+          ) : (
+            <div className="inline-flex items-center gap-3 mb-6 px-4 py-2 rounded-full"
+              style={{ background: 'rgba(255,0,170,0.07)', border: '1px solid rgba(255,0,170,0.22)' }}>
+              <motion.div className="w-1.5 h-1.5 rounded-full bg-[#FF00AA]"
+                animate={{ opacity: [1, 0.15, 1] }} transition={{ duration: 0.85, repeat: Infinity }} />
+              <LiveTicker />
+            </div>
+          )}
 
           <h2 className="font-heading font-black text-white leading-none mb-4"
             style={{ fontSize: 'clamp(36px,5vw,64px)', letterSpacing: '-0.02em' }}>

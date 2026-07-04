@@ -7,6 +7,8 @@ import Link from 'next/link';
 import { CASES_LIST, type CaseConfig } from '@/lib/casesData';
 import { MACHINE_VIS, type MachineId, generateLiveWins, DROP_VFX } from '@/lib/arcaneDropData';
 import { formatPrice } from '@/lib/utils';
+import { CASES_COMING_SOON } from '@/lib/featureFlags';
+import CasesComingSoon from '@/components/cases/CasesComingSoon';
 
 // ── Jackpot counter ───────────────────────────────────────────────────────────
 function JackpotCounter() {
@@ -248,6 +250,8 @@ export default function ArcaneDropHub() {
     config: c,
     vis: MACHINE_VIS[c.id as MachineId],
   }));
+
+  if (CASES_COMING_SOON) return <CasesComingSoon />;
 
   return (
     <div className="min-h-screen" style={{ background: '#050816' }}>

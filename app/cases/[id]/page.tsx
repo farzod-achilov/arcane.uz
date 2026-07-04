@@ -10,6 +10,8 @@ import { MACHINE_VIS, DROP_VFX, generateLiveWins, type MachineId } from '@/lib/a
 import { formatPrice, cn } from '@/lib/utils';
 import { useOverlay } from '@/lib/overlayContext';
 import { useCoin } from '@/lib/coinContext';
+import { CASES_COMING_SOON } from '@/lib/featureFlags';
+import CasesComingSoon from '@/components/cases/CasesComingSoon';
 
 type DropPhase = 'idle' | 'inserting' | 'charging' | 'dropping' | 'opening' | 'revealing' | 'selling' | 'sold' | 'claimed';
 
@@ -1430,14 +1432,13 @@ export default function ArcaneDropPage() {
   }, []);
 
   useEffect(() => { if (!config) notFound(); }, [config]);
-  if (!config) return null;
 
   const vis     = MACHINE_VIS[tier as MachineId];
   const vfx     = reward ? DROP_VFX[reward.rarity] : null;
   const alarmOn = !!(reward && vfx?.alarm && phase === 'revealing');
 
   const handleDrop = useCallback(async () => {
-    if (phase !== 'idle') return;
+    if (!config || phase !== 'idle') return;
     setDropError(null);
     setPhase('inserting');
     await new Promise(r => setTimeout(r, 800));
@@ -1495,6 +1496,10 @@ export default function ArcaneDropPage() {
     setShowCoinBurst(false); setEarnedArc(0);
     setFullscreenOverlay(false);
   }, [setFullscreenOverlay]);  // arcBalance теперь из useCoin() — глобальный контекст
+
+  // После хуков: ранний return до хуков ломал rules-of-hooks
+  if (CASES_COMING_SOON) return <CasesComingSoon />;
+  if (!config) return null;
 
   return (
     <div className="min-h-screen relative overflow-hidden" style={{ background: '#050816' }}>
