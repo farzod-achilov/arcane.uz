@@ -14,13 +14,9 @@ jobs:
           host: 89.39.95.250
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
+          # deploy.sh делает всё сам: pull, npm ci, prisma generate + db push,
+          # stop -> build -> start (только процесс arcane) и health-check.
+          # Секретам здесь не место — они живут в .env / .env.local на сервере.
           script: |
             bash /var/www/arcane/deploy.sh
-            cd /var/www/arcane
-            grep -q "STEAM_API_KEY" .env || echo "STEAM_API_KEY=B2B69ECB5C26E4DBBD14CB51032BEF2D" >> .env
-            grep -q "NEXT_PUBLIC_TELEGRAM_BOT_ID" .env || echo "NEXT_PUBLIC_TELEGRAM_BOT_ID=8889652013" >> .env
-            npx prisma generate 2>&1 | tail -2
-            npx prisma db push --accept-data-loss 2>&1 | tail -5
-            pm2 restart all 2>/dev/null || pm2 start ecosystem.config.js 2>/dev/null || true
-            sleep 3
             pm2 status

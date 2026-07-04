@@ -59,9 +59,9 @@ export default function SettingsPage() {
     return stopPolling;
   }, [linkData, user, connectTelegram, stopPolling]);
 
-  if (!user) return null;
-
   const [saving, setSaving] = useState(false);
+
+  if (!user) return null;
 
   const saveProfile = async () => {
     const trimmed = name.trim();
