@@ -287,49 +287,56 @@ export default function MysteryCases() {
   return (
     <section className="py-20 sm:py-28 relative overflow-hidden">
 
-      {/* Background */}
-      <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, #0A0A0F 0%, #0B0818 50%, #0A0A0F 100%)' }} />
+      {/* Атмосферный «казино»-фон (глоу, прожектор, скан-линии) скрыт в режиме
+          «в разработке» — секция должна выглядеть как нейтральный тизер,
+          а не как работающий игровой автомат, пока раздел не запущен. */}
+      {!CASES_COMING_SOON && (
+        <>
+          {/* Background */}
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, #0A0A0F 0%, #0B0818 50%, #0A0A0F 100%)' }} />
 
-      {/* Animated cyber grid */}
-      <motion.div className="absolute inset-0 pointer-events-none"
-        style={{ backgroundImage: 'linear-gradient(rgba(124,58,237,1) 1px,transparent 1px),linear-gradient(90deg,rgba(124,58,237,1) 1px,transparent 1px)',
-          backgroundSize: '64px 64px', opacity: 0.02 }}
-        animate={{ backgroundPositionY: ['0px', '64px'] }}
-        transition={{ duration: 10, repeat: Infinity, ease: 'linear' }} />
+          {/* Animated cyber grid */}
+          <motion.div className="absolute inset-0 pointer-events-none"
+            style={{ backgroundImage: 'linear-gradient(rgba(124,58,237,1) 1px,transparent 1px),linear-gradient(90deg,rgba(124,58,237,1) 1px,transparent 1px)',
+              backgroundSize: '64px 64px', opacity: 0.02 }}
+            animate={{ backgroundPositionY: ['0px', '64px'] }}
+            transition={{ duration: 10, repeat: Infinity, ease: 'linear' }} />
 
-      {/* Fog blobs */}
-      {[
-        { x: '8%',  y: '30%', w: 380, h: 300, c: '#7C3AED', o: 0.06 },
-        { x: '65%', y: '55%', w: 340, h: 280, c: '#FF00AA', o: 0.045 },
-        { x: '45%', y: '10%', w: 500, h: 200, c: '#7C3AED', o: 0.05 },
-        { x: '78%', y: '10%', w: 280, h: 260, c: '#00E5FF', o: 0.04 },
-      ].map((b, i) => (
-        <motion.div key={i} className="absolute rounded-full pointer-events-none"
-          style={{ left: b.x, top: b.y, width: b.w, height: b.h, backgroundColor: b.c,
-            filter: 'blur(90px)', opacity: b.o }}
-          animate={{ x: [0, 15, 0], y: [0, -10, 0] }}
-          transition={{ duration: 12 + i * 2.5, repeat: Infinity, ease: 'easeInOut', delay: i * 1.5 }} />
-      ))}
+          {/* Fog blobs */}
+          {[
+            { x: '8%',  y: '30%', w: 380, h: 300, c: '#7C3AED', o: 0.06 },
+            { x: '65%', y: '55%', w: 340, h: 280, c: '#FF00AA', o: 0.045 },
+            { x: '45%', y: '10%', w: 500, h: 200, c: '#7C3AED', o: 0.05 },
+            { x: '78%', y: '10%', w: 280, h: 260, c: '#00E5FF', o: 0.04 },
+          ].map((b, i) => (
+            <motion.div key={i} className="absolute rounded-full pointer-events-none"
+              style={{ left: b.x, top: b.y, width: b.w, height: b.h, backgroundColor: b.c,
+                filter: 'blur(90px)', opacity: b.o }}
+              animate={{ x: [0, 15, 0], y: [0, -10, 0] }}
+              transition={{ duration: 12 + i * 2.5, repeat: Infinity, ease: 'easeInOut', delay: i * 1.5 }} />
+          ))}
 
-      {/* Spotlight from top center */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 pointer-events-none"
-        style={{
-          width: 700, height: 500,
-          background: 'conic-gradient(from 270deg at 50% 0%, transparent 25%, rgba(124,58,237,0.08) 40%, rgba(124,58,237,0.14) 50%, rgba(124,58,237,0.08) 60%, transparent 75%)',
-          filter: 'blur(10px)',
-        }} />
+          {/* Spotlight from top center */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 pointer-events-none"
+            style={{
+              width: 700, height: 500,
+              background: 'conic-gradient(from 270deg at 50% 0%, transparent 25%, rgba(124,58,237,0.08) 40%, rgba(124,58,237,0.14) 50%, rgba(124,58,237,0.08) 60%, transparent 75%)',
+              filter: 'blur(10px)',
+            }} />
 
-      {/* Scanlines */}
-      <div className="absolute inset-0 pointer-events-none opacity-[0.015]"
-        style={{ backgroundImage: 'repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,1) 2px,rgba(255,255,255,1) 3px)', backgroundSize: '100% 3px' }} />
+          {/* Scanlines */}
+          <div className="absolute inset-0 pointer-events-none opacity-[0.015]"
+            style={{ backgroundImage: 'repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,1) 2px,rgba(255,255,255,1) 3px)', backgroundSize: '100% 3px' }} />
 
-      {/* Vignette */}
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse 95% 95% at 50% 50%, transparent 50%, rgba(10,10,15,0.6) 100%)' }} />
+          {/* Vignette */}
+          <div className="absolute inset-0 pointer-events-none"
+            style={{ background: 'radial-gradient(ellipse 95% 95% at 50% 50%, transparent 50%, rgba(10,10,15,0.6) 100%)' }} />
 
-      {/* Top divider */}
-      <div className="absolute top-0 inset-x-0 h-px"
-        style={{ background: 'linear-gradient(90deg, transparent 5%, rgba(124,58,237,0.4) 35%, rgba(0,229,255,0.25) 65%, transparent 95%)' }} />
+          {/* Top divider */}
+          <div className="absolute top-0 inset-x-0 h-px"
+            style={{ background: 'linear-gradient(90deg, transparent 5%, rgba(124,58,237,0.4) 35%, rgba(0,229,255,0.25) 65%, transparent 95%)' }} />
+        </>
+      )}
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
 
