@@ -30,7 +30,7 @@ export default async function SearchPage({ searchParams }: Props) {
     : { games: [], total: 0, pages: 0 };
 
   return (
-    <div className="min-h-screen" style={{ background: '#0A0A0F', paddingTop: '96px' }}>
+    <div className="min-h-screen" style={{ background: 'transparent', paddingTop: '96px' }}>
       {/* Header */}
       <div
         style={{

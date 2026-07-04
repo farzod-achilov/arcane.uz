@@ -186,7 +186,7 @@ export default function NewReleasesClient({ games }: { games: NewGame[] }) {
   const new7Count  = games.filter(g => g.isNew7).length;
 
   return (
-    <div className="min-h-screen" style={{ background: '#05040B', paddingTop: '120px' }}>
+    <div className="min-h-screen" style={{ background: 'transparent', paddingTop: '120px' }}>
       {/* Grid bg */}
       <div className="fixed inset-0 pointer-events-none"
            style={{

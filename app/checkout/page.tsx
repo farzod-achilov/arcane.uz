@@ -256,7 +256,7 @@ function SuccessView({ orderId, items, total, email }: {
 }) {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-      className="min-h-screen flex items-center justify-center px-4" style={{ background: '#05040B', paddingTop: '120px' }}>
+      className="min-h-screen flex items-center justify-center px-4" style={{ background: 'transparent', paddingTop: '120px' }}>
       <div className="max-w-lg w-full text-center">
         <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 300, delay: 0.2 }}
           className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"
@@ -463,7 +463,7 @@ function CheckoutInner() {
   // Auth guard
   if (status === 'loading' || loadingGame) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#05040B' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'transparent' }}>
         <Loader2 style={{ width: '24px', height: '24px', color: '#7C3AED' }} className="animate-spin" />
       </div>
     );
@@ -472,7 +472,7 @@ function CheckoutInner() {
   if (status === 'unauthenticated') {
     const gameId = searchParams.get('gameId') ?? '';
     return (
-      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: '#05040B' }}>
+      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'transparent' }}>
         <div className="text-center max-w-sm">
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
                style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)' }}>
@@ -504,7 +504,7 @@ function CheckoutInner() {
         )}
       </AnimatePresence>
 
-      <div className="min-h-screen" style={{ background: '#05040B', paddingTop: '120px' }}>
+      <div className="min-h-screen" style={{ background: 'transparent', paddingTop: '120px' }}>
         <div className="fixed inset-0 pointer-events-none"
              style={{ background: 'radial-gradient(ellipse 70% 40% at 50% 0%, rgba(124,58,237,0.05) 0%, transparent 70%)' }} />
 
@@ -774,7 +774,7 @@ function CheckoutInner() {
 export default function CheckoutPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#05040B' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'transparent' }}>
         <Loader2 style={{ width: '24px', height: '24px', color: '#7C3AED' }} className="animate-spin" />
       </div>
     }>

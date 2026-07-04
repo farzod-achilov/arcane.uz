@@ -14,7 +14,7 @@ export default async function DealsPage() {
   const deals = await getActiveDeals();
 
   return (
-    <div className="min-h-screen" style={{ background: '#0A0A0F', paddingTop: '96px' }}>
+    <div className="min-h-screen" style={{ background: 'transparent', paddingTop: '96px' }}>
       {/* Grid background */}
       <div
         className="fixed inset-0 pointer-events-none"

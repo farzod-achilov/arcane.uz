@@ -205,7 +205,7 @@ export default function ProductPageClient({ params }: { params: { id: string } }
 
   if (loading || !product) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#04040A' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'transparent' }}>
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         <div style={{ width: '36px', height: '36px', borderRadius: '50%', border: '2px solid rgba(124,58,237,0.2)', borderTopColor: '#7C3AED', animation: 'spin 0.9s linear infinite' }} />
       </div>
@@ -235,7 +235,7 @@ export default function ProductPageClient({ params }: { params: { id: string } }
       {/* ═══════════════════════════════════════════
           PAGE SHELL
       ═══════════════════════════════════════════ */}
-      <div style={{ background: '#04040A', minHeight: '100vh', position: 'relative', paddingTop: '16px' }}>
+      <div style={{ background: 'transparent', minHeight: '100vh', position: 'relative', paddingTop: '16px' }}>
 
         {/* ── Ambient blurred artwork bg ── */}
         <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0, overflow: 'hidden' }}>

@@ -132,6 +132,12 @@ body {
 }
 .animate-marquee { animation: marqueeScroll 20s linear infinite; }
 
+/* Фоновый водяной знак (SiteBackground) — тот же marqueeScroll, в разы медленнее */
+.site-watermark-scroll { animation: marqueeScroll 110s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .site-watermark-scroll { animation: none; }
+}
+
 /* Pixel pulse */
 @keyframes pixelPulse {
   0%, 100% { box-shadow: 0 0 6px var(--accent-purple), 0 0 12px var(--accent-purple); }

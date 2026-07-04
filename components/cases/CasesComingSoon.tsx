@@ -12,7 +12,7 @@ import Link from 'next/link';
 export default function CasesComingSoon() {
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden"
-      style={{ background: '#050816' }}>
+      style={{ background: 'transparent' }}>
 
       {/* Atmosphere */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">

@@ -44,7 +44,7 @@ export default async function CatalogPage({ searchParams }: Props) {
   ]);
 
   return (
-    <div className="min-h-screen" style={{ background: '#0A0A0F', paddingTop: '96px' }}>
+    <div className="min-h-screen" style={{ background: 'transparent', paddingTop: '96px' }}>
       <QuestTrigger questId="catalog" />
       {/* Grid background */}
       <div

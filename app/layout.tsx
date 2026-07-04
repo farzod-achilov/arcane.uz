@@ -5,6 +5,7 @@ import { Suspense } from 'react';
 import InitialLoader from '@/components/ui/loaders/InitialLoader';
 import BackToTop from '@/components/ui/BackToTop';
 import NavigationProgress from '@/components/ui/NavigationProgress';
+import SiteBackground from '@/components/layout/SiteBackground';
 import Providers from '@/app/providers';
 import ConditionalLayout from '@/app/ConditionalLayout';
 import CookieBanner from '@/components/ui/CookieBanner';
@@ -69,6 +70,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-[#0A0A0F] text-white font-body antialiased">
         <Providers>
           <LanguageProvider locale={locale} dict={dict}>
+            <SiteBackground />
             <Suspense><NavigationProgress /></Suspense>
             <InitialLoader />
             <ConditionalLayout>{children}</ConditionalLayout>
