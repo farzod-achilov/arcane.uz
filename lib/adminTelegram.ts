@@ -74,32 +74,70 @@ export async function notifyAdminNewTicket(params: {
   await sendMessage(ADMIN_CHAT, text);
 }
 
-/** Notify admin about a new deposit request */
+const fmtSum = (n: number) => new Intl.NumberFormat('uz-UZ').format(n) + ' сум';
+
+/** Notify admin about a new P2P deposit request (card + unique amount) */
 export async function notifyAdminNewDeposit(params: {
-  depositId: string;
-  userId:    string;
-  userName:  string;
-  userEmail: string;
-  amount:    number;
-  method:    string;
+  depositId:    string;
+  userId:       string;
+  userName:     string;
+  userEmail:    string;
+  amount:       number;
+  uniqueAmount: number;
+  cardNumber:   string;
+  ttlMinutes:   number;
 }): Promise<void> {
-  const { depositId, userName, userEmail, amount, method } = params;
-  const sum = new Intl.NumberFormat('uz-UZ').format(amount) + ' сум';
-  const methodLabel = method === 'click' ? 'Click' : method === 'payme' ? 'Payme' : 'Карта';
+  const { depositId, userName, userEmail, amount, uniqueAmount, cardNumber, ttlMinutes } = params;
 
   const text = [
     `💳 <b>НОВАЯ ЗАЯВКА НА ДЕПОЗИТ</b>`,
     ``,
-    `💰 Сумма: <b>${sum}</b>`,
-    `🏦 Метод: ${methodLabel}`,
+    `💰 Запрошено: <b>${fmtSum(amount)}</b>`,
+    `🔑 Ожидаем перевод: <b>${fmtSum(uniqueAmount)}</b>`,
+    `🏦 Карта: <code>${cardNumber}</code>`,
+    `⏱ Таймер: ${ttlMinutes} мин`,
     ``,
     `👤 Пользователь: ${userName || '—'}`,
     `📧 Email: ${userEmail || '—'}`,
     ``,
     `🆔 ID заявки: <code>${depositId}</code>`,
-    `🔗 Admin → /admin/deposits`,
+    `⚡ Придёт SMS с точной суммой — зачислится автоматически.`,
+    `Иначе: Admin → /admin/deposits`,
   ].join('\n');
 
+  await sendMessage(ADMIN_CHAT, text);
+}
+
+/** Deposit auto-confirmed by SMS hook */
+export async function notifyAdminDepositAutoConfirmed(params: {
+  depositId:  string;
+  userName:   string;
+  userEmail:  string;
+  credit:     number;
+  cardNumber: string;
+}): Promise<void> {
+  const { depositId, userName, userEmail, credit, cardNumber } = params;
+  const text = [
+    `✅ <b>ДЕПОЗИТ ЗАЧИСЛЕН АВТОМАТИЧЕСКИ</b>`,
+    ``,
+    `💰 Сумма: <b>${fmtSum(credit)}</b>`,
+    `🏦 Карта: <code>${cardNumber}</code>`,
+    `👤 ${userName || '—'} (${userEmail || '—'})`,
+    `🆔 <code>${depositId}</code>`,
+  ].join('\n');
+  await sendMessage(ADMIN_CHAT, text);
+}
+
+/** Income-looking SMS arrived but no deposit matched — needs a human look */
+export async function notifyAdminSmsUnmatched(smsText: string, sender: string | null): Promise<void> {
+  const text = [
+    `⚠️ <b>SMS О ПОСТУПЛЕНИИ БЕЗ ЗАЯВКИ</b>`,
+    ``,
+    sender ? `Отправитель: ${sender}` : '',
+    `<pre>${smsText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`,
+    ``,
+    `Проверь вручную: Admin → /admin/deposits`,
+  ].filter(Boolean).join('\n');
   await sendMessage(ADMIN_CHAT, text);
 }
 

@@ -8,15 +8,21 @@ import {
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 
-type DepositStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+type DepositStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
 
 interface Deposit {
-  id:        string;
-  amount:    number;
-  method:    string;
-  status:    DepositStatus;
-  comment:   string | null;
-  createdAt: string;
+  id:           string;
+  amount:       number;
+  uniqueAmount: number | null;
+  method:       string;
+  status:       DepositStatus;
+  comment:      string | null;
+  confirmedVia: string | null;
+  createdAt:    string;
+  card: {
+    cardNumber: string;
+    bank:       string | null;
+  } | null;
   users: {
     id:         string;
     username:   string;
@@ -29,6 +35,7 @@ const STATUS_COLORS: Record<DepositStatus, { color: string; bg: string; label: s
   PENDING:  { color: '#F59E0B', bg: 'rgba(245,158,11,0.1)',  label: 'Ожидает' },
   APPROVED: { color: '#22C55E', bg: 'rgba(34,197,94,0.1)',   label: 'Одобрено' },
   REJECTED: { color: '#EF4444', bg: 'rgba(239,68,68,0.1)',   label: 'Отклонено' },
+  EXPIRED:  { color: '#6B7280', bg: 'rgba(107,114,128,0.1)', label: 'Истекло' },
 };
 
 const METHOD_LABELS: Record<string, string> = {
@@ -42,7 +49,7 @@ export default function AdminDepositsPage() {
   const [total,       setTotal]       = useState(0);
   const [pages,       setPages]       = useState(1);
   const [page,        setPage]        = useState(1);
-  const [filter,      setFilter]      = useState<'PENDING' | 'ALL' | 'APPROVED' | 'REJECTED'>('PENDING');
+  const [filter,      setFilter]      = useState<'PENDING' | 'ALL' | 'APPROVED' | 'REJECTED' | 'EXPIRED'>('PENDING');
   const [loading,     setLoading]     = useState(true);
   const [processing,  setProcessing]  = useState<string | null>(null);
   const [confirmId,   setConfirmId]   = useState<string | null>(null);
@@ -110,7 +117,7 @@ export default function AdminDepositsPage() {
 
       {/* Filter tabs */}
       <div className="flex gap-2 mb-5">
-        {(['PENDING', 'APPROVED', 'REJECTED', 'ALL'] as const).map(s => (
+        {(['PENDING', 'APPROVED', 'REJECTED', 'EXPIRED', 'ALL'] as const).map(s => (
           <button
             key={s}
             onClick={() => { setFilter(s); setPage(1); }}
@@ -168,21 +175,29 @@ export default function AdminDepositsPage() {
                   </div>
                 </div>
 
-                {/* Amount */}
-                <p className="font-heading font-bold text-white" style={{ fontSize: '13px' }}>
-                  {formatPrice(dep.amount)}
-                </p>
+                {/* Amount: уникальная сумма перевода — главное для сверки */}
+                <div>
+                  <p className="font-heading font-bold text-white" style={{ fontSize: '13px' }}>
+                    {formatPrice(dep.uniqueAmount ?? dep.amount)}
+                  </p>
+                  {dep.uniqueAmount != null && dep.uniqueAmount !== dep.amount && (
+                    <p className="font-body text-[#4B5563]" style={{ fontSize: '10px' }}>
+                      запрос: {formatPrice(dep.amount)}
+                    </p>
+                  )}
+                </div>
 
-                {/* Method */}
+                {/* Method / card */}
                 <span className="font-body rounded-lg px-2.5 py-1 text-center"
+                      title={dep.card?.cardNumber ?? undefined}
                       style={{ fontSize: '11px', color: '#9CA3AF', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  {METHOD_LABELS[dep.method] ?? dep.method}
+                  {dep.card ? `*${dep.card.cardNumber.replace(/\s/g, '').slice(-4)}` : (METHOD_LABELS[dep.method] ?? dep.method)}
                 </span>
 
                 {/* Status */}
                 <span className="font-body rounded-lg px-2.5 py-1 text-center"
                       style={{ fontSize: '11px', color: st.color, background: st.bg, border: `1px solid ${st.color}25` }}>
-                  {st.label}
+                  {st.label}{dep.status === 'APPROVED' && dep.confirmedVia === 'sms' ? ' · авто' : ''}
                 </span>
 
                 {/* Date */}
@@ -190,8 +205,8 @@ export default function AdminDepositsPage() {
                   {new Date(dep.createdAt).toLocaleString('ru-RU', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                 </p>
 
-                {/* Actions */}
-                {dep.status === 'PENDING' ? (
+                {/* Actions: EXPIRED тоже можно одобрить — перевод мог опоздать */}
+                {dep.status === 'PENDING' || dep.status === 'EXPIRED' ? (
                   <div className="flex gap-1.5">
                     <button
                       onClick={() => { setConfirmId(dep.id); setConfirmType('approve'); }}

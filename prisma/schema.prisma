@@ -247,18 +247,49 @@ model transactions {
 }
 
 model deposit_requests {
-  id        String        @id
-  userId    String
-  amount    Int
-  method    String
-  status    DepositStatus @default(PENDING)
-  comment   String?
-  createdAt DateTime      @default(now())
-  updatedAt DateTime
-  users     users         @relation(fields: [userId], references: [id])
+  id           String         @id
+  userId       String
+  amount       Int
+  uniqueAmount Int?
+  method       String
+  status       DepositStatus  @default(PENDING)
+  comment      String?
+  confirmedVia String?
+  cardId       String?
+  expiresAt    DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime
+  users        users          @relation(fields: [userId], references: [id])
+  card         payment_cards? @relation(fields: [cardId], references: [id])
 
   @@index([userId])
   @@index([status])
+  @@index([createdAt])
+  @@index([uniqueAmount, status])
+}
+
+model payment_cards {
+  id         String   @id @default(cuid())
+  cardNumber String
+  holderName String
+  bank       String?
+  isActive   Boolean  @default(true)
+  priority   Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  deposit_requests deposit_requests[]
+
+  @@index([isActive])
+}
+
+model sms_logs {
+  id               String   @id @default(cuid())
+  raw              String
+  sender           String?
+  matchedDepositId String?
+  createdAt        DateTime @default(now())
+
   @@index([createdAt])
 }
 
@@ -384,6 +415,7 @@ enum DepositStatus {
   PENDING
   APPROVED
   REJECTED
+  EXPIRED
 }
 
 // ═══════════════════════════════════════════════════════

@@ -13,7 +13,7 @@ export async function GET() {
     where:   { userId: session.user.id },
     orderBy: { createdAt: 'desc' },
     take:    50,
-    select:  { id: true, amount: true, method: true, status: true, comment: true, createdAt: true },
+    select:  { id: true, amount: true, uniqueAmount: true, method: true, status: true, comment: true, createdAt: true },
   });
 
   return NextResponse.json({ deposits });

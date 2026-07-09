@@ -10,7 +10,8 @@ services:
       POSTGRES_PASSWORD: arcane_secret
       POSTGRES_DB: arcane_db
     ports:
-      - '5432:5432'
+      # 5433 на хосте: 5432 занят postgres соседнего проекта (wbtaxi)
+      - '5433:5432'
     volumes:
       - arcane_pg_data:/var/lib/postgresql/data
     healthcheck:

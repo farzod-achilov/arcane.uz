@@ -66,6 +66,7 @@ const DEPOSIT_STATUS: Record<string, { label: string; color: string }> = {
   PENDING:  { label: 'Ожидает',   color: '#F59E0B' },
   APPROVED: { label: 'Одобрено',  color: '#22C55E' },
   REJECTED: { label: 'Отклонено', color: '#EF4444' },
+  EXPIRED:  { label: 'Истекло',   color: '#6B7280' },
 };
 const DEPOSIT_METHOD: Record<string, string> = {
   click: 'Click', payme: 'Payme', card: 'Карта',
@@ -135,7 +136,7 @@ async function getDeposits(userId: string) {
     where:   { userId },
     orderBy: { createdAt: 'desc' },
     take:    30,
-    select:  { id: true, amount: true, method: true, status: true, comment: true, createdAt: true },
+    select:  { id: true, amount: true, uniqueAmount: true, method: true, status: true, comment: true, createdAt: true },
   });
 }
 
@@ -666,7 +667,7 @@ export default async function ProfilePage({
                         )}
                       </div>
                       <p className="font-heading font-bold text-white flex-shrink-0" style={{ fontSize: '14px' }}>
-                        +{formatPrice(dep.amount)}
+                        +{formatPrice(dep.uniqueAmount ?? dep.amount)}
                       </p>
                       <span className="font-body rounded-full px-2.5 py-1 flex-shrink-0"
                             style={{ fontSize: '10px', color: st.color, background: `${st.color}15`, border: `1px solid ${st.color}25` }}>

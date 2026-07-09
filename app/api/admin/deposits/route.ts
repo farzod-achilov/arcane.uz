@@ -20,7 +20,10 @@ export async function GET(req: Request) {
   const [deposits, total] = await Promise.all([
     prisma.deposit_requests.findMany({
       where,
-      include: { users: { select: { id: true, username: true, email: true, balanceUzs: true } } },
+      include: {
+        users: { select: { id: true, username: true, email: true, balanceUzs: true } },
+        card:  { select: { cardNumber: true, bank: true } },
+      },
       orderBy: { createdAt: 'desc' },
       skip:    (page - 1) * limit,
       take:    limit,

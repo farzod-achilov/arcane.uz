@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { approveDeposit } from '@/lib/deposits/p2p';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,21 +14,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   const deposit = await prisma.deposit_requests.findUnique({ where: { id: params.id } });
   if (!deposit) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  if (deposit.status !== 'PENDING')
-    return NextResponse.json({ error: 'Already processed' }, { status: 400 });
 
   if (body.action === 'approve') {
-    await prisma.$transaction([
-      prisma.deposit_requests.update({
-        where: { id: params.id },
-        data:  { status: 'APPROVED', comment: body.comment ?? null, updatedAt: new Date() },
-      }),
-      prisma.users.update({
-        where: { id: deposit.userId },
-        data:  { balanceUzs: { increment: deposit.amount } },
-      }),
-    ]);
+    // EXPIRED тоже можно подтвердить — деньги могли прийти после таймера
+    const result = await approveDeposit(params.id, 'admin', body.comment);
+    if (!result) return NextResponse.json({ error: 'Already processed' }, { status: 400 });
   } else {
+    if (deposit.status !== 'PENDING' && deposit.status !== 'EXPIRED')
+      return NextResponse.json({ error: 'Already processed' }, { status: 400 });
     await prisma.deposit_requests.update({
       where: { id: params.id },
       data:  { status: 'REJECTED', comment: body.comment ?? null, updatedAt: new Date() },
