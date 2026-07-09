@@ -10,7 +10,9 @@ import { Mail, Lock, Eye, EyeOff, UserPlus, Link2 } from 'lucide-react';
 function decodeBase64Url(str: string): string {
   const base64 = str.replace(/-/g, '+').replace(/_/g, '/');
   const pad = (4 - base64.length % 4) % 4;
-  return atob(base64 + '='.repeat(pad));
+  // atob даёт Latin-1-строку байтов — кириллицу декодируем как UTF-8
+  const bin = atob(base64 + '='.repeat(pad));
+  return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
 }
 
 type TgData = Record<string, string>;

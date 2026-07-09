@@ -211,7 +211,10 @@ function Inner() {
     try {
       const base64 = data.replace(/-/g, '+').replace(/_/g, '/');
       const pad    = (4 - base64.length % 4) % 4;
-      const parsed = JSON.parse(atob(base64 + '='.repeat(pad))) as SteamData & { ts: number };
+      // atob даёт Latin-1-строку байтов — кириллицу нужно декодировать как UTF-8
+      const bin    = atob(base64 + '='.repeat(pad));
+      const bytes  = Uint8Array.from(bin, c => c.charCodeAt(0));
+      const parsed = JSON.parse(new TextDecoder().decode(bytes)) as SteamData & { ts: number };
       if (!parsed.steamId || Date.now() - parsed.ts > 600_000) throw new Error('expired');
       setSteamData({ steamId: parsed.steamId, displayName: parsed.displayName, avatar: parsed.avatar });
     } catch {
