@@ -17,13 +17,18 @@ interface NewOrderNotification {
   customerTelegram?: string;
 }
 
-async function sendMessage(chatId: string, text: string): Promise<boolean> {
+type InlineKeyboard = { inline_keyboard: { text: string; callback_data: string }[][] };
+
+async function sendMessage(chatId: string, text: string, replyMarkup?: InlineKeyboard): Promise<boolean> {
   if (!BOT_TOKEN || !chatId) return false;
   try {
     const res = await fetch(`${TG_API}/sendMessage`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
+      body: JSON.stringify({
+        chat_id: chatId, text, parse_mode: 'HTML',
+        ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+      }),
     });
     return res.ok;
   } catch {
@@ -101,11 +106,16 @@ export async function notifyAdminNewDeposit(params: {
     `📧 Email: ${userEmail || '—'}`,
     ``,
     `🆔 ID заявки: <code>${depositId}</code>`,
-    `⚡ Придёт SMS с точной суммой — зачислится автоматически.`,
-    `Иначе: Admin → /admin/deposits`,
+    `⚡ Придёт уведомление с точной суммой — зачислится автоматически.`,
+    `Кнопки ниже — для ручного решения спорных случаев.`,
   ].join('\n');
 
-  await sendMessage(ADMIN_CHAT, text);
+  await sendMessage(ADMIN_CHAT, text, {
+    inline_keyboard: [[
+      { text: '✅ Зачислить', callback_data: `dep:approve:${depositId}` },
+      { text: '❌ Отклонить', callback_data: `dep:reject:${depositId}` },
+    ]],
+  });
 }
 
 /** Deposit auto-confirmed by SMS hook */

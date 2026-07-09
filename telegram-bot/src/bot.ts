@@ -35,6 +35,7 @@ import { registerWishlistCommand } from './commands/wishlist';
 import { registerRewardsCommand }  from './commands/rewards';
 import { registerSupportCommand }  from './commands/support';
 import { registerSettingsCommand } from './commands/settings';
+import { registerDepositActions }  from './commands/depositActions';
 
 import { referralMenu, backMenu, mainMenu } from './utils/keyboard';
 import * as tpl from './templates/messages';
@@ -61,6 +62,7 @@ registerWishlistCommand(bot);
 registerRewardsCommand(bot);
 registerSupportCommand(bot, notifService);
 registerSettingsCommand(bot);
+registerDepositActions(bot);
 
 // ── /referral command ──────────────────────────────────
 bot.command('referral', async (ctx) => {

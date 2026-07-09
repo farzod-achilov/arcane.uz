@@ -197,7 +197,7 @@ export default function AdminDepositsPage() {
                 {/* Status */}
                 <span className="font-body rounded-lg px-2.5 py-1 text-center"
                       style={{ fontSize: '11px', color: st.color, background: st.bg, border: `1px solid ${st.color}25` }}>
-                  {st.label}{dep.status === 'APPROVED' && dep.confirmedVia === 'sms' ? ' · авто' : ''}
+                  {st.label}{dep.status === 'APPROVED' && dep.confirmedVia === 'sms' ? ' · авто' : dep.confirmedVia === 'telegram' ? ' · TG' : ''}
                 </span>
 
                 {/* Date */}
