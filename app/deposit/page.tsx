@@ -244,9 +244,10 @@ export default function DepositPage() {
             </p>
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <p className="font-body text-[#4B5563]" style={{ fontSize: '10.5px' }}>Номер карты{deposit.card.bank ? ` · ${deposit.card.bank}` : ''}</p>
-                  <p className="font-heading font-semibold text-white" style={{ fontSize: '17px', letterSpacing: '0.05em' }}>
+                  <p className="font-heading font-semibold text-white whitespace-nowrap"
+                     style={{ fontSize: 'clamp(14px, 4.3vw, 17px)', letterSpacing: '0.04em' }}>
                     {deposit.card.cardNumber}
                   </p>
                 </div>

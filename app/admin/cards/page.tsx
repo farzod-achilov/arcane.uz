@@ -93,7 +93,7 @@ export default function AdminCardsPage() {
   };
 
   return (
-    <div className="p-6 max-w-4xl">
+    <div className="p-4 md:p-6 max-w-4xl">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="font-heading font-bold text-white" style={{ fontSize: '22px' }}>

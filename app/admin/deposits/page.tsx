@@ -92,7 +92,7 @@ export default function AdminDepositsPage() {
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 md:p-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -120,7 +120,7 @@ export default function AdminDepositsPage() {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-2 mb-5">
+      <div className="flex flex-wrap gap-2 mb-5">
         {(['PENDING', 'APPROVED', 'REJECTED', 'EXPIRED', 'ALL'] as const).map(s => (
           <button
             key={s}
@@ -139,8 +139,8 @@ export default function AdminDepositsPage() {
 
       {/* Table */}
       <div className="rounded-2xl overflow-hidden" style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)' }}>
-        {/* Head */}
-        <div className="grid gap-4 px-5 py-3"
+        {/* Head (только desktop) */}
+        <div className="hidden md:grid gap-4 px-5 py-3"
              style={{ gridTemplateColumns: '1fr 120px 90px 90px 130px 120px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           {['Пользователь', 'Сумма', 'Метод', 'Статус', 'Дата', 'Действия'].map(h => (
             <span key={h} className="font-body text-[#374151]" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -161,11 +161,59 @@ export default function AdminDepositsPage() {
         ) : (
           deposits.map(dep => {
             const st = STATUS_COLORS[dep.status];
+            const actionable = dep.status === 'PENDING' || dep.status === 'EXPIRED';
             return (
+              <div key={dep.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+
+              {/* ── Mobile card ── */}
+              <div className="md:hidden p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-body text-[#D1D5DB] truncate" style={{ fontSize: '13px' }}>{dep.users.username}</p>
+                    <p className="font-body text-[#374151] truncate" style={{ fontSize: '10.5px' }}>{dep.users.email}</p>
+                  </div>
+                  <span className="font-body rounded-lg px-2.5 py-1 flex-shrink-0"
+                        style={{ fontSize: '11px', color: st.color, background: st.bg, border: `1px solid ${st.color}25` }}>
+                    {st.label}{dep.status === 'APPROVED' && dep.confirmedVia === 'sms' ? ' · авто' : dep.confirmedVia === 'telegram' ? ' · TG' : ''}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-heading font-bold text-white" style={{ fontSize: '15px' }}>
+                      {formatPrice(dep.uniqueAmount ?? dep.amount)}
+                    </p>
+                    <p className="font-body text-[#4B5563]" style={{ fontSize: '10px' }}>
+                      {dep.card ? `на карту *${dep.card.cardNumber.replace(/\s/g, '').slice(-4)} · ` : ''}
+                      {new Date(dep.createdAt).toLocaleString('ru-RU', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                  {actionable && (
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => { setConfirmId(dep.id); setConfirmType('approve'); }}
+                        disabled={processing === dep.id}
+                        className="flex items-center gap-1.5 rounded-lg px-3 py-2 font-heading font-semibold text-xs disabled:opacity-50"
+                        style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.2)', color: '#22C55E' }}
+                      >
+                        <CheckCircle style={{ width: '13px', height: '13px' }} /> Одобрить
+                      </button>
+                      <button
+                        onClick={() => { setConfirmId(dep.id); setConfirmType('reject'); }}
+                        disabled={processing === dep.id}
+                        className="flex items-center rounded-lg px-3 py-2 disabled:opacity-50"
+                        style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444' }}
+                      >
+                        <XCircle style={{ width: '13px', height: '13px' }} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ── Desktop row ── */}
               <div
-                key={dep.id}
-                className="grid gap-4 px-5 py-3.5 items-center hover:bg-white/[0.015] transition-colors"
-                style={{ gridTemplateColumns: '1fr 120px 90px 90px 130px 120px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                className="hidden md:grid gap-4 px-5 py-3.5 items-center hover:bg-white/[0.015] transition-colors"
+                style={{ gridTemplateColumns: '1fr 120px 90px 90px 130px 120px' }}
               >
                 {/* User */}
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -232,6 +280,8 @@ export default function AdminDepositsPage() {
                 ) : (
                   <span className="font-body text-[#374151]" style={{ fontSize: '11px' }}>—</span>
                 )}
+              </div>
+
               </div>
             );
           })

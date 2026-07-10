@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import {
-  Search, Bell, ExternalLink, ChevronRight,
+  Search, Bell, ExternalLink, ChevronRight, Menu,
   LayoutDashboard, Package, ShoppingBag, Users,
   Tag, Zap, Gift, MessageSquare, BarChart2, TrendingUp, Gamepad2, KeyRound,
 } from 'lucide-react';
@@ -28,7 +28,7 @@ const BREADCRUMB_ICONS: Record<string, React.ElementType> = {
   '/admin/analytics':           BarChart2,
 };
 
-export default function AdminTopbar() {
+export default function AdminTopbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const pathname              = usePathname();
   const { t, lang, setLang } = useT();
   const [search, setSearch]   = useState('');
@@ -70,10 +70,19 @@ export default function AdminTopbar() {
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 min-w-0">
-        <Link href="/admin" className="font-body text-[#374151] hover:text-[#6B7280] transition-colors whitespace-nowrap" style={{ fontSize: '12px' }}>
+        {/* Гамбургер мобильного drawer'а */}
+        <button
+          onClick={onMenuClick}
+          className="md:hidden p-2 -ml-2 rounded-xl flex-shrink-0"
+          style={{ color: '#9CA3AF' }}
+          aria-label="Открыть меню"
+        >
+          <Menu style={{ width: '18px', height: '18px' }} />
+        </button>
+        <Link href="/admin" className="hidden sm:block font-body text-[#374151] hover:text-[#6B7280] transition-colors whitespace-nowrap" style={{ fontSize: '12px' }}>
           ARCANE
         </Link>
-        <ChevronRight style={{ width: '12px', height: '12px', color: '#1F2937', flexShrink: 0 }} />
+        <ChevronRight className="hidden sm:block" style={{ width: '12px', height: '12px', color: '#1F2937', flexShrink: 0 }} />
         <div className="flex items-center gap-1.5">
           <Icon style={{ width: '13px', height: '13px', color: '#7C3AED', flexShrink: 0 }} />
           <span className="font-heading font-semibold text-white whitespace-nowrap" style={{ fontSize: '13px' }}>
