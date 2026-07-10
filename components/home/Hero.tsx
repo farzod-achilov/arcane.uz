@@ -540,8 +540,11 @@ export default function Hero() {
             </div>
 
             {/* ─── RIGHT: Game showcase ─── */}
-            <div className="order-1 lg:order-2">
-              <div className="relative h-[440px] sm:h-[520px] lg:h-[580px]">
+            {/* The 3-card fan needs ~450px to breathe; on phones it's scaled
+                down so the whole showcase (and its floating badges) fits the
+                viewport instead of being clipped at the right edge. */}
+            <div className="order-1 lg:order-2 flex justify-center">
+              <div className="relative h-[380px] xs:h-[440px] sm:h-[520px] lg:h-[580px] w-full max-w-[460px] scale-[0.82] xs:scale-90 sm:scale-100 origin-top">
 
                 {/* Ground glow */}
                 <motion.div

@@ -130,7 +130,7 @@ export default function LoginPage() {
 
       {mounted && PARTICLES.map((p, i) => <Particle key={i} {...p} />)}
 
-      <div className="relative z-10 w-full max-w-sm">
+      <div className="relative z-10 w-full max-w-sm min-w-0">
         {/* Logo */}
         <motion.div
           initial={{ opacity: 0, y: -24 }}

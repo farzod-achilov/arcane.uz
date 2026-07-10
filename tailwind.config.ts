@@ -8,6 +8,11 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      // Extra small breakpoint for phones — Tailwind's default range starts at
+      // sm:640px, which leaves a big gap for 360–640px handset layouts.
+      screens: {
+        xs: '480px',
+      },
       colors: {
         bg: {
           void:     '#000005',
