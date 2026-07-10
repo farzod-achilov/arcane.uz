@@ -21,6 +21,8 @@ const nextConfig = {
       { protocol: 'https', hostname: 'store.akamai.steamstatic.com' },
       { protocol: 'https', hostname: '*.steamstatic.com' },
       { protocol: 'https', hostname: '*.steampowered.com' },
+      { protocol: 'https', hostname: 'media.rawg.io' },
+      { protocol: 'https', hostname: 'images.igdb.com' },
     ],
   },
 
@@ -34,7 +36,7 @@ const nextConfig = {
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "img-src 'self' data: blob: https://*.steamstatic.com https://*.akamaihd.net https://*.steampowered.com https://steamcommunity.com https://picsum.photos https://fastly.picsum.photos https://via.placeholder.com https://placehold.co",
+      "img-src 'self' data: blob: https://*.steamstatic.com https://*.akamaihd.net https://*.steampowered.com https://steamcommunity.com https://media.rawg.io https://images.igdb.com https://picsum.photos https://fastly.picsum.photos https://via.placeholder.com https://placehold.co",
       "media-src 'self' blob: https://*.steamstatic.com https://*.akamaihd.net",
       "font-src 'self' data: https://fonts.gstatic.com",
       "connect-src 'self'",

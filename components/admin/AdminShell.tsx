@@ -60,7 +60,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         <div className="flex flex-col flex-1 min-w-0 relative" style={{ zIndex: 1 }}>
           <AdminTopbar onMenuClick={() => setMobileOpen(true)} />
           <main
-            className="flex-1 overflow-y-auto"
+            className="flex-1 overflow-y-auto overflow-x-auto"
             style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(124,58,237,0.3) transparent' }}
           >
             {children}

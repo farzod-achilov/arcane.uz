@@ -29,6 +29,8 @@ export interface User {
 interface UserContextType {
   user: User | null;
   isLoggedIn: boolean;
+  /** true, пока next-auth ещё определяет сессию — не редиректить на /login в этот момент */
+  isAuthLoading: boolean;
   notifications: Notification[];
   wishlist: string[];
   unreadCount: number;
@@ -241,7 +243,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   return (
     <UserContext.Provider value={{
-      user, isLoggedIn: !!user,
+      user, isLoggedIn: !!user, isAuthLoading: status === 'loading',
       notifications, wishlist, unreadCount,
       login: legacyLogin, logout, register,
       addToWishlist, removeFromWishlist, isInWishlist,

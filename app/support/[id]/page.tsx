@@ -84,7 +84,11 @@ export default function TicketChatPage() {
     }
   }, [session?.user?.id, params.id, router]);
 
-  useEffect(() => { if (authStatus !== 'loading') load(); }, [authStatus, load]);
+  useEffect(() => {
+    if (authStatus === 'loading') return;
+    if (authStatus === 'unauthenticated') { router.replace('/login'); return; } // иначе вечный спиннер
+    load();
+  }, [authStatus, load, router]);
 
   // Scroll to bottom when messages change
   useEffect(() => {

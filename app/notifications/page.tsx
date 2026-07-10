@@ -42,7 +42,7 @@ interface Notif {
 }
 
 export default function NotificationsPage() {
-  const { isLoggedIn, notifications: ctxNotifs, unreadCount,
+  const { isLoggedIn, isAuthLoading, notifications: ctxNotifs, unreadCount,
           markNotificationRead, markAllRead } = useUser();
   const router = useRouter();
 
@@ -51,8 +51,9 @@ export default function NotificationsPage() {
   const [deleting, setDeleting]   = useState<string | null>(null);
 
   useEffect(() => {
+    if (isAuthLoading) return; // сессия ещё определяется — не выкидывать на /login
     if (!isLoggedIn) { router.replace('/login'); return; }
-  }, [isLoggedIn, router]);
+  }, [isAuthLoading, isLoggedIn, router]);
 
   const load = useCallback(async () => {
     try {

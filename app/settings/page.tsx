@@ -8,7 +8,7 @@ import { useUser } from '@/lib/userContext';
 import CheckoutInput from '@/components/checkout/CheckoutInput';
 
 export default function SettingsPage() {
-  const { user, isLoggedIn, updateProfile, connectTelegram, connectSteam } = useUser();
+  const { user, isLoggedIn, isAuthLoading, updateProfile, connectTelegram, connectSteam } = useUser();
   const router = useRouter();
   const [name, setName] = useState('');
   const [saved, setSaved] = useState('');
@@ -23,9 +23,10 @@ export default function SettingsPage() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    if (isAuthLoading) return; // сессия ещё определяется — не выкидывать на /login
     if (!isLoggedIn) router.replace('/login');
     else if (user) setName(user.name);
-  }, [isLoggedIn, user, router]);
+  }, [isAuthLoading, isLoggedIn, user, router]);
 
   // Check if already linked on mount
   useEffect(() => {
