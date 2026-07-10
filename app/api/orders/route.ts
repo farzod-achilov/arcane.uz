@@ -4,6 +4,7 @@ import { OrderError } from '@/lib/orders/types';
 import { notifyAdminNewOrder } from '@/lib/adminTelegram';
 import { sendOrderConfirmationEmail } from '@/lib/email';
 import { requireSession, requireAdmin } from '@/lib/apiGuard';
+import { processDelivery } from '@/lib/delivery';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +43,12 @@ export async function POST(req: NextRequest) {
     // Always use the authenticated user's ID — never trust userId from the request body
     const userId = (session!.user as { id: string }).id;
     const order = await createOrder({ ...body, userId });
+
+    // Balance-paid orders are PAID immediately — dispatch delivery (auto keys or manual queue).
+    // Failure here must not fail the order: admin can re-trigger via /api/orders/[id]/fulfill.
+    if (order.status === 'PAID') {
+      await processDelivery(order.id).catch(err => console.error('[Orders API] delivery dispatch failed:', err));
+    }
 
     // Email order confirmation to customer (non-blocking)
     if (order.user?.email) {

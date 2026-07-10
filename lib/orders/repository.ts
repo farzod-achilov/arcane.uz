@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { decryptKey } from '@/lib/keys/encryption';
 import type { OrderFilters, CreateOrderDto } from './types';
 import { OrderError } from './types';
 
@@ -123,27 +124,33 @@ export async function createOrderTx(dto: CreateOrderDto) {
 
     const totalPrice = Math.max(0, afterPromo - coinDiscount);
 
-    // Deduct coins if used
+    // Deduct coins if used — conditional update guards against concurrent spends
     if (coinsSpent > 0) {
-      await tx.users.update({
-        where: { id: userId },
+      const deducted = await tx.users.updateMany({
+        where: { id: userId, arcCoins: { gte: coinsSpent } },
         data:  { arcCoins: { decrement: coinsSpent } },
       });
+      if (deducted.count === 0) {
+        throw new OrderError(
+          `Недостаточно ARC Coins. Нужно: ${coinsSpent}`,
+          'INSUFFICIENT_COINS', 400,
+        );
+      }
     }
 
     // 3a. Balance payment — check and deduct immediately
     if (paymentMethod === 'balance') {
-      if (user.balanceUzs < totalPrice) {
+      const paid = await tx.users.updateMany({
+        where: { id: userId, balanceUzs: { gte: totalPrice } },
+        data:  { balanceUzs: { decrement: totalPrice } },
+      });
+      if (paid.count === 0) {
         throw new OrderError(
           `Недостаточно средств. Баланс: ${user.balanceUzs} сум, нужно: ${totalPrice} сум`,
           'INSUFFICIENT_BALANCE',
           400,
         );
       }
-      await tx.users.update({
-        where: { id: userId },
-        data:  { balanceUzs: { decrement: totalPrice } },
-      });
     }
 
     // 3b. Create order
@@ -192,13 +199,13 @@ export async function createOrderTx(dto: CreateOrderDto) {
 
 // ── Key delivery transaction ──────────────────────────────────────────────────
 
-interface KeyRow { id: string; key_value: string }
+interface KeyRow { id: string; encryptedKey: string; keyIv: string; keyTag: string }
 
 export async function deliverKeysTx(orderId: string) {
   return prisma.$transaction(async tx => {
     // Lock the order row to prevent concurrent delivery attempts
-    const [orderRow] = await tx.$queryRaw<Array<{ id: string; status: string }>>`
-      SELECT id, status FROM orders
+    const [orderRow] = await tx.$queryRaw<Array<{ id: string; status: string; user_id: string }>>`
+      SELECT id, status, user_id FROM orders
       WHERE id = ${orderId}
       FOR UPDATE
     `;
@@ -232,10 +239,10 @@ export async function deliverKeysTx(orderId: string) {
     for (const item of items) {
       // SELECT FOR UPDATE SKIP LOCKED — concurrent-safe key lock
       const [keyRow] = await tx.$queryRaw<KeyRow[]>`
-        SELECT id, key_value FROM game_keys
-        WHERE game_id = ${item.gameId}
-          AND status  = 'AVAILABLE'
-        ORDER BY created_at ASC
+        SELECT id, "encryptedKey", "keyIv", "keyTag" FROM game_keys
+        WHERE "gameId" = ${item.gameId}
+          AND status   = 'AVAILABLE'
+        ORDER BY "createdAt" ASC
         LIMIT 1
         FOR UPDATE SKIP LOCKED
       `;
@@ -249,16 +256,18 @@ export async function deliverKeysTx(orderId: string) {
         continue;
       }
 
+      const keyValue = decryptKey(keyRow);
+
       // Mark key as SOLD
       await tx.game_keys.update({
         where: { id: keyRow.id },
-        data:  { status: 'SOLD', soldToUserId: item.orderId },
+        data:  { status: 'SOLD', soldToUserId: orderRow.user_id, deliveredAt: new Date(), updatedAt: new Date() },
       });
 
       // Attach key to order item
       await tx.order_items.update({
         where: { id: item.id },
-        data:  { keyValue: keyRow.key_value, deliveredAt: new Date() },
+        data:  { keyValue, deliveredAt: new Date() },
       });
 
       // Decrement game stock
@@ -271,7 +280,7 @@ export async function deliverKeysTx(orderId: string) {
         itemId:    item.id,
         gameId:    item.gameId,
         gameTitle: item.game?.title ?? item.gameId,
-        keyValue:  keyRow.key_value,
+        keyValue,
       });
     }
 

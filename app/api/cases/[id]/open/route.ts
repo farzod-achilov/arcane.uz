@@ -44,12 +44,13 @@ export async function POST(
   const reward = pickWeightedReward(caseConfig.rewards);
 
   // Atomic DB writes
-  await prisma.$transaction(async (tx) => {
-    // 1. Deduct UZS balance
-    await tx.users.update({
-      where: { id: userId },
+  const paidOk = await prisma.$transaction(async (tx) => {
+    // 1. Deduct UZS balance — conditional update guards against concurrent opens
+    const paid = await tx.users.updateMany({
+      where: { id: userId, balanceUzs: { gte: price } },
       data:  { balanceUzs: { decrement: price }, totalDrops: { increment: 1 } },
     });
+    if (paid.count === 0) return false; // nothing written yet — safe to bail out
 
     // 2. If coins reward — credit arcCoins
     if (reward.type === 'coins' && reward.coinValue > 0) {
@@ -110,7 +111,13 @@ export async function POST(
         });
       }
     }
+
+    return true;
   });
+
+  if (!paidOk) {
+    return NextResponse.json({ ok: false, error: 'Недостаточно средств на балансе', code: 'INSUFFICIENT_BALANCE' }, { status: 400 });
+  }
 
   return NextResponse.json({ ok: true, reward });
 }

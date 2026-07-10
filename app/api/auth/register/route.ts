@@ -79,9 +79,9 @@ export async function POST(req: NextRequest) {
     // Find referrer by code
     const refCode = referralCode?.toUpperCase().trim();
     const referrer = refCode
-      ? await (prisma.users.findFirst as AnyData)({
+      ? await prisma.users.findFirst({
           where:  { referralCode: refCode },
-          select: { id: true, arcCoins: true, _count: { select: { /* referrals */ } } },
+          select: { id: true, arcCoins: true },
         })
       : null;
 

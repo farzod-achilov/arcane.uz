@@ -1,11 +1,12 @@
 import { prisma } from '@/lib/prisma';
 import { OrderError } from '@/lib/orders/types';
+import { decryptKey } from '@/lib/keys/encryption';
 import { auditLog } from './audit';
 import { notifyOrderCompleted, notifyLowStock } from './notify';
 import { createNotification } from '@/lib/notifications';
 import type { DeliveryContext, AutoDeliveryResult } from './types';
 
-interface KeyRow { id: string; key_value: string }
+interface KeyRow { id: string; encryptedKey: string; keyIv: string; keyTag: string }
 
 export async function autoDeliver(ctx: DeliveryContext): Promise<AutoDeliveryResult> {
   await auditLog(ctx.orderId, 'AUTO_DELIVERY_START');
@@ -17,10 +18,10 @@ export async function autoDeliver(ctx: DeliveryContext): Promise<AutoDeliveryRes
     for (const item of ctx.items) {
       // Concurrent-safe key lock
       const [keyRow] = await tx.$queryRaw<KeyRow[]>`
-        SELECT id, key_value FROM game_keys
-        WHERE game_id = ${item.gameId}
-          AND status  = 'AVAILABLE'
-        ORDER BY created_at ASC
+        SELECT id, "encryptedKey", "keyIv", "keyTag" FROM game_keys
+        WHERE "gameId" = ${item.gameId}
+          AND status   = 'AVAILABLE'
+        ORDER BY "createdAt" ASC
         LIMIT 1
         FOR UPDATE SKIP LOCKED
       `;
@@ -33,16 +34,18 @@ export async function autoDeliver(ctx: DeliveryContext): Promise<AutoDeliveryRes
         continue;
       }
 
+      const keyValue = decryptKey(keyRow);
+
       // Mark key as SOLD
       await tx.game_keys.update({
         where: { id: keyRow.id },
-        data:  { status: 'SOLD', soldToUserId: ctx.userId },
+        data:  { status: 'SOLD', soldToUserId: ctx.userId, deliveredAt: new Date(), updatedAt: new Date() },
       });
 
       // Write key to order item
       await tx.order_items.update({
         where: { id: item.id },
-        data:  { keyValue: keyRow.key_value, deliveredAt: new Date() },
+        data:  { keyValue, deliveredAt: new Date() },
       });
 
       // Decrement stock, increment sales counter
@@ -52,7 +55,7 @@ export async function autoDeliver(ctx: DeliveryContext): Promise<AutoDeliveryRes
         select: { stockStore: true, lowStockThreshold: true, title: true },
       });
 
-      keys.push({ itemId: item.id, gameTitle: item.gameTitle, keyValue: keyRow.key_value });
+      keys.push({ itemId: item.id, gameTitle: item.gameTitle, keyValue });
 
       await auditLog(ctx.orderId, 'AUTO_KEY_ISSUED', 'system', undefined, {
         itemId: item.id, gameId: item.gameId,
