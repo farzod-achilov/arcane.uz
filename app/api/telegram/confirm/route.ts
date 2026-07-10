@@ -10,8 +10,9 @@ import { prisma } from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request): Promise<Response> {
+  // No fallback: an unset secret must disable the endpoint, not open it
   const secret = req.headers.get('x-api-secret');
-  if (secret !== (process.env.TELEGRAM_API_SECRET ?? 'dev-secret')) {
+  if (!process.env.TELEGRAM_API_SECRET || secret !== process.env.TELEGRAM_API_SECRET) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

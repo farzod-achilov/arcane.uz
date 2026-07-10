@@ -18,11 +18,11 @@ export const config = {
   },
   server: {
     port:      parseInt(process.env.PORT ?? '3001', 10),
-    apiSecret: process.env.API_SECRET ?? 'dev-secret',
+    apiSecret: required('API_SECRET'),
   },
   website: {
     url:    process.env.WEBSITE_URL ?? 'http://localhost:3000',
-    secret: process.env.WEBSITE_API_SECRET ?? 'dev-secret',
+    secret: required('WEBSITE_API_SECRET'),
   },
   admin: {
     chatId: process.env.ADMIN_CHAT_ID ? parseInt(process.env.ADMIN_CHAT_ID, 10) : null,

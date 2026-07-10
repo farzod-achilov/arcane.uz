@@ -14,7 +14,7 @@ async function notifyReferrer(referrerId: string, newUsername: string) {
   });
   if (!tgRow) return;
 
-  const referralCount = await (prisma.users.count as AnyData)({ where: { referredBy: referrerId } });
+  const referralCount = await prisma.users.count({ where: { referredBy: referrerId } });
   const bonus = referralCount >= 50 ? 500 : referralCount >= 30 ? 400 : referralCount >= 15 ? 300 : referralCount >= 5 ? 250 : 200;
 
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -33,9 +33,6 @@ async function notifyReferrer(referrerId: string, newUsername: string) {
     }),
   });
 }
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyData = any;
 
 function genCode(): string {
   return crypto.randomBytes(4).toString('hex').toUpperCase();
@@ -87,7 +84,7 @@ export async function POST(req: NextRequest) {
 
     // Calculate tiered bonus based on referrer's existing referral count
     const getReferralBonus = async (referrerId: string): Promise<number> => {
-      const count = await (prisma.users.count as AnyData)({ where: { referredBy: referrerId } });
+      const count = await prisma.users.count({ where: { referredBy: referrerId } });
       if (count >= 50) return 500;
       if (count >= 30) return 400;
       if (count >= 15) return 300;
@@ -101,7 +98,7 @@ export async function POST(req: NextRequest) {
     const myCode         = genCode();
 
     const user = await prisma.$transaction(async (tx) => {
-      const created = await (tx.users.create as AnyData)({
+      const created = await tx.users.create({
         data: {
           id:           userId,
           email:        normalEmail,
@@ -129,7 +126,7 @@ export async function POST(req: NextRequest) {
 
       if (referrer) {
         const bonus = await getReferralBonus(referrer.id);
-        await (tx.users.update as AnyData)({
+        await tx.users.update({
           where: { id: referrer.id },
           data:  { arcCoins: { increment: bonus } },
         });

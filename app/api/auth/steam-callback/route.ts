@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { createSteamToken, pruneSteamTokens } from '@/lib/steamAuthTokens';
 
 export const dynamic = 'force-dynamic';
 
@@ -89,19 +90,24 @@ export async function GET(req: Request) {
   }
 
   // ── Flow B: Not logged in → LOGIN via Steam ───────────────────
+  // The steamId is proven by the OpenID check above; hand it to the client
+  // only as a single-use server-side token — never as forgeable data.
+  await pruneSteamTokens();
+
   const tgRow = await prisma.steam_users.findUnique({
     where:  { steamId },
     select: { userId: true },
   });
 
+  const profile = await getSteamProfile(steamId);
+  const token   = await createSteamToken({ steamId, ...profile });
+
   if (tgRow) {
-    // Existing Steam user — redirect to special login page with steamId token
-    const token = Buffer.from(JSON.stringify({ steamId, ts: Date.now() })).toString('base64url');
+    // Existing Steam user — redirect to special login page
     return NextResponse.redirect(`${APP_URL}/auth/steam-signin?token=${token}`);
   }
 
-  // New Steam user — redirect to create/link page
-  const profile = await getSteamProfile(steamId);
-  const data = Buffer.from(JSON.stringify({ steamId, ...profile, ts: Date.now() })).toString('base64url');
-  return NextResponse.redirect(`${APP_URL}/auth/steam-callback?data=${data}`);
+  // New Steam user — redirect to create/link page (name is display-only)
+  const name = encodeURIComponent(profile.displayName);
+  return NextResponse.redirect(`${APP_URL}/auth/steam-callback?token=${token}&name=${name}`);
 }

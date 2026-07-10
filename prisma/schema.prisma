@@ -630,6 +630,21 @@ model pending_tokens {
   @@index([expiresAt])
 }
 
+// One-time tokens proving a completed Steam OpenID verification.
+// Issued server-side by /api/auth/steam-callback, consumed by the
+// `steam` NextAuth provider and steam-create/steam-link routes.
+model steam_auth_tokens {
+  token       String   @id
+  steamId     String
+  displayName String
+  avatar      String?
+  profileUrl  String?
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
 // ── Delivery System ───────────────────────────────────────────────────────────
 
 enum DeliveryType {

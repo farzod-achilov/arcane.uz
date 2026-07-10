@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { compare } from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { prisma } from '@/lib/prisma';
+import { rateLimit } from '@/lib/rateLimit';
 import { verifyTelegramAuth, isTelegramAuthFresh, type TelegramAuthData } from '@/lib/telegram-auth';
 
 export const dynamic = 'force-dynamic';
@@ -9,7 +10,10 @@ export const dynamic = 'force-dynamic';
 // POST /api/auth/telegram-link
 // Body: { telegramData: TelegramAuthData, email: string, password: string }
 // Links the Telegram account to the existing email/password account
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, { limit: 5, windowSec: 900 });
+  if (limited) return limited;
+
   const body = await req.json() as {
     telegramData?: TelegramAuthData;
     email?:        string;

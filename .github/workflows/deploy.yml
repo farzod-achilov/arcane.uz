@@ -5,7 +5,28 @@ on:
     branches: [main]
 
 jobs:
+  # Gate: a commit that doesn't build or fails tests must never reach the server.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Generate Prisma client
+        run: npx prisma generate
+      - name: Lint
+        run: npm run lint
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
+
   deploy:
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Deploy via SSH
@@ -15,7 +36,7 @@ jobs:
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
           # deploy.sh делает всё сам: pull, npm ci, prisma generate + db push,
-          # stop -> build -> start (только процесс arcane) и health-check.
+          # build в staging-каталог -> stop -> swap -> start и health-check.
           # Секретам здесь не место — они живут в .env / .env.local на сервере.
           script: |
             bash /var/www/arcane/deploy.sh

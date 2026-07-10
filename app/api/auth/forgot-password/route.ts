@@ -4,9 +4,6 @@ import { prisma } from '@/lib/prisma';
 import { sendPasswordResetEmail } from '@/lib/email';
 import { rateLimit } from '@/lib/rateLimit';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = prisma as any;
-
 export async function POST(req: NextRequest) {
   const limited = rateLimit(req, { limit: 3, windowSec: 900 });
   if (limited) return limited;
@@ -30,12 +27,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Invalidate old tokens for this user
-    await db.password_reset_tokens.deleteMany({ where: { userId: user.id } });
+    await prisma.password_reset_tokens.deleteMany({ where: { userId: user.id } });
 
     const token     = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-    await db.password_reset_tokens.create({
+    await prisma.password_reset_tokens.create({
       data: { userId: user.id, token, expiresAt },
     });
 

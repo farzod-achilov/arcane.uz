@@ -3,9 +3,6 @@ import { hash } from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { rateLimit } from '@/lib/rateLimit';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = prisma as any;
-
 export async function POST(req: NextRequest) {
   const limited = rateLimit(req, { limit: 5, windowSec: 900 });
   if (limited) return limited;
@@ -20,7 +17,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Пароль минимум 8 символов' }, { status: 400 });
     }
 
-    const record = await db.password_reset_tokens.findUnique({
+    const record = await prisma.password_reset_tokens.findUnique({
       where: { token: token.trim() },
     });
 
@@ -41,7 +38,7 @@ export async function POST(req: NextRequest) {
         where: { id: record.userId },
         data:  { password: hashed, updatedAt: new Date() },
       }),
-      db.password_reset_tokens.update({
+      prisma.password_reset_tokens.update({
         where: { id: record.id },
         data:  { usedAt: new Date() },
       }),

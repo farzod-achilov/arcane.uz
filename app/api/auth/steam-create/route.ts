@@ -1,16 +1,23 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { nanoid } from 'nanoid';
 import { prisma } from '@/lib/prisma';
+import { rateLimit } from '@/lib/rateLimit';
+import { consumeSteamToken, createSteamToken } from '@/lib/steamAuthTokens';
 
 export const dynamic = 'force-dynamic';
 
-type SteamData = { steamId: string; displayName: string; avatar?: string; profileUrl?: string };
+// POST /api/auth/steam-create — create new account from a verified Steam token
+export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, { limit: 5, windowSec: 900 });
+  if (limited) return limited;
 
-// POST /api/auth/steam-create — create new account from Steam profile
-export async function POST(req: Request) {
-  const { steamData } = await req.json() as { steamData?: SteamData };
-  if (!steamData?.steamId) return NextResponse.json({ error: 'Неверные данные' }, { status: 400 });
+  const { token } = await req.json() as { token?: string };
+  if (!token) return NextResponse.json({ error: 'Неверные данные' }, { status: 400 });
+
+  // Single-use: consumed here; on success we issue a fresh login token below
+  const steamData = await consumeSteamToken(token);
+  if (!steamData) return NextResponse.json({ error: 'Сессия Steam устарела, войдите через Steam заново' }, { status: 401 });
 
   const existing = await prisma.steam_users.findUnique({ where: { steamId: steamData.steamId } });
   if (existing) return NextResponse.json({ error: 'Аккаунт уже существует' }, { status: 409 });
@@ -56,5 +63,7 @@ export async function POST(req: Request) {
     }),
   ]);
 
-  return NextResponse.json({ ok: true });
+  // Fresh single-use token so the client can sign in to the account it just created
+  const loginToken = await createSteamToken(steamData);
+  return NextResponse.json({ ok: true, loginToken });
 }

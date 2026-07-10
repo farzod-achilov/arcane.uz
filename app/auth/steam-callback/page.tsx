@@ -14,7 +14,7 @@ function SteamIcon() {
   );
 }
 
-type SteamData = { steamId: string; displayName: string; avatar?: string };
+type SteamData = { token: string; displayName: string };
 
 function LinkOrCreateScreen({ steamData }: { steamData: SteamData }) {
   const router   = useRouter();
@@ -32,7 +32,7 @@ function LinkOrCreateScreen({ steamData }: { steamData: SteamData }) {
     const res  = await fetch('/api/auth/steam-link', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ steamData, email, password }),
+      body:    JSON.stringify({ token: steamData.token, email, password }),
     });
     const data = await res.json();
     setLoading(false);
@@ -48,12 +48,12 @@ function LinkOrCreateScreen({ steamData }: { steamData: SteamData }) {
     const res  = await fetch('/api/auth/steam-create', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ steamData }),
+      body:    JSON.stringify({ token: steamData.token }),
     });
-    const data = await res.json();
-    if (!res.ok) { setError(data.error ?? 'Ошибка'); setLoading(false); return; }
+    const data = await res.json() as { loginToken?: string; error?: string };
+    if (!res.ok || !data.loginToken) { setError(data.error ?? 'Ошибка'); setLoading(false); return; }
 
-    const result = await signIn('steam', { steamId: steamData.steamId, redirect: false });
+    const result = await signIn('steam', { token: data.loginToken, redirect: false });
     if (result?.ok) router.replace('/library');
     else { setError('Не удалось войти'); setLoading(false); }
   }
@@ -206,20 +206,10 @@ function Inner() {
     if (didRun.current) return;
     didRun.current = true;
 
-    const data = params.get('data');
-    if (!data) { router.replace('/login?error=steam'); return; }
-    try {
-      const base64 = data.replace(/-/g, '+').replace(/_/g, '/');
-      const pad    = (4 - base64.length % 4) % 4;
-      // atob даёт Latin-1-строку байтов — кириллицу нужно декодировать как UTF-8
-      const bin    = atob(base64 + '='.repeat(pad));
-      const bytes  = Uint8Array.from(bin, c => c.charCodeAt(0));
-      const parsed = JSON.parse(new TextDecoder().decode(bytes)) as SteamData & { ts: number };
-      if (!parsed.steamId || Date.now() - parsed.ts > 600_000) throw new Error('expired');
-      setSteamData({ steamId: parsed.steamId, displayName: parsed.displayName, avatar: parsed.avatar });
-    } catch {
-      router.replace('/login?error=steam');
-    }
+    // Opaque single-use token issued by the server; name is display-only
+    const token = params.get('token');
+    if (!token) { router.replace('/login?error=steam'); return; }
+    setSteamData({ token, displayName: params.get('name') ?? 'Steam-игрок' });
   }, [params, router]);
 
   if (!steamData) {

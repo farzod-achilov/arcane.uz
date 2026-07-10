@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { nanoid } from 'nanoid';
 import { prisma } from '@/lib/prisma';
 import { verifyTelegramRaw, decodeTgAuthResult, isTelegramAuthFresh } from '@/lib/telegram-auth';
+import { consumeSteamToken } from '@/lib/steamAuthTokens';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -209,16 +210,21 @@ export const authOptions: NextAuthOptions = {
       },
     }),
 
-    // Steam sign-in provider — receives steamId after server-side OpenID verification
+    // Steam sign-in provider — exchanges a single-use server-issued token
+    // (created in /api/auth/steam-callback after OpenID verification).
+    // Never accepts a bare steamId: SteamID64s are public information.
     CredentialsProvider({
       id:   'steam',
       name: 'Steam',
-      credentials: { steamId: {} },
+      credentials: { token: {} },
       async authorize(creds) {
-        if (!creds?.steamId) return null;
+        if (!creds?.token) return null;
+
+        const tokenData = await consumeSteamToken(creds.token);
+        if (!tokenData) return null;
 
         const steamRow = await prisma.steam_users.findUnique({
-          where:  { steamId: creds.steamId },
+          where:  { steamId: tokenData.steamId },
           select: { userId: true },
         });
         if (!steamRow) return null;

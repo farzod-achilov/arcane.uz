@@ -2,13 +2,12 @@
 # ARCANE.UZ — deploy / update script. Run on the server from the project root:
 #   cd /var/www/arcane && ./deploy/deploy.sh
 #
-# Idempotent: pull → install → prisma → (stop → build → start). Safe to re-run.
+# Idempotent: pull → install → prisma → build (staging) → (stop → swap → start).
 #
-# WHY stop before build: `next build` regenerates .next in place. If `next start`
-# is still running, it reads a half-written .next/prerender-manifest.json, crashes
-# with ENOENT and PM2 restarts it in a loop for the whole build (~1-2 min of 500s).
-# We take the app down only for the build+start window — everything slow (pull,
-# npm ci, prisma) runs first while the old build keeps serving.
+# The build goes into .next-staging while the old app keeps serving from .next
+# (building in place would corrupt the running app's manifest files). Only after
+# a successful build do we stop, swap the dirs and restart — a broken build
+# leaves the old version running instead of taking the site down.
 set -euo pipefail
 
 APP_DIR="/var/www/arcane"
@@ -27,22 +26,27 @@ npx prisma generate
 
 echo "▶ 4/6 Syncing database schema (prisma db push)…"
 # Schema-first project (no migrations folder). db push applies prisma/schema.prisma
-# without dropping data. If you switch to versioned migrations later, replace with:
+# without dropping data — a destructive change fails the deploy on purpose.
+# If you switch to versioned migrations later, replace with:
 #   npx prisma migrate deploy
 npx prisma db push
 
-# ── Downtime window starts ───────────────────────────────────────────────────
-echo "▶ 5/6 Building (app stopped to avoid .next corruption)…"
+echo "▶ 5/6 Building into staging dir (app keeps running)…"
 # NEXT_PUBLIC_* are inlined from the env files (.env.local / .env.production*) here.
+rm -rf .next-staging
+NEXT_DIST_DIR=.next-staging npm run build
+
+# ── Downtime window starts ───────────────────────────────────────────────────
+echo "▶ 6/6 Swapping build and starting app…"
 RUNNING=0
 if pm2 describe "$PM2_NAME" > /dev/null 2>&1; then
   RUNNING=1
   pm2 stop "$PM2_NAME"
 fi
 
-npm run build
+rm -rf .next
+mv .next-staging .next
 
-echo "▶ 6/6 Starting app…"
 if [ "$RUNNING" -eq 1 ]; then
   pm2 start "$PM2_NAME" --update-env
 else

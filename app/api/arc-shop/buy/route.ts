@@ -1,15 +1,19 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { nanoid } from 'nanoid';
+import { rateLimit } from '@/lib/rateLimit';
 import { SHOP_ITEMS } from '@/lib/arc-shop';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const limited = rateLimit(req, { limit: 10, windowSec: 60, key: `arc-shop:${session.user.id}` });
+  if (limited) return limited;
 
   const { itemId } = await req.json() as { itemId?: string };
   const item = SHOP_ITEMS.find(i => i.id === itemId);

@@ -3,6 +3,10 @@ const nextConfig = {
   // Don't advertise the framework (removes "X-Powered-By: Next.js")
   poweredByHeader: false,
 
+  // deploy.sh builds into a staging dir while the old app keeps serving,
+  // then swaps it in. Unset (default '.next') at runtime and in dev.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
+
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'picsum.photos' },

@@ -16,19 +16,8 @@ function Inner() {
     const token = params.get('token');
     if (!token) { router.replace('/login'); return; }
 
-    let steamId: string;
-    try {
-      const base64 = token.replace(/-/g, '+').replace(/_/g, '/');
-      const pad    = (4 - base64.length % 4) % 4;
-      const decoded = JSON.parse(atob(base64 + '='.repeat(pad)));
-      steamId = decoded.steamId;
-      if (!steamId || Date.now() - decoded.ts > 600_000) throw new Error('expired');
-    } catch {
-      router.replace('/login?error=steam');
-      return;
-    }
-
-    signIn('steam', { steamId, redirect: false }).then(result => {
+    // Opaque single-use token issued by the server after OpenID verification
+    signIn('steam', { token, redirect: false }).then(result => {
       if (result?.ok) router.replace('/library');
       else            router.replace('/login?error=steam');
     });

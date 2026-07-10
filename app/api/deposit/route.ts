@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { nanoid } from 'nanoid';
+import { rateLimit } from '@/lib/rateLimit';
 import { notifyAdminNewDeposit } from '@/lib/adminTelegram';
 import {
   pickCard, generateUniqueAmount, expireStaleDeposits, DEPOSIT_TTL_MINUTES,
@@ -10,9 +11,13 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  // Existing PENDING requests are returned idempotently below, so a tight limit is safe
+  const limited = rateLimit(req, { limit: 10, windowSec: 600, key: `deposit:${session.user.id}` });
+  if (limited) return limited;
 
   const body = await req.json() as { amount?: number };
   const amount = Math.round(body.amount ?? 0);

@@ -13,18 +13,22 @@ npm ci --ignore-scripts
 echo "==> Generating Prisma client..."
 npx prisma generate
 
+# No --accept-data-loss: a destructive schema change must fail the deploy
+# (old app keeps running) and be handled by hand, not silently drop columns.
 echo "==> Applying Prisma schema..."
-npx prisma db push --accept-data-loss || true
+npx prisma db push
 
-# Stop before build: `next build` regenerates .next in place. A running
-# `next start` reads the half-written prerender-manifest.json, crashes with
-# ENOENT and PM2 restart-loops it for the whole build (~1-2 min of 500s).
-echo "==> Building Next.js (app stopped to avoid .next corruption)..."
+# Build into a staging dir while the old app keeps serving traffic.
+# Only after a successful build do we stop, swap and restart — a broken
+# build leaves the old version running instead of taking the site down.
+echo "==> Building Next.js (staging dir, app keeps running)..."
+rm -rf .next-staging
+NEXT_DIST_DIR=.next-staging npm run build
+
+echo "==> Swapping build and restarting..."
 pm2 stop arcane || true
 rm -rf .next
-npm run build
-
-echo "==> Starting Next.js..."
+mv .next-staging .next
 pm2 restart arcane || pm2 start ecosystem.config.js
 
 echo "==> Health check..."
