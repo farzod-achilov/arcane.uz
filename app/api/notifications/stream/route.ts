@@ -14,6 +14,20 @@ export async function GET(req: Request) {
   let lastId = '';
   let closed = false;
 
+  // тот же формат, что у GET /api/notifications: клиент ждёт `read` и `time`
+  const mapNotif = (n: {
+    id: string; type: string; title: string; body: string;
+    href: string | null; isRead: boolean; createdAt: Date;
+  }) => ({
+    id:    n.id,
+    type:  n.type,
+    title: n.title,
+    body:  n.body,
+    href:  n.href,
+    read:  n.isRead,
+    time:  n.createdAt.getTime(),
+  });
+
   const stream = new ReadableStream({
     async start(controller) {
       function send(data: unknown) {
@@ -31,7 +45,7 @@ export async function GET(req: Request) {
           take:    20,
         });
         if (notifs.length > 0) lastId = notifs[0].id;
-        send({ type: 'init', notifications: notifs });
+        send({ type: 'init', notifications: notifs.map(mapNotif) });
       } catch {
         controller.close();
         return;
@@ -51,7 +65,7 @@ export async function GET(req: Request) {
           });
           if (newNotifs.length > 0) {
             lastId = newNotifs[0].id;
-            send({ type: 'new', notifications: newNotifs });
+            send({ type: 'new', notifications: newNotifs.map(mapNotif) });
           }
           // Heartbeat to keep connection alive
           controller.enqueue(encoder.encode(': ping\n\n'));
