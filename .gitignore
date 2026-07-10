@@ -9,6 +9,9 @@ yarn-error.log*
 out/
 build/
 
+# Subproject build output (arcane-api, telegram-bot, pricing-service — tsc)
+dist/
+
 # TypeScript
 tsconfig.tsbuildinfo
 next-env.d.ts

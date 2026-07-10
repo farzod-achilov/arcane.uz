@@ -65,19 +65,24 @@ class RewardsService {
 
     const { sellValue } = item.reward;
 
-    await prisma.$transaction([
-      prisma.inventory.update({
-        where: { id: inventoryId },
+    return prisma.$transaction(async (tx) => {
+      // Guarded update — the earlier findUnique/status check above is only a
+      // fast-fail; this is what actually prevents two concurrent sell() calls
+      // for the same item both crediting coins (TOCTOU race).
+      const { count } = await tx.inventory.updateMany({
+        where: { id: inventoryId, status: 'PENDING' },
         data: { status: 'SOLD', soldAt: new Date(), soldFor: sellValue },
-      }),
-      prisma.user.update({
+      });
+      if (count === 0) throw new AppError('Item has already been sold or claimed', 400);
+
+      await tx.user.update({
         where: { id: userId },
         data: {
           arcCoins: { increment: sellValue },
           totalWon: { increment: sellValue },
         },
-      }),
-      prisma.transaction.create({
+      });
+      await tx.transaction.create({
         data: {
           userId,
           type: 'REWARD_SELL',
@@ -87,10 +92,10 @@ class RewardsService {
           description: `Sold: ${item.reward.name}`,
           metadata: { inventoryId },
         },
-      }),
-    ]);
+      });
 
-    return { soldFor: sellValue, newBalance: item.user.arcCoins + sellValue };
+      return { soldFor: sellValue, newBalance: item.user.arcCoins + sellValue };
+    });
   }
 }
 

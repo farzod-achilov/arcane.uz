@@ -70,10 +70,14 @@ class DropsService {
     const newLevel = calcLevelFromXp(newXp);
 
     // ── Atomic transaction ──────────────────────────────────────────────────
-    const [inventoryItem] = await prisma.$transaction([
-      prisma.inventory.create({ data: { userId, rewardId: reward.id } }),
-      prisma.user.update({
-        where: { id: userId },
+    // Guarded decrement (arcCoins >= price) is what actually prevents two
+    // concurrent openDrop() calls from both passing the balance check above
+    // and both spending coins the user only had once (TOCTOU race) — the
+    // whole transaction aborts if the guard fails, so no reward/history/
+    // jackpot row gets created for an unpaid drop.
+    const inventoryItem = await prisma.$transaction(async (tx) => {
+      const { count } = await tx.user.updateMany({
+        where: { id: userId, arcCoins: { gte: drop.price } },
         data: {
           arcCoins: { decrement: drop.price },
           totalDrops: { increment: 1 },
@@ -81,24 +85,30 @@ class DropsService {
           xp: newXp,
           level: newLevel,
         },
-      }),
-      prisma.dropHistory.create({
+      });
+      if (count === 0) {
+        throw new AppError(`Insufficient ARC coins. Need ${drop.price}`, 402);
+      }
+
+      const created = await tx.inventory.create({ data: { userId, rewardId: reward.id } });
+
+      await tx.dropHistory.create({
         data: { userId, dropId, rewardId: reward.id, coinsSpent: drop.price, jackpotContrib },
-      }),
-      prisma.dropMachine.update({
+      });
+      await tx.dropMachine.update({
         where: { id: dropId },
         data: { totalOpened: { increment: 1 } },
-      }),
-      prisma.dropReward.update({
+      });
+      await tx.dropReward.update({
         where: { id: reward.id },
         data: { timesDropped: { increment: 1 } },
-      }),
-      prisma.jackpot.upsert({
+      });
+      await tx.jackpot.upsert({
         where: { id: 'global' },
         create: { id: 'global', total: jackpotContrib },
         update: { total: { increment: jackpotContrib } },
-      }),
-      prisma.transaction.create({
+      });
+      await tx.transaction.create({
         data: {
           userId,
           type: 'DROP_OPEN',
@@ -108,8 +118,10 @@ class DropsService {
           description: `Opened ${drop.name}`,
           metadata: { dropId, rewardId: reward.id },
         },
-      }),
-    ]);
+      });
+
+      return created;
+    });
 
     // ── Live drop event ─────────────────────────────────────────────────────
     const liveEntry = await prisma.liveDrop.create({

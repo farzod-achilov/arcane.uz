@@ -9,8 +9,8 @@ const router = Router();
 
 router.post('/register', authRateLimit, validate(registerSchema), register);
 router.post('/login',    authRateLimit, validate(loginSchema),    login);
-router.post('/refresh',  validate(refreshSchema), refresh);
-router.post('/logout',   logout);
+router.post('/refresh',  authRateLimit, validate(refreshSchema), refresh);
+router.post('/logout',   authRateLimit, logout);
 router.get('/me',        authenticate, me);
 
 export default router;

@@ -44,7 +44,7 @@ class AuthService {
     });
 
     return this.issueTokens(
-      { id: user.id, email: user.email, username: user.username, isAdmin: user.isAdmin },
+      { id: user.id, email: user.email, isAdmin: user.isAdmin },
       ipAddress,
       userAgent
     );
