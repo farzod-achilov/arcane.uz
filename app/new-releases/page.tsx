@@ -24,7 +24,7 @@ async function getNewReleases(): Promise<NewGame[]> {
   const ago30  = new Date(now.getTime() - 30 * 24 * 3_600_000);
 
   const rows = await prisma.games.findMany({
-    where:   { isActive: true, createdAt: { gte: ago30 } },
+    where:   { isActive: true, priceUzs: { gt: 0 }, createdAt: { gte: ago30 } },
     orderBy: { createdAt: 'desc' },
     take:    48,
     select: {

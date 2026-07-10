@@ -29,6 +29,8 @@ export type GameFilters = {
 function buildWhere(f: GameFilters): Prisma.gamesWhereInput {
   return {
     isActive: true,
+    // товар без цены нельзя купить — на витрину не попадает
+    priceUzs: { gt: 0 },
     ...(f.inStock ? { stockStore: { gt: 0 } } : {}),
     ...(f.q ? {
       OR: [
@@ -42,6 +44,7 @@ function buildWhere(f: GameFilters): Prisma.gamesWhereInput {
     ...(f.platform ? { platforms: { has: f.platform } } : {}),
     ...(f.priceMin != null || f.priceMax != null ? {
       priceUzs: {
+        gt: 0,
         ...(f.priceMin != null ? { gte: f.priceMin } : {}),
         ...(f.priceMax != null ? { lte: f.priceMax } : {}),
       },
@@ -120,7 +123,7 @@ export async function getSimilarGames(
   // Fetch candidates by genre overlap, fall back to platform overlap
   const byGenre = genres.length
     ? await prisma.games.findMany({
-        where:   { isActive: true, NOT: { slug }, genres: { hasSome: genres } },
+        where:   { isActive: true, priceUzs: { gt: 0 }, NOT: { slug }, genres: { hasSome: genres } },
         orderBy: [{ salesCount: 'desc' }, { rating: 'desc' }],
         take:    40,
         select:  { ...LIST_SELECT, salesCount: true },
@@ -134,6 +137,7 @@ export async function getSimilarGames(
     const byPlatform = await prisma.games.findMany({
       where: {
         isActive:  true,
+        priceUzs:  { gt: 0 },
         NOT:       { slug },
         id:        { notIn: Array.from(existingIds) },
         platforms: { hasSome: platforms },

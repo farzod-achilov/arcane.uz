@@ -30,7 +30,7 @@ export async function getActiveDeals(): Promise<DealItem[]> {
   const rows = await prisma.discounts.findMany({
     where: {
       isActive: true,
-      games:    { isActive: true },
+      games:    { isActive: true, priceUzs: { gt: 0 } },
       AND: [
         { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
         { OR: [{ endsAt:   null }, { endsAt:   { gte: now } }] },

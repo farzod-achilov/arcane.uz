@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
   const rows = await prisma.games.findMany({
     where: {
       isActive: true,
+      priceUzs: { gt: 0 },
       OR: [
         { title:       { contains: q, mode: 'insensitive' } },
         { developer:   { contains: q, mode: 'insensitive' } },

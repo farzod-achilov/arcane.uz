@@ -20,7 +20,7 @@ import TopRated from '@/components/home/TopRated';
 
 async function getGenreCounts() {
   const rows = await prisma.games.findMany({
-    where:  { isActive: true },
+    where:  { isActive: true, priceUzs: { gt: 0 } },
     select: { genres: true },
   });
   const counts = new Map<string, number>();
@@ -40,6 +40,7 @@ async function getDeals() {
   return prisma.discounts.findMany({
     where: {
       isActive: true,
+      games:    { priceUzs: { gt: 0 } },
       OR: [{ endsAt: null }, { endsAt: { gt: now } }],
     },
     include: {
@@ -62,6 +63,7 @@ async function getFlashDeals(): Promise<{ deals: FlashDeal[]; endTime: number }>
       isActive:   true,
       isFeatured: true,
       type:       'flash',
+      games:      { priceUzs: { gt: 0 } },
       endsAt:     { gt: now },
     },
     include: {
