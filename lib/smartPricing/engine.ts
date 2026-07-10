@@ -36,6 +36,9 @@ export class PriceEngineService {
 
     // ─── 1. Custom MANUAL override ──────────────────────────────────────
     if (customPricingEnabled && pricingStrategy === 'MANUAL' && customFinalPrice != null) {
+      if (customFinalPrice <= 0) {
+        throw new Error('customFinalPrice must be greater than 0');
+      }
       const finalUsd = customFinalPrice;
       const finalUzs = this.toUzs(finalUsd);
       const profit   = finalUsd - supplierPriceUsd;

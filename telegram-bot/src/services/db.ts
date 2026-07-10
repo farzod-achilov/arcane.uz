@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import type { TelegramUser, PendingToken } from '../types/index';
 import { prisma } from './prisma';
 
@@ -114,6 +115,68 @@ export async function updateUser(tgId: number, patch: Partial<TelegramUser>): Pr
       }),
     },
   });
+}
+
+// ── Referral operations ───────────────────────────────────
+
+const REFERRAL_PENDING_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+/** Remember that this (not-yet-linked) Telegram user came via a referral code. */
+export async function savePendingReferral(telegramId: number, referralCode: string): Promise<void> {
+  await prisma.telegram_referral_pending.upsert({
+    where:  { telegramId: BigInt(telegramId) },
+    create: { telegramId: BigInt(telegramId), referralCode, expiresAt: new Date(Date.now() + REFERRAL_PENDING_TTL_MS) },
+    update: { referralCode, expiresAt: new Date(Date.now() + REFERRAL_PENDING_TTL_MS) },
+  });
+}
+
+/** Consume (and delete) the pending referral for this Telegram user, if any and not expired. */
+export async function consumePendingReferral(telegramId: number): Promise<string | null> {
+  const row = await prisma.telegram_referral_pending.findUnique({ where: { telegramId: BigInt(telegramId) } });
+  if (!row) return null;
+  await prisma.telegram_referral_pending.delete({ where: { telegramId: BigInt(telegramId) } }).catch(() => {});
+  if (row.expiresAt < new Date()) return null;
+  return row.referralCode;
+}
+
+const REFERRAL_REWARD_COINS = 200;
+
+/**
+ * Credits the referrer (found by their Telegram referral code) after the
+ * referred user finishes linking their site account. Returns the referrer's
+ * Telegram id (to notify them) or null if no valid referrer was credited
+ * (unknown code, or the referrer somehow referred themselves).
+ */
+export async function creditReferrer(referralCode: string, newUserId: string): Promise<number | null> {
+  const referrer = await prisma.telegram_users.findUnique({ where: { referralCode } });
+  if (!referrer || referrer.userId === newUserId) return null;
+
+  const user = await prisma.users.findUnique({ where: { id: referrer.userId }, select: { arcCoins: true } });
+  if (!user) return null;
+
+  await prisma.$transaction([
+    prisma.users.update({
+      where: { id: referrer.userId },
+      data:  { arcCoins: { increment: REFERRAL_REWARD_COINS } },
+    }),
+    prisma.transactions.create({
+      data: {
+        id:            crypto.randomUUID(),
+        userId:        referrer.userId,
+        type:          'REFERRAL_BONUS',
+        amount:        REFERRAL_REWARD_COINS,
+        balanceBefore: user.arcCoins,
+        balanceAfter:  user.arcCoins + REFERRAL_REWARD_COINS,
+        description:   'Реферальный бонус за Telegram-приглашение',
+      },
+    }),
+    prisma.telegram_users.update({
+      where: { telegramId: referrer.telegramId },
+      data:  { totalReferrals: { increment: 1 }, totalCoinsEarned: { increment: REFERRAL_REWARD_COINS } },
+    }),
+  ]);
+
+  return Number(referrer.telegramId);
 }
 
 // ── Token operations ──────────────────────────────────────

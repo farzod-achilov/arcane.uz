@@ -34,11 +34,11 @@ export function roundUsd(price: number, type: UsdRoundType): number {
 export function roundUzs(price: number, type: UzsRoundType): number {
   switch (type) {
     case 'NEAREST_1000':
-      return Math.round(price / 1000) * 1000;
+      return Math.max(1000, Math.round(price / 1000) * 1000);
     case 'NEAREST_9000':
-      return Math.ceil(price / 10_000) * 10_000 - 1_000;
+      return Math.max(9000, Math.ceil(price / 10_000) * 10_000 - 1_000);
     case 'NEAREST_99000':
-      return Math.ceil(price / 100_000) * 100_000 - 1_000;
+      return Math.max(99000, Math.ceil(price / 100_000) * 100_000 - 1_000);
   }
 }
 

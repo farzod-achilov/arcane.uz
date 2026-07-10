@@ -1,7 +1,10 @@
 import crypto from 'crypto';
 import type { Telegraf } from 'telegraf';
 import type { ArcaneContext, TelegramUser } from '../types/index';
-import { addPendingToken, consumeToken, saveUser, getUserByTgId } from './db';
+import {
+  addPendingToken, consumeToken, saveUser, getUserByTgId,
+  savePendingReferral, consumePendingReferral, creditReferrer,
+} from './db';
 import * as tpl from '../templates/messages';
 import { mainMenu } from '../utils/keyboard';
 import { config } from '../config/index';
@@ -68,17 +71,29 @@ export class VerificationService {
     };
     await saveUser(newUser);
 
+    // If this Telegram user arrived via a ref_CODE deep link before linking,
+    // credit the referrer now that the account is actually verified.
+    const pendingCode = await consumePendingReferral(from.id);
+    if (pendingCode) {
+      const referrerTgId = await creditReferrer(pendingCode, entry.userId);
+      if (referrerTgId) {
+        await this.bot.telegram
+          .sendMessage(referrerTgId, '🎉 По вашей реферальной ссылке подключился новый пользователь! Начислено <b>+200 Arcane Coins</b>.', { parse_mode: 'HTML' })
+          .catch(() => {});
+      }
+    }
+
     await ctx.replyWithHTML(tpl.tplLinkedSuccess(entry.userName), mainMenu());
   }
 
   /** Handle referral /start ref_CODE */
   async handleReferral(ctx: ArcaneContext, referralCode: string): Promise<void> {
     const from = ctx.from!;
-    // Store referral code for when this user eventually links their account
-    // In production: write to a temporary referral_pending table
-    console.log(`[Referral] ${from.id} came via code: ${referralCode}`);
+    // Persisted until the user actually links a site account (see handleVerification),
+    // at which point the referrer is credited +200 Arcane Coins.
+    await savePendingReferral(from.id, referralCode);
     await ctx.replyWithHTML(
-      `🎁 <b>Реферальная ссылка активирована!</b>\n\nПосле подключения аккаунта ты получишь <b>+200 Arcane Coins</b>!\n\nПодключи аккаунт на <a href="https://arcane.uz/settings">arcane.uz</a>`,
+      `🎁 <b>Добро пожаловать по реферальной ссылке!</b>\n\nПодключи свой аккаунт ARCANE.UZ — и твой друг, который тебя пригласил, получит <b>+200 Arcane Coins</b>.\n\nПодключи аккаунт на <a href="https://arcane.uz/settings">arcane.uz</a>`,
     );
   }
 

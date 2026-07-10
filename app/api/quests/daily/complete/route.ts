@@ -7,6 +7,38 @@ import { nanoid } from 'nanoid';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Quests that pay out a meaningful reward must be backed by a real DB record —
+ * the client-supplied questId alone was previously enough to farm coins
+ * (e.g. POST {questId:"purchase"} daily with no purchase ever made).
+ * 'login' and 'catalog' have no natural backing record (page visits aren't
+ * tracked) and stay client-triggered — their reward is low (5-10 coins),
+ * equivalent to a daily check-in bonus.
+ */
+async function questWasCompletedToday(userId: string, questId: string): Promise<boolean> {
+  const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
+
+  switch (questId) {
+    case 'purchase':
+      return (await prisma.orders.count({
+        where: { userId, status: { not: 'PENDING' }, createdAt: { gte: startOfDay } },
+      })) > 0;
+    case 'review':
+      return (await prisma.reviews.count({
+        where: { userId, createdAt: { gte: startOfDay } },
+      })) > 0;
+    case 'wishlist':
+      return (await prisma.wishlists.count({
+        where: { userId, createdAt: { gte: startOfDay } },
+      })) > 0;
+    case 'login':
+    case 'catalog':
+      return true;
+    default:
+      return false;
+  }
+}
+
 // POST /api/quests/daily/complete — { questId }
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -25,6 +57,10 @@ export async function POST(req: Request) {
     where: { userId_questId_date: { userId: session.user.id, questId, date: today } },
   });
   if (existing) return NextResponse.json({ ok: true, alreadyDone: true });
+
+  if (!(await questWasCompletedToday(session.user.id, questId))) {
+    return NextResponse.json({ error: 'Задание ещё не выполнено' }, { status: 400 });
+  }
 
   // Award coins + record completion
   const user = await prisma.users.findUnique({

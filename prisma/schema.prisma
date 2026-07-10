@@ -632,6 +632,20 @@ model pending_tokens {
   @@index([expiresAt])
 }
 
+// Telegram user clicked a `ref_CODE` deep link but hasn't linked a site
+// account yet. Consumed by the bot once they complete /start verify_TOKEN —
+// the referrer is then credited. TTL matches the bot's promise ("подключи
+// аккаунт") — give it a realistic window instead of losing the reward on
+// the very next unrelated /start.
+model telegram_referral_pending {
+  telegramId   BigInt   @id
+  referralCode String
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+
+  @@index([expiresAt])
+}
+
 // One-time tokens proving a completed Steam OpenID verification.
 // Issued server-side by /api/auth/steam-callback, consumed by the
 // `steam` NextAuth provider and steam-create/steam-link routes.
