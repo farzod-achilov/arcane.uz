@@ -313,6 +313,7 @@ model users {
   totalWon         Int                @default(0)
   referralCode     String?            @unique @map("referral_code")
   referredBy       String?            @map("referred_by")
+  emailVerified    DateTime?          @map("email_verified")
   createdAt        DateTime           @default(now())
   updatedAt        DateTime
   drop_history     drop_history[]
@@ -331,6 +332,7 @@ model users {
   support_messages support_messages[] @relation("SupportMessageAuthor")
   notifications               notifications[]
   password_reset_tokens       password_reset_tokens[]
+  email_verification_tokens   email_verification_tokens[]
   steam_users                 steam_users?
   telegram_users              telegram_users?
   daily_quest_completions     daily_quest_completions[]
@@ -833,6 +835,19 @@ model password_reset_tokens {
   expiresAt DateTime  @map("expires_at")
   usedAt    DateTime? @map("used_at")
   createdAt DateTime  @default(now()) @map("created_at")
+
+  user users @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+}
+
+model email_verification_tokens {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   user users @relation(fields: [userId], references: [id], onDelete: Cascade)
 

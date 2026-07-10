@@ -4,7 +4,7 @@ import { rateLimit } from '@/lib/rateLimit';
 import crypto from 'crypto';
 import { nanoid } from 'nanoid';
 import { prisma } from '@/lib/prisma';
-import { sendWelcomeEmail } from '@/lib/email';
+import { issueVerificationEmail } from '@/lib/emailVerification';
 import { createNotification } from '@/lib/notifications';
 
 async function notifyReferrer(referrerId: string, newUsername: string) {
@@ -146,7 +146,8 @@ export async function POST(req: NextRequest) {
       return created;
     });
 
-    sendWelcomeEmail(user.email, user.username).catch(() => {});
+    // Confirmation link first; the welcome email goes out once the address is verified
+    issueVerificationEmail(userId, user.email, user.username).catch(() => {});
     createNotification(userId, {
       type:  'system',
       title: `Добро пожаловать, ${normalUsername}!`,

@@ -102,7 +102,7 @@ function RegisterForm() {
     setLoading(false);
 
     if (result.ok) {
-      toast.success('Аккаунт создан! +500 Arcane Coins', { id: toastId });
+      toast.success('Аккаунт создан! +500 Arcane Coins. Проверьте почту — мы отправили ссылку подтверждения', { id: toastId });
       router.push('/library');
     } else {
       toast.error(result.error ?? 'Ошибка регистрации', { id: toastId });
