@@ -62,11 +62,15 @@ export default function AdminCardsPage() {
   const toggle = async (card: Card) => {
     setProcessing(card.id);
     try {
-      await fetch(`/api/admin/cards/${card.id}`, {
+      const res = await fetch(`/api/admin/cards/${card.id}`, {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ isActive: !card.isActive }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error ?? 'Не удалось изменить карту');
+      }
       load();
     } finally {
       setProcessing(null);
@@ -77,7 +81,11 @@ export default function AdminCardsPage() {
     if (!confirm(`Удалить карту ${card.cardNumber}? Если по ней были заявки — она будет деактивирована.`)) return;
     setProcessing(card.id);
     try {
-      await fetch(`/api/admin/cards/${card.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/admin/cards/${card.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error ?? 'Не удалось удалить карту');
+      }
       load();
     } finally {
       setProcessing(null);

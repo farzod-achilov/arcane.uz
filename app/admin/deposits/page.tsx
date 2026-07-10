@@ -75,11 +75,15 @@ export default function AdminDepositsPage() {
   const handleAction = async (id: string, action: 'approve' | 'reject') => {
     setProcessing(id);
     try {
-      await fetch(`/api/admin/deposits/${id}`, {
+      const res = await fetch(`/api/admin/deposits/${id}`, {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ action }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error ?? 'Не удалось выполнить действие');
+      }
       setConfirmId(null);
       load();
     } finally {

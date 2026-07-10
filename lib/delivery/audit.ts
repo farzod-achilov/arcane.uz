@@ -9,7 +9,8 @@ export type AuditAction =
   | 'MANUAL_QUEUED'
   | 'MANUAL_ADMIN_NOTIFIED'
   | 'MANUAL_COMPLETE'
-  | 'ORDER_CANCELLED';
+  | 'ORDER_CANCELLED'
+  | 'ADMIN_STATUS_OVERRIDE';
 
 export async function auditLog(
   orderId: string,

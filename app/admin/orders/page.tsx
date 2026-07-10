@@ -67,6 +67,12 @@ const STATUS_CFG: Record<string, { label: string; color: string; bg: string; bor
 
 const ALL_STATUSES: StatusFilter[] = ['PENDING', 'PAID', 'WAITING_MANUAL', 'COMPLETED', 'CANCELLED'];
 
+// COMPLETED is deliberately excluded from the status-change dropdown — it
+// must go through the "Доставить" button (CompleteModal → /manual-complete),
+// which actually delivers a key and logs it. Picking it here would just flip
+// the status with nothing delivered to the customer.
+const CHANGEABLE_STATUSES: StatusFilter[] = ['PENDING', 'PAID', 'WAITING_MANUAL', 'CANCELLED'];
+
 /* ── Complete Order Modal (WAITING_MANUAL) ────────────────── */
 function CompleteModal({
   order, onClose, onDone,
@@ -260,11 +266,16 @@ export default function AdminOrdersPage() {
 
   const updateStatus = async (id: string, status: string) => {
     setOpenStatusId(null);
-    await fetch(`/api/admin/orders/${id}`, {
+    const res = await fetch(`/api/admin/orders/${id}`, {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ status }),
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error ?? 'Не удалось изменить статус');
+      return;
+    }
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
   };
 
@@ -319,7 +330,7 @@ export default function AdminOrdersPage() {
               boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
             }}
           >
-            {ALL_STATUSES.map(s => {
+            {CHANGEABLE_STATUSES.map(s => {
               const cfg     = STATUS_CFG[s];
               const current = orders.find(o => o.id === openStatusId)?.status === s;
               return (

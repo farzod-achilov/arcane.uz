@@ -6,7 +6,11 @@ export const dynamic = 'force-dynamic';
 
 function esc(v: string | null | undefined) {
   if (v == null) return '';
-  const s = String(v);
+  let s = String(v);
+  // Neutralize spreadsheet formula injection — a username/email starting with
+  // =, +, -, or @ would otherwise execute as a formula when the admin opens
+  // this CSV in Excel/Sheets. Prefixing with a quote forces it to stay text.
+  if (/^[=+\-@]/.test(s)) s = `'${s}`;
   if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }

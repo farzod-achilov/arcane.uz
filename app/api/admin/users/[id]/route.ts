@@ -20,6 +20,24 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
   }
 
+  const isSelf = params.id === session.user.id;
+
+  // Revoking your own admin rights, or the last remaining admin's, would
+  // lock the panel and require the (secret-gated) bootstrap flow to recover.
+  if (data.isAdmin === false) {
+    if (isSelf) {
+      return NextResponse.json({ error: 'Нельзя снять права администратора с себя' }, { status: 400 });
+    }
+    const otherAdmins = await prisma.users.count({ where: { isAdmin: true, id: { not: params.id } } });
+    if (otherAdmins === 0) {
+      return NextResponse.json({ error: 'Нельзя убрать последнего администратора' }, { status: 400 });
+    }
+  }
+  // Self-ban would lock the admin out of their own account with no recovery path.
+  if (data.isBanned === true && isSelf) {
+    return NextResponse.json({ error: 'Нельзя заблокировать собственный аккаунт' }, { status: 400 });
+  }
+
   const user = await prisma.users.update({
     where:  { id: params.id },
     data,

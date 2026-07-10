@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Package, ShoppingBag, Users, Tag,
-  Zap, Gift, MessageSquare, BarChart2, Settings,
+  Zap, Gift, MessageSquare, BarChart2,
   ChevronLeft, ChevronRight, Shield, LogOut, KeyRound, TrendingUp, Gamepad2, Truck, Wallet, Ticket, Layers, Star, Image, CreditCard,
 } from 'lucide-react';
 import { useT } from '@/lib/i18n';
@@ -129,24 +129,8 @@ export default function AdminSidebar({
         })}
       </nav>
 
-      {/* Settings + profile */}
+      {/* Profile */}
       <div className="flex-shrink-0 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-        <Link href="/admin/settings"
-          className="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-xl transition-all duration-200 group"
-          style={{ color: '#4B5563' }}
-          title={collapsed ? t.nav.settings : undefined}>
-          <Settings style={{ width: '16px', height: '16px', flexShrink: 0 }} className="group-hover:text-[#9CA3AF] transition-colors" />
-          <AnimatePresence>
-            {!collapsed && (
-              <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="font-body text-[#4B5563] group-hover:text-[#9CA3AF] transition-colors whitespace-nowrap"
-                style={{ fontSize: '13px' }}>
-                {t.nav.settings}
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </Link>
-
         {!collapsed && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="mx-3 mt-2 p-3 rounded-xl"

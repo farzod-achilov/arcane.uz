@@ -25,6 +25,7 @@ export default function MoveModal({ gameId, gameTitle, stockByType, onClose, onS
   const [count, setCount]       = useState('');
   const [loading, setLoading]   = useState(false);
   const [done, setDone]         = useState(false);
+  const [error, setError]       = useState('');
 
   const available = stockByType[fromType] ?? 0;
   const parsedCount = parseInt(count, 10);
@@ -32,11 +33,19 @@ export default function MoveModal({ gameId, gameTitle, stockByType, onClose, onS
 
   const handleMove = async () => {
     if (!isValid) return;
-    setLoading(true);
+    setLoading(true); setError('');
     try {
-      await new Promise(r => setTimeout(r, 900));
+      const res = await fetch(`/api/admin/keys/${gameId}/move`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ from: fromType, to: toType, count: parsedCount }),
+      });
+      const data = await res.json() as { ok?: boolean; moved?: number; error?: string };
+      if (!res.ok || !data.ok) { setError(data.error ?? 'Не удалось переместить ключи'); return; }
       setDone(true);
-      setTimeout(() => { onSuccess(parsedCount); onClose(); }, 1400);
+      setTimeout(() => { onSuccess(data.moved ?? parsedCount); onClose(); }, 1400);
+    } catch {
+      setError('Ошибка сети');
     } finally {
       setLoading(false);
     }
@@ -89,6 +98,14 @@ export default function MoveModal({ gameId, gameTitle, stockByType, onClose, onS
               <p className="font-body text-[#22C55E]" style={{ fontSize: '12px' }}>
                 {parsedCount} ключей перемещено: {fromCfg.label} → {toCfg.label}
               </p>
+            </motion.div>
+          )}
+
+          {error && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              className="flex items-center gap-2 rounded-xl px-4 py-3"
+              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+              <p className="font-body text-[#F87171]" style={{ fontSize: '12px' }}>{error}</p>
             </motion.div>
           )}
 

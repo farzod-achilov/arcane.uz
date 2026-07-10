@@ -102,13 +102,14 @@ function EditModal({ game, onClose, onSaved }: { game: GameRow; onClose: () => v
   async function save() {
     setSaving(true);
     try {
-      const res = await fetch(`/api/admin/games/${game.id}`, {
+      const res  = await fetch(`/api/admin/games/${game.id}`, {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ deliveryType, priceUzs: priceUzs ? parseInt(priceUzs) : undefined }),
       });
-      const { game: updated } = await res.json();
-      onSaved(updated);
+      const data = await res.json();
+      if (!res.ok || !data.game) { alert(data.error ?? 'Не удалось сохранить'); return; }
+      onSaved(data.game);
       onClose();
     } finally { setSaving(false); }
   }
@@ -350,11 +351,16 @@ export default function AdminProductsPage() {
   async function toggleActive(game: GameRow) {
     setToggling(game.id);
     try {
-      await fetch(`/api/admin/games/${game.id}`, {
+      const res = await fetch(`/api/admin/games/${game.id}`, {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ isActive: !game.isActive }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error ?? 'Не удалось изменить статус');
+        return;
+      }
       setGames(prev => prev.map(g => g.id === game.id ? { ...g, isActive: !g.isActive } : g));
     } finally { setToggling(null); }
   }

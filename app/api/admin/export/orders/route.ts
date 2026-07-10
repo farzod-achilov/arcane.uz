@@ -46,7 +46,11 @@ export async function GET(req: NextRequest) {
       o.items.length,
       o.totalPrice,
       o.status,
-    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+    ]
+      // Neutralize spreadsheet formula injection — quoting a CSV field alone
+      // doesn't stop Excel/Sheets from treating a leading =/+/-/@ as a formula
+      .map(v => { const s = String(v); return /^[=+\-@]/.test(s) ? `'${s}` : s; })
+      .map(v => `"${v.replace(/"/g, '""')}"`).join(',');
   });
 
   const header = ['ID','Дата','Пользователь','Email','Игры','Кол-во','Сумма (UZS)','Статус'].join(',');

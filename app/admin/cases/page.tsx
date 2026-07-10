@@ -534,7 +534,9 @@ export default function AdminCasesPage() {
   async function seedDefaults() {
     setSeeding(true);
     try {
-      await fetch('/api/admin/cases/seed', { method: 'POST' });
+      const res  = await fetch('/api/admin/cases/seed', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) alert(data.error ?? 'Не удалось создать кейсы по умолчанию');
       await load();
     } finally { setSeeding(false); }
   }

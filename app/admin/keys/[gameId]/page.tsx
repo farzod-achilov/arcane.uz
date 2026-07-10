@@ -366,7 +366,19 @@ export default function GameKeyManagerPage({ params }: { params: { gameId: strin
 
           {/* KEY LIST */}
           {activeTab === 'keys' && (
-            <KeysTable keys={keysForTable} onDisable={() => {}} />
+            <KeysTable keys={keysForTable} onDisable={async (keyIds) => {
+              const res = await fetch(`/api/admin/keys/${game.id}/disable`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ keyIds }),
+              });
+              if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                alert(data.error ?? 'Не удалось отключить ключи');
+                return;
+              }
+              load();
+            }} />
           )}
 
           {/* MOVE */}
@@ -452,12 +464,43 @@ export default function GameKeyManagerPage({ params }: { params: { gameId: strin
                 <p className="font-heading font-semibold mb-1" style={{ fontSize: '13px', color: '#EF4444' }}>Опасная зона</p>
                 <p className="font-body text-[#4B5563] mb-4" style={{ fontSize: '12px' }}>Эти действия необратимы.</p>
                 <div className="flex gap-2 flex-wrap">
-                  <button className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-body transition-all"
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Отключить все ${stats.available} доступных ключей? Это действие необратимо.`)) return;
+                      const res = await fetch(`/api/admin/keys/${game.id}/disable`, {
+                        method:  'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body:    JSON.stringify({ all: true }),
+                      });
+                      if (!res.ok) {
+                        const data = await res.json().catch(() => ({}));
+                        alert(data.error ?? 'Не удалось отключить ключи');
+                        return;
+                      }
+                      load();
+                    }}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-body transition-all"
                     style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', fontSize: '12px', color: '#EF4444' }}>
                     <Ban style={{ width: '12px', height: '12px' }} />
                     Отключить все AVAILABLE
                   </button>
-                  <button className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-body transition-all"
+                  <button
+                    onClick={() => {
+                      const header = ['ID', 'Тип', 'Статус', 'Создан', 'Доставлен'].join(',');
+                      const rows = keysForTable.map(k => [
+                        k.id, k.type, k.status,
+                        new Date(k.createdAt).toISOString(),
+                        k.deliveredAt ? new Date(k.deliveredAt).toISOString() : '',
+                      ].join(','));
+                      const csv = '﻿' + [header, ...rows].join('\r\n');
+                      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+                      const url  = URL.createObjectURL(blob);
+                      const a    = document.createElement('a');
+                      a.href = url; a.download = `keys_${game.title}_${new Date().toISOString().slice(0, 10)}.csv`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-body transition-all"
                     style={{ background: 'rgba(107,114,128,0.1)', border: '1px solid rgba(107,114,128,0.15)', fontSize: '12px', color: '#6B7280' }}>
                     <Archive style={{ width: '12px', height: '12px' }} />
                     Экспорт статистики

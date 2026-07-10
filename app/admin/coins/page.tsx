@@ -531,6 +531,9 @@ export default function AdminCoinsPage() {
             </div>
             <h2 className="font-heading font-semibold text-white" style={{ fontSize: '14px' }}>Настройки бонусов</h2>
           </div>
+          <p className="font-body text-[#4B5563] mb-4 -mt-2" style={{ fontSize: '10.5px', lineHeight: 1.5 }}>
+            Только просмотр — текущие значения из кода. Сохранение настроек здесь пока не реализовано.
+          </p>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -581,10 +584,12 @@ export default function AdminCoinsPage() {
               </div>
             </div>
             <button
-              className="w-full rounded-xl py-2.5 font-heading font-semibold text-white transition-all mt-2"
-              style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', fontSize: '13px', boxShadow: '0 0 16px rgba(124,58,237,0.3)' }}
+              disabled
+              title="Сохранение не реализовано — значения зашиты в коде"
+              className="w-full rounded-xl py-2.5 font-heading font-semibold cursor-not-allowed mt-2"
+              style={{ background: 'rgba(255,255,255,0.04)', color: '#4B5563', fontSize: '13px', border: '1px solid rgba(255,255,255,0.06)' }}
             >
-              Сохранить настройки
+              Сохранить настройки (недоступно)
             </button>
           </div>
         </motion.div>

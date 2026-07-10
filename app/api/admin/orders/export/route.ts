@@ -6,7 +6,9 @@ export const dynamic = 'force-dynamic';
 
 function esc(v: string | null | undefined) {
   if (v == null) return '';
-  const s = String(v);
+  let s = String(v);
+  // Neutralize spreadsheet formula injection (see app/api/admin/users/export)
+  if (/^[=+\-@]/.test(s)) s = `'${s}`;
   if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
