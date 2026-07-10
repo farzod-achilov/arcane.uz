@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { buildCsv } from '@/lib/csv';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,26 +36,19 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  const rows = orders.map(o => {
-    const games = o.items.map(i => i.game.title).join(' | ');
-    return [
-      o.id,
-      o.createdAt.toISOString().slice(0, 19).replace('T', ' '),
-      o.user.username,
-      o.user.email,
-      games,
-      o.items.length,
-      o.totalPrice,
-      o.status,
-    ]
-      // Neutralize spreadsheet formula injection — quoting a CSV field alone
-      // doesn't stop Excel/Sheets from treating a leading =/+/-/@ as a formula
-      .map(v => { const s = String(v); return /^[=+\-@]/.test(s) ? `'${s}` : s; })
-      .map(v => `"${v.replace(/"/g, '""')}"`).join(',');
-  });
+  const header = ['ID','Дата','Пользователь','Email','Игры','Кол-во','Сумма (UZS)','Статус'];
+  const rows = orders.map(o => [
+    o.id,
+    o.createdAt.toISOString().slice(0, 19).replace('T', ' '),
+    o.user.username,
+    o.user.email,
+    o.items.map(i => i.game.title).join(' | '),
+    o.items.length,
+    o.totalPrice,
+    o.status,
+  ]);
 
-  const header = ['ID','Дата','Пользователь','Email','Игры','Кол-во','Сумма (UZS)','Статус'].join(',');
-  const csv    = '﻿' + [header, ...rows].join('\r\n');
+  const csv = buildCsv(header, rows);
 
   return new NextResponse(csv, {
     headers: {

@@ -1,17 +1,9 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { buildCsv, csvResponse } from '@/lib/csv';
 
 export const dynamic = 'force-dynamic';
-
-function esc(v: string | null | undefined) {
-  if (v == null) return '';
-  let s = String(v);
-  // Neutralize spreadsheet formula injection (see app/api/admin/users/export)
-  if (/^[=+\-@]/.test(s)) s = `'${s}`;
-  if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -43,23 +35,17 @@ export async function GET(req: Request) {
     },
   });
 
-  const header = ['ID', 'Дата', 'Статус', 'Покупатель', 'Email', 'Игры', 'Сумма (сум)'].join(',');
+  const header = ['ID', 'Дата', 'Статус', 'Покупатель', 'Email', 'Игры', 'Сумма (сум)'];
   const rows = orders.map(o => [
-    esc(o.id),
-    esc(o.createdAt.toISOString().slice(0, 19).replace('T', ' ')),
-    esc(o.status),
-    esc(o.user?.username),
-    esc(o.user?.email),
-    esc(o.items.map(i => i.game?.title ?? i.gameId).join('; ')),
+    o.id,
+    o.createdAt.toISOString().slice(0, 19).replace('T', ' '),
+    o.status,
+    o.user?.username,
+    o.user?.email,
+    o.items.map(i => i.game?.title ?? i.gameId).join('; '),
     o.totalPrice,
-  ].join(','));
+  ]);
 
-  const csv = [header, ...rows].join('\r\n');
-
-  return new Response(csv, {
-    headers: {
-      'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="orders_${new Date().toISOString().slice(0, 10)}.csv"`,
-    },
-  });
+  const csv = buildCsv(header, rows);
+  return csvResponse(csv, `orders_${new Date().toISOString().slice(0, 10)}.csv`);
 }

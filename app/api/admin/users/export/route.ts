@@ -1,19 +1,9 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { buildCsv, csvResponse } from '@/lib/csv';
 
 export const dynamic = 'force-dynamic';
-
-function esc(v: string | null | undefined) {
-  if (v == null) return '';
-  let s = String(v);
-  // Neutralize spreadsheet formula injection — a username/email starting with
-  // =, +, -, or @ would otherwise execute as a formula when the admin opens
-  // this CSV in Excel/Sheets. Prefixing with a quote forces it to stay text.
-  if (/^[=+\-@]/.test(s)) s = `'${s}`;
-  if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -40,24 +30,18 @@ export async function GET(req: Request) {
     },
   });
 
-  const header = ['ID', 'Email', 'Имя пользователя', 'Дата регистрации', 'ARC Coins', 'Баланс (сум)', 'Заказов', 'Админ'].join(',');
+  const header = ['ID', 'Email', 'Имя пользователя', 'Дата регистрации', 'ARC Coins', 'Баланс (сум)', 'Заказов', 'Админ'];
   const rows = users.map(u => [
-    esc(u.id),
-    esc(u.email),
-    esc(u.username),
-    esc(u.createdAt.toISOString().slice(0, 10)),
+    u.id,
+    u.email,
+    u.username,
+    u.createdAt.toISOString().slice(0, 10),
     u.arcCoins,
     u.balanceUzs,
     u._count.orders,
     u.isAdmin ? 'да' : 'нет',
-  ].join(','));
+  ]);
 
-  const csv = [header, ...rows].join('\r\n');
-
-  return new Response(csv, {
-    headers: {
-      'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="users_${new Date().toISOString().slice(0, 10)}.csv"`,
-    },
-  });
+  const csv = buildCsv(header, rows);
+  return csvResponse(csv, `users_${new Date().toISOString().slice(0, 10)}.csv`);
 }
