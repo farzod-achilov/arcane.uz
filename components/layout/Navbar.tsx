@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Search, Bell, User, Menu, X, LogOut, TrendingUp, TrendingDown, Heart, Wallet, Home, LayoutGrid, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import SearchOverlay from '@/components/ui/SearchOverlay';
-import SearchBar from '@/components/ui/SearchBar';
 import NotificationDropdown from '@/components/user/NotificationDropdown';
 import CartDrawer from '@/components/cart/CartDrawer';
 import { useUser } from '@/lib/userContext';
@@ -257,7 +256,9 @@ export default function Navbar() {
           }}
         />
 
-        <div className="max-w-7xl mx-auto px-6 relative z-10">
+        {/* Шапке нужен контейнер шире контентного max-w-7xl: залогиненный
+            набор (меню + монеты + иконки + профиль) в 1280px не помещается */}
+        <div className="max-w-[1600px] mx-auto px-6 relative z-10">
           <div className="flex items-center justify-between gap-6" style={{ height: '88px' }}>
 
             {/* ════════════════════════════════
@@ -325,7 +326,7 @@ export default function Navbar() {
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="relative px-5 py-3 rounded-xl overflow-hidden group"
+                    className="relative px-3.5 py-3 rounded-xl overflow-hidden group"
                     style={{ color: active ? '#E2E8F0' : '#6B7280' }}
                   >
                     {/* Background layer */}
@@ -386,7 +387,7 @@ export default function Navbar() {
             <div className="flex items-center gap-1.5 min-w-0">
 
               {/* ── ARCANE COIN BLOCK ── */}
-              <div ref={coinRef} className="hidden xl:block relative flex-shrink-0">
+              <div ref={coinRef} className="hidden min-[1400px]:block relative flex-shrink-0">
                 <motion.button
                   onClick={() => setIsCoinOpen(v => !v)}
                   whileHover={{ scale: 1.03, y: -1 }}
@@ -602,17 +603,16 @@ export default function Navbar() {
 
               {/* Divider */}
               <div
-                className="hidden xl:block h-9 w-px mx-0.5"
+                className="hidden min-[1400px]:block h-9 w-px mx-0.5"
                 style={{
                   background:
                     'linear-gradient(180deg, transparent, rgba(124,58,237,0.22) 30%, rgba(124,58,237,0.22) 70%, transparent)',
                 }}
               />
 
-              {/* ── SEARCH: full bar on xl+, icon on smaller ── */}
-              <SearchBar onOpenOverlay={() => setIsSearchOpen(true)} />
+              {/* ── SEARCH: иконка + оверлей (полный бар не помещается при залогине) ── */}
               <button
-                className="xl:hidden group relative p-2.5 rounded-xl transition-all duration-200"
+                className="group relative p-2.5 rounded-xl transition-all duration-200"
                 aria-label="Поиск"
                 onClick={() => setIsSearchOpen(true)}
               >
@@ -763,7 +763,7 @@ export default function Navbar() {
                         {user.name?.[0]?.toUpperCase() ?? 'U'}
                       </div>
                     )}
-                    <span className="font-heading font-semibold text-[#C4B5FD] whitespace-nowrap"
+                    <span className="font-heading font-semibold text-[#C4B5FD] whitespace-nowrap truncate max-w-[110px]"
                           style={{ fontSize: '13px' }}>
                       {user.name?.split(' ')[0] ?? ''}
                     </span>
