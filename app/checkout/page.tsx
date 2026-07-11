@@ -24,7 +24,7 @@ interface CheckoutItem {
   title:        string;
   cover:        string | null;
   priceUzs:     number;
-  deliveryType: 'AUTO' | 'MANUAL';
+  deliveryType: 'AUTO' | 'MANUAL' | 'DROPSHIP';
 }
 
 const STEPS = ['cart', 'payment', 'processing', 'success'] as const;
@@ -92,19 +92,26 @@ function StepIndicator({ current }: { current: Step }) {
 }
 
 /* ── Delivery badge (replaces DeliveryInfoCard) ──────── */
-function DeliveryBadge({ type }: { type: 'AUTO' | 'MANUAL' }) {
+const DELIVERY_BADGE_META = {
+  AUTO:     { label: 'Авто-доставка',   color: '#22C55E' },
+  DROPSHIP: { label: 'Мгновенная доставка', color: '#06B6D4' },
+  MANUAL:   { label: 'Ручная доставка', color: '#A78BFA' },
+} as const;
+
+function DeliveryBadge({ type }: { type: 'AUTO' | 'MANUAL' | 'DROPSHIP' }) {
+  const meta = DELIVERY_BADGE_META[type] ?? DELIVERY_BADGE_META.MANUAL;
   return (
     <span
       className="inline-flex items-center gap-1 font-pixel rounded"
       style={{
         fontSize: '7px', letterSpacing: '0.05em', padding: '2px 6px',
-        color:      type === 'AUTO' ? '#22C55E'            : '#A78BFA',
-        background: type === 'AUTO' ? 'rgba(34,197,94,0.1)' : 'rgba(167,139,250,0.1)',
-        border:     type === 'AUTO' ? '1px solid rgba(34,197,94,0.25)' : '1px solid rgba(167,139,250,0.25)',
+        color:      meta.color,
+        background: `${meta.color}1A`,
+        border:     `1px solid ${meta.color}40`,
       }}
     >
       <Zap style={{ width: '8px', height: '8px' }} />
-      {type === 'AUTO' ? 'Авто-доставка' : 'Ручная доставка'}
+      {meta.label}
     </span>
   );
 }
@@ -383,7 +390,7 @@ function CheckoutInner() {
             title:        d.data.title,
             cover:        d.data.cover,
             priceUzs:     d.data.priceUzs ?? 0,
-            deliveryType: (d.data.deliveryType as 'AUTO' | 'MANUAL') ?? 'MANUAL',
+            deliveryType: (d.data.deliveryType as 'AUTO' | 'MANUAL' | 'DROPSHIP') ?? 'MANUAL',
           }));
         setItems(loaded);
       })

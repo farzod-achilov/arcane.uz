@@ -19,7 +19,7 @@ interface Props { game: GameListItem; index?: number }
 
 export default function GameCard({ game, index = 0 }: Props) {
   const cc = useDict().catalog.card;
-  const inStock = game.stockStore > 0 || game.deliveryType === 'MANUAL';
+  const inStock = game.stockStore > 0 || game.deliveryType === 'MANUAL' || game.deliveryType === 'DROPSHIP';
 
   return (
     <motion.div

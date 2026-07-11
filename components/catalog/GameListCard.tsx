@@ -11,7 +11,7 @@ interface Props { game: GameListItem }
 
 export default function GameListCard({ game }: Props) {
   const cc = useDict().catalog.card;
-  const inStock = game.stockStore > 0 || game.deliveryType === 'MANUAL';
+  const inStock = game.stockStore > 0 || game.deliveryType === 'MANUAL' || game.deliveryType === 'DROPSHIP';
 
   return (
     <Link

@@ -43,7 +43,7 @@ function PlatformDot({ p }: { p: string }) {
 
 function DealCard({ deal, index }: { deal: DealItem; index: number }) {
   const timeLeft = useCountdown(deal.endsAt);
-  const inStock  = deal.game.stockStore > 0 || deal.game.deliveryType === 'MANUAL';
+  const inStock  = deal.game.stockStore > 0 || deal.game.deliveryType === 'MANUAL' || deal.game.deliveryType === 'DROPSHIP';
 
   return (
     <motion.div

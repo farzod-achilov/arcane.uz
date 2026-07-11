@@ -20,7 +20,7 @@ export default async function WishlistPage() {
           id: true, title: true, slug: true, cover: true,
           genres: true, platforms: true,
           priceUzs: true, priceUsd: true,
-          rating: true, stockStore: true,
+          rating: true, stockStore: true, deliveryType: true,
         },
       },
     },

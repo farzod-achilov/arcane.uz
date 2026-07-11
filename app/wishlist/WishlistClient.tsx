@@ -22,6 +22,7 @@ interface WishlistGame {
   priceUsd:   number | null;
   rating:     number | null;
   stockStore: number;
+  deliveryType: 'AUTO' | 'MANUAL' | 'DROPSHIP';
   savedAt:    string;
 }
 
@@ -216,7 +217,7 @@ export default function WishlistClient({ items: initial }: { items: WishlistGame
                             <PlatformIcon p={p} /> {p}
                           </span>
                         ))}
-                        {game.stockStore > 0 ? (
+                        {game.stockStore > 0 || game.deliveryType === 'MANUAL' || game.deliveryType === 'DROPSHIP' ? (
                           <span className="flex items-center gap-1 text-[#22C55E]" style={{ fontSize: '11px' }}>
                             <Zap className="w-2.5 h-2.5" /> В наличии
                           </span>

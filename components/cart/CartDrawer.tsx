@@ -134,7 +134,7 @@ export default function CartDrawer() {
               ) : (
                 <div className="p-4 space-y-2.5">
                   {items.map(g => {
-                    const instant = g.deliveryType === 'AUTO' && g.stockStore > 0;
+                    const instant = (g.deliveryType === 'AUTO' && g.stockStore > 0) || g.deliveryType === 'DROPSHIP';
                     return (
                       <motion.div
                         key={g.id}
