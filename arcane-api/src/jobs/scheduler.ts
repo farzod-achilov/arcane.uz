@@ -14,7 +14,7 @@ import {
 } from './keys.cron';
 
 // ── Dropship supplier cache jobs ─────────────────────────────────────────────
-import { kinguinCatalogSyncJob, enebaCatalogSyncJob } from './suppliers.cron';
+import { kinguinCatalogSyncJob, enebaCatalogSyncJob, dropshipRepriceJob } from './suppliers.cron';
 
 interface ScheduledJob {
   name: string;
@@ -44,6 +44,8 @@ class Scheduler {
     // ── Dropship supplier caches ──────────────────────────────────────────────
     { name: 'kinguin-catalog-sync', schedule: '*/15 * * * *', handler: kinguinCatalogSyncJob },
     { name: 'eneba-catalog-sync',   schedule: '*/15 * * * *', handler: enebaCatalogSyncJob },
+    // маржа dropship-игр: закупка Kinguin → Smart Pricing → цена витрины
+    { name: 'dropship-reprice',     schedule: '20 */6 * * *', handler: dropshipRepriceJob },
   ];
 
   start(): void {

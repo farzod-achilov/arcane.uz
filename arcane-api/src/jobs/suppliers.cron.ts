@@ -51,3 +51,37 @@ export async function kinguinCatalogSyncJob(): Promise<void> {
 export async function enebaCatalogSyncJob(): Promise<void> {
   await syncSupplier('eneba', '/api/eneba/sync');
 }
+
+/**
+ * Держит маржу dropship-игр: подтягивает текущую закупочную цену
+ * Kinguin и пересчитывает витринную цену через Smart Pricing.
+ * Без этого цена на витрине застывает, а закупка плавает — вплоть
+ * до продажи в минус, когда оффер Kinguin дорожает.
+ */
+export async function dropshipRepriceJob(): Promise<void> {
+  if (!config.suppliers.syncSecret) {
+    logger.warn('[DropshipReprice] Skipping — SYNC_SECRET not configured');
+    return;
+  }
+
+  const res = await fetch(`${config.suppliers.mainAppUrl}/api/admin/pricing/dropship-reprice`, {
+    method: 'POST',
+    headers: { 'x-sync-secret': config.suppliers.syncSecret },
+    signal: AbortSignal.timeout(60_000),
+  });
+
+  const data = await res.json().catch(() => ({})) as {
+    ok?: boolean; error?: string; total?: number; updated?: number;
+  };
+
+  if (!res.ok || !data.ok) {
+    if (data.error && /not configured/i.test(data.error)) {
+      logger.debug(`[DropshipReprice] ${data.error}`);
+      return;
+    }
+    logger.warn(`[DropshipReprice] failed: ${data.error ?? res.status}`);
+    return;
+  }
+
+  logger.info(`[DropshipReprice] ${data.updated ?? 0}/${data.total ?? 0} games repriced`);
+}
