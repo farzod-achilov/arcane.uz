@@ -138,3 +138,23 @@ export async function purchaseProduct(kinguinId: number, price: number, offerId?
 export function buildPurchaseUrl(kinguinId: number): string {
   return `https://www.kinguin.net/category/${kinguinId}`;
 }
+
+/** GET /v1/balance — current merchant account balance (USD, major units) */
+export async function fetchBalance(): Promise<number> {
+  const res = await fetchWithTimeout(`${KINGUIN_CONFIG.apiBaseUrl}/v1/balance`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(`[Kinguin] GET /v1/balance HTTP ${res.status}`);
+  const data: { balance: number } = await res.json();
+  return data.balance;
+}
+
+/**
+ * General merchant dashboard — the exact top-up sub-page couldn't be
+ * confirmed live (Kinguin's site blocks scripted requests with a 403
+ * regardless of path validity), so this links to the account area an
+ * admin can navigate from rather than guessing a specific deep link.
+ */
+export function buildTopUpUrl(): string {
+  return 'https://www.kinguin.net/dashboard';
+}

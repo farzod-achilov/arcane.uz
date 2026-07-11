@@ -26,6 +26,7 @@ const SUPPLIERS = [
     syncEndpoint: '/api/kinguin/sync',
     disabledHint: 'добавьте KINGUIN_MERCHANT_API_KEY',
     color: '#06B6D4',
+    balanceEndpoint: '/api/kinguin/balance',
   },
   {
     key: 'eneba',
@@ -77,6 +78,7 @@ export default function AdminSuppliersPage() {
             syncEndpoint={s.syncEndpoint}
             disabledHint={s.disabledHint}
             color={s.color}
+            balanceEndpoint={'balanceEndpoint' in s ? s.balanceEndpoint : undefined}
           />
         ))}
       </div>

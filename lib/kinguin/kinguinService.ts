@@ -1,5 +1,5 @@
 import { isKinguinEnabled, KINGUIN_CONFIG } from './config';
-import { fetchAllProducts, fetchProductById, purchaseProduct } from './client';
+import { fetchAllProducts, fetchProductById, purchaseProduct, fetchBalance, buildTopUpUrl } from './client';
 import { mapProductsToArcane, cheapestInStockOffer } from './productMapper';
 import { kinguinCache, CK } from './cache';
 import { products as mockProducts } from '@/lib/mockData';
@@ -124,4 +124,15 @@ export async function purchaseKey(externalId: string): Promise<KinguinPurchaseRe
   return purchaseProduct(kinguinId, cheapest.price, cheapest.offerId);
 }
 
-export { isKinguinEnabled };
+/** Current merchant account balance (USD) — null if not configured or the lookup fails */
+export async function getBalance(): Promise<number | null> {
+  if (!isKinguinEnabled()) return null;
+  try {
+    return await fetchBalance();
+  } catch (err) {
+    console.warn('[Kinguin] getBalance() failed:', err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+export { isKinguinEnabled, buildTopUpUrl };

@@ -1,6 +1,7 @@
 /* Public API of the Kinguin integration layer */
 export {
   getProducts, getProduct, syncProducts, getLastSyncResult, purchaseKey, isKinguinEnabled,
+  getBalance, buildTopUpUrl,
 } from './kinguinService';
 export { usdToUzs, formatUzs } from './pricingMapper';
 export { inferDeliveryType, inferCategory, inferPlatforms } from './deliveryMapper';
