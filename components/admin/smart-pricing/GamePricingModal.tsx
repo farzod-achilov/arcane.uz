@@ -255,21 +255,51 @@ export default function GamePricingModal({ game, onClose, onSaved }: Props) {
       .finally(() => setInitLoad(false));
   }, [game.id]);
 
+  // Точная закупка Kinguin по связанному dropship-товару (мерчант-API).
+  // Возвращает true, если цена подставлена — тогда fuzzy-поиск не нужен.
+  const [kinguinCost, setKinguinCost] = useState<{ costUsd: number; inStock: boolean } | null>(null);
+  const fetchKinguinCost = useCallback(async (): Promise<boolean> => {
+    try {
+      const res  = await fetch(`/api/admin/game/${game.id}/supplier-cost`);
+      const json = await res.json();
+      if (json.ok && json.costUsd) {
+        setKinguinCost({ costUsd: json.costUsd, inStock: json.inStock });
+        return true;
+      }
+    } catch { /* ignore */ }
+    setKinguinCost(null);
+    return false;
+  }, [game.id]);
+
   // Auto-fetch market prices on open
   const fetchMarketPrices = useCallback(async () => {
     setMarketLoading(true);
     try {
+      // 1) точная закупка Kinguin (dropship) — приоритетно
+      const gotExact = await fetchKinguinCost();
+      // 2) fuzzy-поиск по названию — для Steam-сравнения и не-dropship игр
       const res  = await fetch(`/api/admin/market-prices?title=${encodeURIComponent(game.title)}`);
       const json = await res.json();
       if (json.success) setMarket(json.sources);
+      void gotExact;
     } catch {
       // ignore
     } finally {
       setMarketLoading(false);
     }
-  }, [game.title]);
+  }, [game.title, fetchKinguinCost]);
 
   useEffect(() => { fetchMarketPrices(); }, [fetchMarketPrices]);
+
+  // Один раз подставить точную закупку Kinguin в пустое поле Supplier Price
+  const kinguinAutoFilled = useRef(false);
+  useEffect(() => {
+    if (initLoad || kinguinAutoFilled.current) return;
+    if (kinguinCost && (!supplierPrice || parseFloat(supplierPrice) <= 0)) {
+      setSupplierPrice(kinguinCost.costUsd.toFixed(2));
+      kinguinAutoFilled.current = true;
+    }
+  }, [kinguinCost, initLoad, supplierPrice]);
 
   // Live preview
   const fetchPreview = useCallback(async () => {
@@ -420,19 +450,44 @@ export default function GamePricingModal({ game, onClose, onSaved }: Props) {
                   </button>
                 </div>
 
-                {/* Kinguin chip */}
-                <SourceChip
-                  source="kinguin"
-                  offer={market?.kinguin.cheapest ?? null}
-                  onApply={p => setSupplierPrice(p.toFixed(2))}
-                  loading={marketLoading}
-                />
+                {/* Точная закупка Kinguin (dropship-товар) — приоритет */}
+                {kinguinCost ? (
+                  <div className="flex items-center justify-between rounded-xl px-3 py-2.5"
+                       style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-heading font-bold" style={{ fontSize: '12px', color: '#F59E0B' }}>Kinguin</span>
+                      <span className="font-body" style={{ fontSize: '11px', color: kinguinCost.inStock ? '#22C55E' : '#EF4444' }}>
+                        {kinguinCost.inStock ? 'в наличии' : 'нет офферов'}
+                      </span>
+                      <span className="font-heading font-bold text-white" style={{ fontSize: '13px' }}>
+                        ${kinguinCost.costUsd.toFixed(2)}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setSupplierPrice(kinguinCost.costUsd.toFixed(2))}
+                      className="rounded-lg px-2.5 py-1 font-body flex-shrink-0"
+                      style={{ fontSize: '10px', color: '#F59E0B', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)' }}
+                    >
+                      Применить
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {/* Kinguin chip (fuzzy search fallback) */}
+                    <SourceChip
+                      source="kinguin"
+                      offer={market?.kinguin.cheapest ?? null}
+                      onApply={p => setSupplierPrice(p.toFixed(2))}
+                      loading={marketLoading}
+                    />
 
-                {/* API key not configured notice */}
-                {!marketLoading && !market?.kinguin.configured && (
-                  <p className="font-body text-[#374151]" style={{ fontSize: '10px' }}>
-                    {t.pricingModal.addKinguin}
-                  </p>
+                    {/* API key not configured notice */}
+                    {!marketLoading && !market?.kinguin.configured && (
+                      <p className="font-body text-[#374151]" style={{ fontSize: '10px' }}>
+                        {t.pricingModal.addKinguin}
+                      </p>
+                    )}
+                  </>
                 )}
 
 

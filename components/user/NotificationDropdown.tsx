@@ -3,9 +3,8 @@
 import { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { Bell, ShoppingBag, Zap, Heart, Star, AlertCircle, Clock, Check, X } from 'lucide-react';
+import { Bell, ShoppingBag, Zap, Heart, Star, AlertCircle, Clock, Check, X, MessageSquare } from 'lucide-react';
 import { useUser } from '@/lib/userContext';
-import type { NotifType } from '@/lib/mockUserData';
 
 function relativeTime(ts: number) {
   const diff = Date.now() - ts;
@@ -15,15 +14,19 @@ function relativeTime(ts: number) {
   return `${Math.floor(diff / 86_400_000)} д назад`;
 }
 
-const NOTIF_ICONS: Record<NotifType, { icon: typeof Bell; color: string }> = {
-  order:    { icon: ShoppingBag, color: '#22C55E' },
-  coins:    { icon: Zap,         color: '#F59E0B' },
-  wishlist: { icon: Heart,       color: '#EF4444' },
-  event:    { icon: Star,        color: '#9D60FA' },
-  level:    { icon: AlertCircle, color: '#06B6D4' },
-  system:   { icon: Bell,        color: '#6B7280' },
-  preorder: { icon: Clock,       color: '#F59E0B' },
+const NOTIF_ICONS: Record<string, { icon: typeof Bell; color: string }> = {
+  order:    { icon: ShoppingBag,   color: '#22C55E' },
+  coins:    { icon: Zap,           color: '#F59E0B' },
+  wishlist: { icon: Heart,         color: '#EF4444' },
+  event:    { icon: Star,          color: '#9D60FA' },
+  level:    { icon: AlertCircle,   color: '#06B6D4' },
+  system:   { icon: Bell,          color: '#6B7280' },
+  preorder: { icon: Clock,         color: '#F59E0B' },
+  review:   { icon: MessageSquare, color: '#06B6D4' },
 };
+
+// неизвестный тип не должен ронять весь дропдаун
+const DEFAULT_ICON = { icon: Bell, color: '#6B7280' };
 
 interface Props {
   isOpen: boolean;
@@ -101,7 +104,7 @@ export default function NotificationDropdown({ isOpen, onClose }: Props) {
               </div>
             ) : (
               notifications.slice(0, 8).map((n) => {
-                const cfg = NOTIF_ICONS[n.type];
+                const cfg = NOTIF_ICONS[n.type] ?? DEFAULT_ICON;
                 const Icon = cfg.icon;
                 return (
                   <Link
