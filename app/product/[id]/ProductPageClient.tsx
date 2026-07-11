@@ -164,6 +164,7 @@ export default function ProductPageClient({ params }: { params: { id: string } }
   const [addedToCart, setAdded]         = useState(false);
   const [wishlisted, setWishlisted]     = useState(false);
   const buyButtonRef = useRef<HTMLDivElement>(null);
+  const gallerySectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (mockProduct) return;
@@ -713,7 +714,15 @@ export default function ProductPageClient({ params }: { params: { id: string } }
                   {/* Trailer play button */}
                   {product.trailer && (
                     <button
-                      onClick={() => setActiveImg(allScreenshots.findIndex(s => isVideoUrl(s)))}
+                      onClick={() => {
+                        // The player itself lives in the Gallery section further down
+                        // the page — without scrolling to it, clicking this button had
+                        // no visible effect (the hero card above never changes), which
+                        // read as "trailer doesn't work". Select the trailer AND bring
+                        // its player into view.
+                        setActiveImg(allScreenshots.findIndex(s => isVideoUrl(s)));
+                        gallerySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }}
                       className="absolute inset-0 flex items-center justify-center group"
                     >
                       <motion.div
@@ -875,7 +884,7 @@ export default function ProductPageClient({ params }: { params: { id: string } }
               GALLERY SECTION
           ═══════════════════════════════════════════ */}
           {allScreenshots.length > 1 && (
-            <section style={{ borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '48px', paddingBottom: '48px' }}>
+            <section ref={gallerySectionRef} style={{ borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '48px', paddingBottom: '48px' }}>
               <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-10">
                 {/* Section header */}
                 <div className="flex items-center gap-3 mb-6">
