@@ -96,6 +96,18 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Some Kinguin keys come back as "Game Name = Platform = Region = ACTUALCODE"
+ * instead of a bare code (confirmed live — not every product does this, but
+ * enough do that it can't be ignored). The real redeemable code is always
+ * the last " = "-separated segment; strip the rest so what lands in
+ * order_items.keyValue is only ever the code a customer actually redeems.
+ */
+function extractKeyCode(serial: string): string {
+  const parts = serial.split(' = ');
+  return parts[parts.length - 1].trim();
+}
+
+/**
  * Places an order, then polls the "download keys" endpoint since Kinguin
  * order fulfillment is async (status starts "processing"). Bounded to a
  * few short retries — if the key still isn't ready within that window,
@@ -113,7 +125,7 @@ export async function purchaseProduct(kinguinId: number, price: number, offerId?
       if (attempt > 0) await sleep(DELAY_MS);
       const keys = await downloadKeys(order.orderId);
       if (keys.length > 0 && keys[0].serial) {
-        return { ok: true, key: keys[0].serial };
+        return { ok: true, key: extractKeyCode(keys[0].serial) };
       }
     }
 
