@@ -8,14 +8,21 @@ import { buildPurchaseUrl } from './client';
    Product mapper — KinguinProductItem → Product
 ───────────────────────────────────────────────────────── */
 
-export function normalizeProduct(item: KinguinProductItem): KinguinNormalizedProduct {
-  // Kinguin is a marketplace — top-level price/qty are aggregate/reference
-  // values, not directly orderable. Find the cheapest offer that actually
-  // has stock; that offerId is what a real order must reference.
+/**
+ * Kinguin is a marketplace — a product's top-level price/qty are aggregate/
+ * reference values, not directly orderable. This finds the cheapest offer
+ * that actually has stock; that offerId is what a real order must reference.
+ * Shared between the catalog mapper below and kinguinService's purchaseKey().
+ */
+export function cheapestInStockOffer(item: KinguinProductItem) {
   const inStockOffers = (item.offers ?? []).filter(o => o.availableQty > 0);
-  const cheapest = inStockOffers.length
+  return inStockOffers.length
     ? inStockOffers.reduce((a, b) => (b.price < a.price ? b : a))
     : undefined;
+}
+
+export function normalizeProduct(item: KinguinProductItem): KinguinNormalizedProduct {
+  const cheapest = cheapestInStockOffer(item);
 
   return {
     kinguinId: item.kinguinId,

@@ -1,6 +1,6 @@
 import { isKinguinEnabled, KINGUIN_CONFIG } from './config';
-import { fetchAllProducts, purchaseProduct } from './client';
-import { mapProductsToArcane } from './productMapper';
+import { fetchAllProducts, fetchProductById, purchaseProduct } from './client';
+import { mapProductsToArcane, cheapestInStockOffer } from './productMapper';
 import { kinguinCache, CK } from './cache';
 import { products as mockProducts } from '@/lib/mockData';
 import type { Product } from '@/lib/types';
@@ -103,19 +103,25 @@ export async function purchaseKey(externalId: string): Promise<KinguinPurchaseRe
   }
 
   // Kinguin's order API requires a specific offerId + price (it's a
-  // marketplace — see lib/kinguin/types.ts header comment), not just a
-  // kinguinId. Use the cheapest in-stock offer recorded at last sync.
-  // If the cache is cold (sync never ran/expired), fail clearly instead
-  // of ordering with a fabricated price or no offer reference.
-  const productId = `kinguin-${kinguinId}`;
-  const cachedProduct = kinguinCache.get<Product[]>(CK.productList())?.find(p => p.id === productId) as
-    | (Product & { kinguinOfferId?: string; kinguinOfferPriceUsd?: number })
-    | undefined;
-  if (!cachedProduct?.kinguinOfferId || cachedProduct.kinguinOfferPriceUsd == null) {
-    return { ok: false, error: `No cached offer for Kinguin product ${kinguinId} — run a catalog sync first` };
+  // marketplace — see lib/kinguin/types.ts header comment). Look this
+  // product up directly rather than relying on the full-catalog cache:
+  // with only a handful of games actually dropship-linked, there's no
+  // reason a purchase should depend on whether this specific product
+  // happened to land within the catalog sync's page cap (2000 items) —
+  // this was a real, repeated failure mode before this fix.
+  let product;
+  try {
+    product = await fetchProductById(kinguinId);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : `Failed to look up Kinguin product ${kinguinId}` };
   }
 
-  return purchaseProduct(kinguinId, cachedProduct.kinguinOfferPriceUsd, cachedProduct.kinguinOfferId);
+  const cheapest = cheapestInStockOffer(product);
+  if (!cheapest) {
+    return { ok: false, error: `Kinguin product ${kinguinId} has no in-stock offers` };
+  }
+
+  return purchaseProduct(kinguinId, cheapest.price, cheapest.offerId);
 }
 
 export { isKinguinEnabled };

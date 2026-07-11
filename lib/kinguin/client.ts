@@ -32,6 +32,21 @@ export async function fetchCatalogPage(page = 1, limit = 50): Promise<{ items: K
   return { items, hasMore: page * limit < (data.item_count ?? 0) };
 }
 
+/**
+ * GET /v1/products/{id} — single-product lookup, fresh at call time. Used
+ * by purchaseKey() instead of the full-catalog cache: with only a handful
+ * of games actually linked for dropship, there's no reason to page through
+ * Kinguin's entire catalog (2000+ items, capped by fetchAllProducts' own
+ * MAX_PAGES) just to buy one specific, already-known product.
+ */
+export async function fetchProductById(kinguinId: number): Promise<KinguinProductItem> {
+  const res = await fetchWithTimeout(`${KINGUIN_CONFIG.apiBaseUrl}/v1/products/${kinguinId}`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(`[Kinguin] GET /v1/products/${kinguinId} HTTP ${res.status}`);
+  return res.json();
+}
+
 export async function fetchAllProducts(): Promise<KinguinProductItem[]> {
   const PAGE_SIZE = 100; // API max per docs
   const MAX_PAGES = 20;  // bound blast radius, same convention as lib/digiseller/client.ts
