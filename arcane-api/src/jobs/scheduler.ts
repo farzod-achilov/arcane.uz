@@ -13,6 +13,9 @@ import {
   dailyKeyAuditJob,
 } from './keys.cron';
 
+// ── Dropship supplier cache jobs ─────────────────────────────────────────────
+import { kinguinCatalogSyncJob, enebaCatalogSyncJob } from './suppliers.cron';
+
 interface ScheduledJob {
   name: string;
   schedule: string;
@@ -37,6 +40,10 @@ class Scheduler {
     { name: 'key-auto-disable',    schedule: '*/30 * * * *', handler: autoDisableEmptyGamesJob },
     { name: 'key-stock-cache',     schedule: '*/10 * * * *', handler: warmKeyStockCacheJob },
     { name: 'key-daily-audit',     schedule: '0 6 * * *',    handler: dailyKeyAuditJob },
+
+    // ── Dropship supplier caches ──────────────────────────────────────────────
+    { name: 'kinguin-catalog-sync', schedule: '*/15 * * * *', handler: kinguinCatalogSyncJob },
+    { name: 'eneba-catalog-sync',   schedule: '*/15 * * * *', handler: enebaCatalogSyncJob },
   ];
 
   start(): void {

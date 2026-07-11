@@ -47,6 +47,15 @@ export const config = {
     contributionPercent: parseInt(process.env.JACKPOT_CONTRIBUTION_PERCENT || '2', 10),
   },
 
+  // Main Next.js app (arcane) — used to periodically re-warm its in-memory
+  // supplier catalog caches (lib/kinguin/, lib/eneba/, etc.), which reset
+  // on every deploy/restart and otherwise stay cold until someone manually
+  // hits /admin/suppliers.
+  suppliers: {
+    mainAppUrl: process.env.MAIN_APP_URL || process.env.CORS_ORIGIN || 'http://localhost:3000',
+    syncSecret: process.env.SYNC_SECRET || '',
+  },
+
   redis_ttl: {
     liveDrops: 300,
     jackpot: 60,
