@@ -252,6 +252,11 @@ export default function GamesSmartPricingPage() {
         className="rounded-2xl overflow-hidden"
         style={{ background: '#0A0A14', border: '1px solid rgba(255,255,255,0.07)' }}
       >
+        {/* Fixed 6-column grid needs ~700px+ — overflow-x-auto so narrow/mobile
+            viewports pan horizontally instead of the outer overflow-hidden
+            silently clipping the margin/action columns with no way to reach them. */}
+        <div className="overflow-x-auto">
+        <div style={{ minWidth: '700px' }}>
         {/* Table header */}
         <div
           className="grid px-4 py-3"
@@ -404,6 +409,8 @@ export default function GamesSmartPricingPage() {
             );
           })}
         </AnimatePresence>
+        </div>
+        </div>
 
         {/* Footer */}
         {!loading && filtered.length > 0 && (

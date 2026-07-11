@@ -233,6 +233,11 @@ export default function PromoCodesPage() {
 
       {/* Table */}
       <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+        {/* Fixed 6-column grid needs ~640px+ — overflow-x-auto so narrow/mobile
+            viewports pan horizontally instead of the outer overflow-hidden
+            silently clipping the status/action columns with no way to reach them. */}
+        <div className="overflow-x-auto">
+        <div style={{ minWidth: '640px' }}>
         {/* Head */}
         <div className="grid gap-4 px-5 py-3"
              style={{
@@ -343,6 +348,8 @@ export default function PromoCodesPage() {
             })}
           </AnimatePresence>
         )}
+        </div>
+        </div>
       </div>
 
       {/* Pagination */}

@@ -545,6 +545,11 @@ export default function AdminProductsPage() {
         </div>
       ) : (
         <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+          {/* Fixed 6-column grid needs ~720px+ — overflow-x-auto so narrow/mobile
+              viewports pan horizontally instead of the outer overflow-hidden
+              silently clipping the sales/actions columns with no way to reach them. */}
+          <div className="overflow-x-auto">
+          <div style={{ minWidth: '720px' }}>
           {/* Header row */}
           <div className="grid items-center px-4 py-2.5"
                style={{ gridTemplateColumns: '2fr 1fr 1fr 80px 100px 100px', background: '#080812', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
@@ -677,6 +682,8 @@ export default function AdminProductsPage() {
                 </div>
               </div>
             ))}
+          </div>
+          </div>
           </div>
         </div>
       )}
