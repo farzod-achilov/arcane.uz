@@ -147,6 +147,10 @@ model Game {
   isActive    Boolean   @default(true)
   // Fulfillment mode — mirrors the Next.js app's games.deliveryType
   deliveryType DeliveryType @default(MANUAL)
+  // Dropship supplier link — mirrors the Next.js app's fields. Kept
+  // separate from source/externalId (metadata origin) above.
+  dropshipSource     String?
+  dropshipExternalId String?
   // Stock management
   stockStore  Int       @default(0)
   stockDrop   Int       @default(0)

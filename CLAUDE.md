@@ -86,7 +86,7 @@ Four more external catalog/dropship integrations follow the exact same file shap
 
 `POST /api/orders` → Prisma (`lib/orders/service.ts`) → Telegram admin notification via `lib/adminTelegram.ts` → `lib/delivery/processDelivery()` dispatches by the most-restrictive item's `deliveryType` (`MANUAL` > `DROPSHIP` > `AUTO`) → `queueManual` / `dropshipDeliver` / `autoDeliver` → admin can also manually deliver via `POST /api/orders/[id]/deliver` → key written to `order_items.keyValue`, user notified.
 
-`DROPSHIP` (`lib/delivery/dropshipDeliver.ts`) buys the key from the game's `source`/`externalId`-tagged supplier at order time instead of pulling pre-stocked `game_keys` — no stock is ever pre-loaded for these games. A cart mixing `DROPSHIP` and `AUTO` items is handled in one pass (AUTO items reuse `deliverAutoItem()` from `autoDeliver.ts`). arcane-api's `autoDisableEmptyGamesJob`/`lowStockScanJob` cron jobs exclude `DROPSHIP` games from "0 stock ⇒ inactive" logic.
+`DROPSHIP` (`lib/delivery/dropshipDeliver.ts`) buys the key from the game's `dropshipSource`/`dropshipExternalId`-tagged supplier at order time instead of pulling pre-stocked `game_keys` — no stock is ever pre-loaded for these games. These fields are deliberately separate from `source`/`externalId` (metadata origin — rawg/igdb/steam), since a game can be RAWG-sourced for content but dropship-fulfilled via a different supplier like Kinguin. A cart mixing `DROPSHIP` and `AUTO` items is handled in one pass (AUTO items reuse `deliverAutoItem()` from `autoDeliver.ts`). arcane-api's `autoDisableEmptyGamesJob`/`lowStockScanJob` cron jobs exclude `DROPSHIP` games from "0 stock ⇒ inactive" logic.
 
 Status machine: `PENDING` → `PAID` → `WAITING_MANUAL` → `COMPLETED` (or `CANCELLED`).
 

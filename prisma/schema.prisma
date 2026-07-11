@@ -111,6 +111,13 @@ model games {
   developer         String?
   publisher         String?
   deliveryType      DeliveryType   @default(MANUAL)
+  // Which external supplier/SKU to buy from at order time when
+  // deliveryType=DROPSHIP. Deliberately separate from source/externalId
+  // above, which identify where this game's METADATA came from (rawg/
+  // igdb/steam) — a game can be RAWG/Steam-sourced for content and still
+  // dropship-fulfilled via a different supplier (e.g. Kinguin).
+  dropshipSource     String?
+  dropshipExternalId String?
   productType       ProductType    @default(KEY)
   isActive          Boolean        @default(true)
   stockStore        Int            @default(0)

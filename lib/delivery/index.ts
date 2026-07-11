@@ -16,8 +16,8 @@ export async function processDelivery(orderId: string): Promise<DeliveryResult> 
         include: {
           game: {
             select: {
-              id: true, title: true, cover: true,
-              deliveryType: true, source: true, externalId: true,
+              id: true, title: true, cover: true, deliveryType: true,
+              dropshipSource: true, dropshipExternalId: true,
             },
           },
         },
@@ -46,8 +46,8 @@ export async function processDelivery(orderId: string): Promise<DeliveryResult> 
       gameCover:    i.game?.cover    ?? null,
       deliveryType: (i.game?.deliveryType ?? 'MANUAL') as 'AUTO' | 'MANUAL' | 'DROPSHIP',
       price:        i.price,
-      source:       i.game?.source     ?? null,
-      externalId:   i.game?.externalId ?? null,
+      source:       i.game?.dropshipSource     ?? null,
+      externalId:   i.game?.dropshipExternalId ?? null,
     })),
   };
 

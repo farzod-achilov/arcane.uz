@@ -21,8 +21,11 @@ export interface DeliveryContext {
     deliveryType: DeliveryType;
     price:        number;
     // Only meaningful for DROPSHIP items — which external supplier/SKU to
-    // buy from at order time. Reuses games.source/externalId (the same
-    // fields the RAWG/IGDB/Steam import pipeline already populates).
+    // buy from at order time. Sourced from games.dropshipSource/
+    // dropshipExternalId — deliberately separate from games.source/
+    // externalId, which identify metadata origin (rawg/igdb/steam) and
+    // may point at a completely different source than the dropship
+    // supplier for the same game.
     source:       string | null;
     externalId:   string | null;
   }>;
