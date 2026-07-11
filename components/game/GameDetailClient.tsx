@@ -317,8 +317,11 @@ export default function GameDetailClient({
   useEffect(() => { addId(game.id); }, [game.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const inCart = has(game.id);
 
-  const isManual = game.deliveryType === 'MANUAL';
-  const inStock  = game.stockStore > 0 || isManual;
+  const isManual   = game.deliveryType === 'MANUAL';
+  const isDropship = game.deliveryType === 'DROPSHIP';
+  // DROPSHIP games are never pre-stocked by design — the key is bought
+  // from the supplier at order time, so stockStore staying 0 is normal.
+  const inStock    = game.stockStore > 0 || isManual || isDropship;
 
   function handleCart() {
     if (inCart) { openCart(); return; }
@@ -569,12 +572,12 @@ export default function GameDetailClient({
                 {/* Stock */}
                 <div className="flex items-center gap-2 mb-4">
                   <div className="w-2 h-2 rounded-full" style={{
-                    background: isManual ? '#A78BFA' : inStock ? '#22C55E' : '#6B7280'
+                    background: isManual ? '#A78BFA' : isDropship ? '#F59E0B' : inStock ? '#22C55E' : '#6B7280'
                   }} />
                   <span className="font-body text-sm" style={{
-                    color: isManual ? '#A78BFA' : inStock ? '#22C55E' : '#6B7280'
+                    color: isManual ? '#A78BFA' : isDropship ? '#F59E0B' : inStock ? '#22C55E' : '#6B7280'
                   }}>
-                    {isManual ? 'Ручная доставка' : inStock ? `В наличии · ${game.stockStore} шт.` : 'Нет в наличии'}
+                    {isManual ? 'Ручная доставка' : isDropship ? 'Мгновенная доставка' : inStock ? `В наличии · ${game.stockStore} шт.` : 'Нет в наличии'}
                   </span>
                 </div>
 
@@ -993,7 +996,7 @@ export default function GameDetailClient({
               }}
             >
               {similar.map((g, i) => {
-                const isInStock = g.stockStore > 0 || g.deliveryType === 'MANUAL';
+                const isInStock = g.stockStore > 0 || g.deliveryType === 'MANUAL' || g.deliveryType === 'DROPSHIP';
                 return (
                   <motion.div
                     key={g.id}
