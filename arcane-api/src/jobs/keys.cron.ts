@@ -1,7 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
 import { keysService } from '../modules/keys/keys.service';
-import { KeyStatus, KeyType } from '@prisma/client';
+import { KeyStatus, KeyType, DeliveryType } from '@prisma/client';
 
 // ── Release expired reservations (every 2 minutes) ───────────────────────────
 
@@ -17,7 +17,7 @@ export async function releaseExpiredReservationsJob(): Promise<void> {
 export async function lowStockScanJob(): Promise<void> {
   const games = await prisma.game.findMany({
     where: { isActive: true },
-    select: { id: true, title: true, stockStore: true, stockDrop: true, lowStockThreshold: true },
+    select: { id: true, title: true, stockStore: true, stockDrop: true, lowStockThreshold: true, deliveryType: true },
   });
 
   const warnings: string[] = [];
@@ -25,6 +25,10 @@ export async function lowStockScanJob(): Promise<void> {
   const empty: string[] = [];
 
   for (const game of games) {
+    // Dropship games are never pre-stocked by design — 0 stock is expected,
+    // not a warning. See lib/delivery/dropshipDeliver.ts.
+    if (game.deliveryType === DeliveryType.DROPSHIP) continue;
+
     const total = game.stockStore + game.stockDrop;
     if (total === 0) empty.push(game.title);
     else if (total <= Math.floor(game.lowStockThreshold * 0.5)) criticals.push(game.title);
@@ -54,6 +58,9 @@ export async function autoDisableEmptyGamesJob(): Promise<void> {
       isActive: true,
       stockStore: 0,
       stockDrop: 0,
+      // Dropship games are never pre-stocked by design — 0 stock must not
+      // trigger auto-disable. See lib/delivery/dropshipDeliver.ts.
+      deliveryType: { not: DeliveryType.DROPSHIP },
     },
     select: { id: true, title: true },
   });

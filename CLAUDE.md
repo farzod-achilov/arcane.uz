@@ -57,6 +57,16 @@ All Digiseller logic is server-only under [`lib/digiseller/`](lib/digiseller/):
 
 Client-side access goes through React hooks in [`hooks/`](hooks/): `useDigisellerProducts` and `useDigisellerProduct`, which hit the Next.js API routes.
 
+### Other supplier integrations (Kinguin, Eneba, G2A, Gamivo)
+
+Four more external catalog/dropship integrations follow the exact same file shape as `lib/digiseller/`, under `lib/kinguin/`, `lib/eneba/`, `lib/g2a/`, `lib/gamivo/` — each with its own `config.ts`/`cache.ts`/`client.ts`/`productMapper.ts`/`pricingMapper.ts`/`deliveryMapper.ts`/`{x}Service.ts`/`index.ts`, plus matching API routes under `app/api/{kinguin,eneba,g2a,gamivo}/{products,product/[id],sync}` and hooks `use{X}Products`/`use{X}Product`. Shared infrastructure (`TtlCache`, timeout-bounded fetch, USD→UZS conversion, OAuth2 client_credentials) lives in [`lib/shared/`](lib/shared/). Auth scheme differs per supplier — see below.
+
+**Two credential tiers per supplier** — do not confuse them:
+- **Search tier** (`KINGUIN_API_KEY`, `ENEBA_API_KEY`) — read-only, used only by `app/api/admin/market-prices/route.ts` for price comparison.
+- **Merchant tier** — required for catalog sync and dropship ordering, gates `isKinguinEnabled()` / `isEnebaEnabled()`. **Kinguin** (`KINGUIN_MERCHANT_API_KEY`) is a single `X-Api-Key` header — verified 2026-07-11 against the official reference implementation (github.com/kinguinltdhk/Kinguin-eCommerce-API); no `auth.ts` file, `client.ts` reads the key straight from config. **Eneba** (`ENEBA_AUTH_ID`/`SECRET`) is OAuth2 client_credentials via `lib/eneba/auth.ts` — verified against Eneba's own docs, but NOT re-confirmed against a reference implementation the way Kinguin was, so treat with slightly less certainty.
+
+**Verification status**: Kinguin's single-API-key merchant auth and Eneba's OAuth2 merchant auth are both verified against official docs (Kinguin against an actual reference client, which caught and corrected an earlier wrong assumption that Kinguin used OAuth2 too — it doesn't). Kinguin order fulfillment is async: `lib/kinguin/client.ts`'s `purchaseProduct()` creates the order then polls a separate "download keys" endpoint a few times before giving up (falls back to `WAITING_MANUAL` like any other dropship failure). **G2A and Gamivo are unverified** — their `auth.ts` always throws `UnverifiedSupplierError` (from `lib/shared/unverifiedSupplierError.ts`) regardless of env vars, so `getProducts()`/`syncProducts()` always fall back to mock and no network call is ever attempted. See the header comments in `lib/g2a/config.ts` and `lib/gamivo/config.ts` before enabling.
+
 ### API routes
 
 | Route | Method | Purpose |
@@ -65,13 +75,18 @@ Client-side access goes through React hooks in [`hooks/`](hooks/): `useDigiselle
 | `/api/digiseller/product/[id]` | GET | Single product |
 | `/api/digiseller/sync` | GET/POST | Sync status / trigger re-sync from Digiseller |
 | `/api/digiseller/purchase/[id]` | GET | Generate Digiseller purchase URL |
+| `/api/{kinguin,eneba,g2a,gamivo}/products` | GET | Product list, same filter/sort contract as Digiseller's |
+| `/api/{kinguin,eneba,g2a,gamivo}/product/[id]` | GET | Single product |
+| `/api/{kinguin,eneba,g2a,gamivo}/sync` | GET/POST | Sync status / trigger re-sync (same `x-sync-secret`/admin-session guard as Digiseller's) |
 | `/api/orders` | GET/POST | List all orders / create order after payment |
 | `/api/orders/[id]/deliver` | POST | Admin delivers game key; triggers Telegram notification |
 | `/api/cases/[id]/open` | POST | Open a mystery case; returns weighted random reward |
 
 ### Order flow
 
-`POST /api/orders` → Prisma (`lib/orders/service.ts`) → Telegram admin notification via `lib/adminTelegram.ts` → `lib/delivery/` dispatches auto or manual delivery → admin delivers key via `POST /api/orders/[id]/deliver` → key written to `order_items.keyValue`, user notified.
+`POST /api/orders` → Prisma (`lib/orders/service.ts`) → Telegram admin notification via `lib/adminTelegram.ts` → `lib/delivery/processDelivery()` dispatches by the most-restrictive item's `deliveryType` (`MANUAL` > `DROPSHIP` > `AUTO`) → `queueManual` / `dropshipDeliver` / `autoDeliver` → admin can also manually deliver via `POST /api/orders/[id]/deliver` → key written to `order_items.keyValue`, user notified.
+
+`DROPSHIP` (`lib/delivery/dropshipDeliver.ts`) buys the key from the game's `source`/`externalId`-tagged supplier at order time instead of pulling pre-stocked `game_keys` — no stock is ever pre-loaded for these games. A cart mixing `DROPSHIP` and `AUTO` items is handled in one pass (AUTO items reuse `deliverAutoItem()` from `autoDeliver.ts`). arcane-api's `autoDisableEmptyGamesJob`/`lowStockScanJob` cron jobs exclude `DROPSHIP` games from "0 stock ⇒ inactive" logic.
 
 Status machine: `PENDING` → `PAID` → `WAITING_MANUAL` → `COMPLETED` (or `CANCELLED`).
 
@@ -119,8 +134,14 @@ USD_TO_UZS=12700
 DIGI_CACHE_PRODUCTS_TTL=300   # seconds
 DIGI_CACHE_PRODUCT_TTL=600
 
-# Sync endpoint protection (optional)
+# Sync endpoint protection (optional, shared across all supplier /sync routes)
 SYNC_SECRET=
+
+# Kinguin/Eneba merchant tier (optional — omit to use mock data)
+# G2A/Gamivo vars exist but are inert — see "Other supplier integrations" above
+KINGUIN_MERCHANT_API_KEY=
+ENEBA_AUTH_ID=
+ENEBA_AUTH_SECRET=
 
 # Telegram notifications
 TELEGRAM_BOT_TOKEN=

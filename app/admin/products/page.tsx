@@ -4,12 +4,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import {
-  Search, Plus, Eye, EyeOff, Edit2, RefreshCw, Wifi, WifiOff,
-  CheckCircle2, AlertCircle, Clock, Zap, Hand, Package, X, Save, Loader2, Trash2,
+  Search, Plus, Eye, EyeOff, Edit2, RefreshCw,
+  CheckCircle2, AlertCircle, Clock, Zap, Hand, Truck, Package, X, Save, Loader2, Trash2,
   ArrowUpDown, SlidersHorizontal, ToggleRight,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import AddGameModal from '@/components/admin/keys/AddGameModal';
+import SupplierSyncPanel from '@/components/admin/SupplierSyncPanel';
 
 /* ── Types ─────────────────────────────────────────────────────── */
 interface GameRow {
@@ -24,79 +25,21 @@ interface GameRow {
   priceUsd:     number | null;
   isActive:     boolean;
   stockStore:   number;
-  deliveryType: 'AUTO' | 'MANUAL';
+  deliveryType: 'AUTO' | 'MANUAL' | 'DROPSHIP';
   createdAt:    string;
   _count:       { order_items: number; game_keys: number };
 }
 
-/* ── Digiseller Sync Panel ──────────────────────────────────────── */
-type SyncStatus = 'idle' | 'syncing' | 'success' | 'error' | 'disabled';
-interface SyncState { status: SyncStatus; synced?: number; durationMs?: number; timestamp?: string; error?: string; enabled?: boolean }
-
-function DigisellerSyncPanel() {
-  const [sync, setSync] = useState<SyncState>({ status: 'idle' });
-
-  const checkStatus = useCallback(async () => {
-    try {
-      const data = await fetch('/api/digiseller/sync').then(r => r.json());
-      if (!data.enabled) { setSync({ status: 'disabled', enabled: false }); return; }
-      if (data.lastSync) setSync({ status: 'success', enabled: true, ...data.lastSync });
-      else setSync({ status: 'idle', enabled: true });
-    } catch { setSync({ status: 'idle', enabled: false }); }
-  }, []);
-
-  useEffect(() => { checkStatus(); }, [checkStatus]);
-
-  async function triggerSync() {
-    setSync(s => ({ ...s, status: 'syncing' }));
-    try {
-      const data = await fetch('/api/digiseller/sync', { method: 'POST' }).then(r => r.json());
-      if (data.ok) setSync({ status: 'success', enabled: true, ...data.result });
-      else setSync(s => ({ ...s, status: 'error', error: data.error ?? 'Ошибка' }));
-    } catch { setSync(s => ({ ...s, status: 'error', error: 'Network error' })); }
-  }
-
-  const color = { idle: '#6B7280', syncing: '#7C3AED', success: '#22C55E', error: '#EF4444', disabled: '#1F2937' }[sync.status];
-  const Icon  = { idle: Wifi, syncing: RefreshCw, success: CheckCircle2, error: AlertCircle, disabled: WifiOff }[sync.status];
-  const isDisabled = sync.status === 'disabled' || sync.enabled === false;
-  const isSyncing  = sync.status === 'syncing';
-
-  return (
-    <div className="rounded-2xl p-4 mb-5 flex items-center justify-between gap-4 flex-wrap"
-         style={{ background: '#0D0D1A', border: `1px solid ${color}20` }}>
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-             style={{ background: `${color}12`, border: `1px solid ${color}22` }}>
-          <Icon style={{ width: '15px', height: '15px', color, animation: isSyncing ? 'spin 1s linear infinite' : undefined }} />
-        </div>
-        <div>
-          <p className="font-heading font-semibold text-white" style={{ fontSize: '13px' }}>Digiseller Sync</p>
-          <p className="font-body text-[#4B5563]" style={{ fontSize: '11px' }}>
-            {isDisabled && 'Не настроен — добавьте DIGISELLER_SELLER_ID'}
-            {sync.status === 'idle'    && sync.enabled && 'Готов к синхронизации'}
-            {sync.status === 'syncing' && 'Синхронизация…'}
-            {sync.status === 'success' && `Синхронизировано ${sync.synced} продуктов за ${sync.durationMs}ms`}
-            {sync.status === 'error'   && `Ошибка: ${sync.error}`}
-          </p>
-        </div>
-      </div>
-      <button
-        onClick={triggerSync}
-        disabled={isSyncing || isDisabled}
-        className="flex items-center gap-2 rounded-xl px-4 py-2 font-heading font-semibold text-white text-sm transition-all disabled:opacity-40"
-        style={{ background: isDisabled ? 'rgba(255,255,255,0.04)' : 'linear-gradient(135deg,#7C3AED,#5B21B6)', border: isDisabled ? '1px solid rgba(255,255,255,0.07)' : undefined }}
-      >
-        <RefreshCw style={{ width: '13px', height: '13px', animation: isSyncing ? 'spin 1s linear infinite' : undefined }} />
-        {isSyncing ? 'Синхронизация…' : 'Синхронизировать'}
-      </button>
-    </div>
-  );
-}
+const DELIVERY_TYPE_META = {
+  AUTO:     { label: 'Авто',     color: '#06B6D4', Icon: Zap },
+  MANUAL:   { label: 'Ручная',   color: '#A78BFA', Icon: Hand },
+  DROPSHIP: { label: 'Dropship', color: '#F59E0B', Icon: Truck },
+} as const;
 
 /* ── Edit Modal ─────────────────────────────────────────────────── */
 function EditModal({ game, onClose, onSaved }: { game: GameRow; onClose: () => void; onSaved: (g: Partial<GameRow>) => void }) {
   const [saving, setSaving]     = useState(false);
-  const [deliveryType, setDeliveryType] = useState<'AUTO' | 'MANUAL'>(game.deliveryType);
+  const [deliveryType, setDeliveryType] = useState<'AUTO' | 'MANUAL' | 'DROPSHIP'>(game.deliveryType);
   const [priceUzs, setPriceUzs] = useState(String(game.priceUzs ?? ''));
 
   async function save() {
@@ -137,19 +80,23 @@ function EditModal({ game, onClose, onSaved }: { game: GameRow; onClose: () => v
         {/* Delivery type */}
         <div>
           <p className="font-pixel text-[#4B5563] mb-2" style={{ fontSize: '8px', letterSpacing: '0.1em' }}>ТИП ДОСТАВКИ</p>
-          <div className="grid grid-cols-2 gap-2">
-            {(['AUTO', 'MANUAL'] as const).map(type => (
-              <button key={type} onClick={() => setDeliveryType(type)}
-                      className="flex items-center gap-2 rounded-xl px-4 py-2.5 font-heading font-semibold text-sm transition-all"
-                      style={{
-                        background: deliveryType === type ? (type === 'AUTO' ? 'rgba(6,182,212,0.15)' : 'rgba(167,139,250,0.15)') : 'rgba(255,255,255,0.04)',
-                        border: `1px solid ${deliveryType === type ? (type === 'AUTO' ? 'rgba(6,182,212,0.4)' : 'rgba(167,139,250,0.4)') : 'rgba(255,255,255,0.08)'}`,
-                        color: deliveryType === type ? (type === 'AUTO' ? '#06B6D4' : '#A78BFA') : '#6B7280',
-                      }}>
-                {type === 'AUTO' ? <Zap className="w-4 h-4" /> : <Hand className="w-4 h-4" />}
-                {type === 'AUTO' ? 'Авто' : 'Ручная'}
-              </button>
-            ))}
+          <div className="grid grid-cols-3 gap-2">
+            {(['AUTO', 'MANUAL', 'DROPSHIP'] as const).map(type => {
+              const meta = DELIVERY_TYPE_META[type];
+              const active = deliveryType === type;
+              return (
+                <button key={type} onClick={() => setDeliveryType(type)}
+                        className="flex items-center gap-1.5 rounded-xl px-3 py-2.5 font-heading font-semibold text-sm transition-all"
+                        style={{
+                          background: active ? `${meta.color}26` : 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${active ? `${meta.color}66` : 'rgba(255,255,255,0.08)'}`,
+                          color: active ? meta.color : '#6B7280',
+                        }}>
+                  <meta.Icon className="w-4 h-4" />
+                  {meta.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -268,7 +215,7 @@ function NukeModal({ total, onClose, onDone }: { total: number; onClose: () => v
 }
 
 type StatusFilter   = 'ALL' | 'ACTIVE' | 'HIDDEN';
-type DeliveryFilter = 'ALL' | 'AUTO' | 'MANUAL';
+type DeliveryFilter = 'ALL' | 'AUTO' | 'MANUAL' | 'DROPSHIP';
 type StockFilter    = 'ALL' | 'IN' | 'OUT';
 type SortOption     = 'date_desc' | 'date_asc' | 'price_desc' | 'price_asc' | 'stock_desc' | 'stock_asc';
 
@@ -278,9 +225,10 @@ const STATUS_TABS:   { id: StatusFilter;   label: string }[] = [
   { id: 'HIDDEN', label: 'Скрытые'  },
 ];
 const DELIVERY_TABS: { id: DeliveryFilter; label: string }[] = [
-  { id: 'ALL',    label: 'Все'      },
-  { id: 'AUTO',   label: 'Авто'     },
-  { id: 'MANUAL', label: 'Ручная'   },
+  { id: 'ALL',      label: 'Все'      },
+  { id: 'AUTO',     label: 'Авто'     },
+  { id: 'MANUAL',   label: 'Ручная'   },
+  { id: 'DROPSHIP', label: 'Dropship' },
 ];
 const STOCK_TABS:    { id: StockFilter;    label: string }[] = [
   { id: 'ALL', label: 'Все'          },
@@ -425,7 +373,13 @@ export default function AdminProductsPage() {
         </div>
       </div>
 
-      <DigisellerSyncPanel />
+      <SupplierSyncPanel
+        name="Digiseller"
+        statusEndpoint="/api/digiseller/sync"
+        syncEndpoint="/api/digiseller/sync"
+        disabledHint="добавьте DIGISELLER_SELLER_ID"
+        color="#7C3AED"
+      />
 
       {/* Search */}
       <div className="relative">
@@ -597,15 +551,20 @@ export default function AdminProductsPage() {
                 </div>
 
                 {/* Delivery type */}
-                <span className="inline-flex items-center gap-1 font-pixel rounded px-2 py-0.5"
-                      style={{
-                        fontSize: '7px', letterSpacing: '0.06em',
-                        color:      game.deliveryType === 'AUTO' ? '#06B6D4' : '#A78BFA',
-                        background: game.deliveryType === 'AUTO' ? 'rgba(6,182,212,0.1)' : 'rgba(167,139,250,0.1)',
-                      }}>
-                  {game.deliveryType === 'AUTO' ? <Zap className="w-2.5 h-2.5" /> : <Hand className="w-2.5 h-2.5" />}
-                  {game.deliveryType === 'AUTO' ? 'Авто' : 'Ручная'}
-                </span>
+                {(() => {
+                  const meta = DELIVERY_TYPE_META[game.deliveryType];
+                  return (
+                    <span className="inline-flex items-center gap-1 font-pixel rounded px-2 py-0.5"
+                          style={{
+                            fontSize: '7px', letterSpacing: '0.06em',
+                            color:      meta.color,
+                            background: `${meta.color}1A`,
+                          }}>
+                      <meta.Icon className="w-2.5 h-2.5" />
+                      {meta.label}
+                    </span>
+                  );
+                })()}
 
                 {/* Sales */}
                 <span className="font-body text-[#6B7280]" style={{ fontSize: '12px' }}>

@@ -14,7 +14,7 @@ import { OrderStatusBadge, DeliveryTypeBadge } from '@/components/admin/Delivery
 /* ── Types ─────────────────────────────────────────────── */
 interface GameItem {
   id: string; title: string; cover: string | null;
-  slug: string; deliveryType: 'AUTO' | 'MANUAL';
+  slug: string; deliveryType: 'AUTO' | 'MANUAL' | 'DROPSHIP';
 }
 interface OrderItem { id: string; price: number; keyValue: string | null; deliveredAt: string | null; game: GameItem }
 interface AuditEntry { id: string; action: string; actor: string; note: string | null; createdAt: string }

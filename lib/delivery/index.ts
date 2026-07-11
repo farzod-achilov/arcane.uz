@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { auditLog } from './audit';
 import { autoDeliver } from './autoDeliver';
+import { dropshipDeliver } from './dropshipDeliver';
 import { queueManual } from './manualDeliver';
 import { DeliveryError } from './types';
 import type { DeliveryContext, DeliveryResult } from './types';
@@ -16,7 +17,7 @@ export async function processDelivery(orderId: string): Promise<DeliveryResult> 
           game: {
             select: {
               id: true, title: true, cover: true,
-              deliveryType: true,
+              deliveryType: true, source: true, externalId: true,
             },
           },
         },
@@ -43,18 +44,24 @@ export async function processDelivery(orderId: string): Promise<DeliveryResult> 
       gameId:       i.gameId,
       gameTitle:    i.game?.title    ?? i.gameId,
       gameCover:    i.game?.cover    ?? null,
-      deliveryType: (i.game?.deliveryType ?? 'MANUAL') as 'AUTO' | 'MANUAL',
+      deliveryType: (i.game?.deliveryType ?? 'MANUAL') as 'AUTO' | 'MANUAL' | 'DROPSHIP',
       price:        i.price,
+      source:       i.game?.source     ?? null,
+      externalId:   i.game?.externalId ?? null,
     })),
   };
 
-  // Determine delivery type by most-restrictive item
-  // MANUAL takes priority — if any item needs manual, whole order is manual
-  const needsManual = ctx.items.some(i => i.deliveryType === 'MANUAL');
+  // Priority: MANUAL > DROPSHIP > AUTO — the most-restrictive/most-involved
+  // item in the cart decides the whole order's delivery path. A single
+  // MANUAL item still forces the whole order to manual queue (unchanged
+  // behavior); otherwise any DROPSHIP item routes the order (including any
+  // AUTO items in the same cart) through dropshipDeliver, which handles
+  // both kinds together.
+  const needsManual   = ctx.items.some(i => i.deliveryType === 'MANUAL');
+  const needsDropship = ctx.items.some(i => i.deliveryType === 'DROPSHIP');
 
-  if (needsManual) {
-    return queueManual(ctx);
-  }
+  if (needsManual)   return queueManual(ctx);
+  if (needsDropship) return dropshipDeliver(ctx);
   return autoDeliver(ctx);
 }
 

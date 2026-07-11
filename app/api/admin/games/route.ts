@@ -12,7 +12,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const q            = searchParams.get('q')            ?? '';
   const status       = searchParams.get('status')       ?? 'ALL';   // ALL | ACTIVE | HIDDEN
-  const delivery     = searchParams.get('delivery')     ?? 'ALL';   // ALL | AUTO | MANUAL
+  const delivery     = searchParams.get('delivery')     ?? 'ALL';   // ALL | AUTO | MANUAL | DROPSHIP
   const stock        = searchParams.get('stock')        ?? 'ALL';   // ALL | IN | OUT
   const sortBy       = searchParams.get('sortBy')       ?? 'createdAt';
   const sortDir      = searchParams.get('sortDir')      === 'asc' ? 'asc' : 'desc';
@@ -29,8 +29,9 @@ export async function GET(req: Request) {
   }
   if (status   === 'ACTIVE') where.isActive     = true;
   if (status   === 'HIDDEN') where.isActive     = false;
-  if (delivery === 'AUTO')   where.deliveryType = 'AUTO';
-  if (delivery === 'MANUAL') where.deliveryType = 'MANUAL';
+  if (delivery === 'AUTO')     where.deliveryType = 'AUTO';
+  if (delivery === 'MANUAL')   where.deliveryType = 'MANUAL';
+  if (delivery === 'DROPSHIP') where.deliveryType = 'DROPSHIP';
   if (stock    === 'IN')     where.stockStore   = { gt: 0 };
   if (stock    === 'OUT')    where.stockStore   = 0;
 

@@ -15,7 +15,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
 
   const body = await req.json() as {
     isActive?:    boolean;
-    deliveryType?: 'AUTO' | 'MANUAL';
+    deliveryType?: 'AUTO' | 'MANUAL' | 'DROPSHIP';
     priceUzs?:    number;
     priceUsd?:    number;
     title?:       string;

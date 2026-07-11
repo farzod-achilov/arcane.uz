@@ -666,6 +666,7 @@ model steam_auth_tokens {
 enum DeliveryType {
   AUTO
   MANUAL
+  DROPSHIP
 }
 
 enum ProductType {

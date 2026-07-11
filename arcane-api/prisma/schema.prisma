@@ -53,6 +53,17 @@ enum KeyType {
   BOTH
 }
 
+// Mirrors prisma/schema.prisma's DeliveryType (Next.js app) — same physical
+// column, kept in sync manually since these are two independent Prisma
+// projects against one database. See lib/delivery/dropshipDeliver.ts and
+// autoDisableEmptyGamesJob/lowStockScanJob in jobs/keys.cron.ts, both of
+// which must exclude DROPSHIP games from "0 stock ⇒ inactive" logic.
+enum DeliveryType {
+  AUTO
+  MANUAL
+  DROPSHIP
+}
+
 enum KeyTransactionType {
   IMPORT
   PURCHASE
@@ -134,6 +145,8 @@ model Game {
   developer   String?
   publisher   String?
   isActive    Boolean   @default(true)
+  // Fulfillment mode — mirrors the Next.js app's games.deliveryType
+  deliveryType DeliveryType @default(MANUAL)
   // Stock management
   stockStore  Int       @default(0)
   stockDrop   Int       @default(0)

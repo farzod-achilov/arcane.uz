@@ -1,7 +1,7 @@
-import { Clock, CheckCircle2, Loader2, XCircle, Zap, Hand } from 'lucide-react';
+import { Clock, CheckCircle2, Loader2, XCircle, Zap, Hand, Truck } from 'lucide-react';
 
 type OrderStatus = 'PENDING' | 'PAID' | 'WAITING_MANUAL' | 'COMPLETED' | 'CANCELLED';
-type DeliveryType = 'AUTO' | 'MANUAL';
+type DeliveryType = 'AUTO' | 'MANUAL' | 'DROPSHIP';
 
 const STATUS_CONFIG: Record<OrderStatus, {
   label: string;
@@ -53,8 +53,9 @@ const DELIVERY_CONFIG: Record<DeliveryType, {
   bg:    string;
   Icon:  React.ElementType;
 }> = {
-  AUTO:   { label: 'Авто', color: '#06B6D4', bg: 'rgba(6,182,212,0.1)', Icon: Zap  },
-  MANUAL: { label: 'Ручная', color: '#A78BFA', bg: 'rgba(167,139,250,0.1)', Icon: Hand },
+  AUTO:     { label: 'Авто',     color: '#06B6D4', bg: 'rgba(6,182,212,0.1)',   Icon: Zap   },
+  MANUAL:   { label: 'Ручная',   color: '#A78BFA', bg: 'rgba(167,139,250,0.1)', Icon: Hand  },
+  DROPSHIP: { label: 'Dropship', color: '#F59E0B', bg: 'rgba(245,158,11,0.1)',  Icon: Truck },
 };
 
 export function OrderStatusBadge({ status }: { status: OrderStatus }) {
