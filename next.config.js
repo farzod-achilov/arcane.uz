@@ -31,7 +31,11 @@ const nextConfig = {
     // inline styles (Framer Motion), YouTube trailer embeds and Steam media CDNs.
     // 'unsafe-inline'/'unsafe-eval' on script-src are required for Next.js
     // hydration without a nonce-based setup. External API calls (RAWG, IGDB,
-    // Steam, Digiseller, Telegram) all run server-side, so connect-src stays 'self'.
+    // Steam, Digiseller, Telegram) all run server-side EXCEPT trailer playback:
+    // hls.js fetches the .m3u8 manifest and .ts segments itself via fetch/XHR
+    // (feeding MediaSource Extensions), which is gated by connect-src, not
+    // media-src — a connect-src of just 'self' silently breaks every Steam
+    // HLS trailer with no visible error beyond a CSP console warning.
     const csp = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
@@ -39,7 +43,7 @@ const nextConfig = {
       "img-src 'self' data: blob: https://*.steamstatic.com https://*.akamaihd.net https://*.steampowered.com https://steamcommunity.com https://media.rawg.io https://images.igdb.com https://picsum.photos https://fastly.picsum.photos https://via.placeholder.com https://placehold.co",
       "media-src 'self' blob: https://*.steamstatic.com https://*.akamaihd.net",
       "font-src 'self' data: https://fonts.gstatic.com",
-      "connect-src 'self'",
+      "connect-src 'self' https://*.steamstatic.com https://*.akamaihd.net",
       "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com",
       "object-src 'none'",
       "base-uri 'self'",

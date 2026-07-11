@@ -7,7 +7,11 @@ interface Props { params: { slug: string } }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const game = await getGameBySlug(params.slug);
-  if (!game) return { title: 'Игра не найдена | Arcane' };
+  // Must mirror the page component's own gate below — otherwise a sold-out/
+  // deactivated game still gets a legitimate-looking <title>/OG tags while
+  // the actual page body renders Next's not-found UI, which reads as a
+  // broken/stuck page rather than "this listing is gone".
+  if (!game || !game.isActive) return { title: 'Игра не найдена | Arcane' };
   return {
     title: `${game.title} — купить ключ | Arcane`,
     description: game.description?.slice(0, 155) ?? `Купить ${game.title} по лучшей цене в Arcane`,
