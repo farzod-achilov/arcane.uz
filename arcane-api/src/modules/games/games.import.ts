@@ -45,7 +45,6 @@ async function upsertGame(game: NormalizedGame): Promise<'created' | 'updated' |
     publisher: game.publisher ?? null,
     source: game.source,
     syncedAt: new Date(),
-    isActive: true,
   };
 
   const existing = await prisma.game.findUnique({
@@ -53,11 +52,20 @@ async function upsertGame(game: NormalizedGame): Promise<'created' | 'updated' |
   });
 
   if (existing) {
+    // isActive is deliberately left untouched here — keys.cron.ts's
+    // autoDisableEmptyGamesJob turns it off for zero-stock games every 30min,
+    // and an admin can also flip it by hand. Resetting it to true on every
+    // metadata re-sync (this job runs every 12h) fought that decision and
+    // produced an endless disable→resync→re-enable→disable loop for every
+    // game with no keys uploaded — which is all of them right now.
     await prisma.game.update({ where: { id: existing.id }, data });
     return 'updated';
   }
 
-  await prisma.game.create({ data: { ...data, externalId: game.externalId } });
+  // New imports have no key inventory yet either, but starting them active
+  // is fine — the very next autoDisableEmptyGamesJob run (≤30min) will
+  // correctly flip them to false until someone uploads keys.
+  await prisma.game.create({ data: { ...data, externalId: game.externalId, isActive: true } });
   return 'created';
 }
 
