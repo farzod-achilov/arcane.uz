@@ -33,6 +33,22 @@ export async function fetchCatalogPage(page = 1, limit = 50): Promise<{ items: K
 }
 
 /**
+ * GET /v1/products?name=... — product name search (min 3 chars per Kinguin
+ * docs). Used by the admin "add dropship game" flow to find a product
+ * without paging through the full catalog. `name` is the only documented
+ * free-text filter — Kinguin has no separate "search" param.
+ */
+export async function searchProductsByName(name: string, limit = 15): Promise<KinguinProductItem[]> {
+  const qs = new URLSearchParams({ name, limit: String(limit), page: '1' });
+  const res = await fetchWithTimeout(`${KINGUIN_CONFIG.apiBaseUrl}/v1/products?${qs}`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(`[Kinguin] GET /v1/products?name= HTTP ${res.status}`);
+  const data: KinguinProductListResponse = await res.json();
+  return data.results ?? [];
+}
+
+/**
  * GET /v1/products/{id} — single-product lookup, fresh at call time. Used
  * by purchaseKey() instead of the full-catalog cache: with only a handful
  * of games actually linked for dropship, there's no reason to page through

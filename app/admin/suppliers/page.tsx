@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+import { Plus } from 'lucide-react';
 import SupplierSyncPanel from '@/components/admin/SupplierSyncPanel';
 
 /* ─────────────────────────────────────────────────────────
@@ -57,16 +59,23 @@ const SUPPLIERS = [
 export default function AdminSuppliersPage() {
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <p className="font-pixel text-[#7C3AED] mb-1" style={{ fontSize: '9px', letterSpacing: '0.12em' }}>
-          ВНЕШНИЕ КАТАЛОГИ
-        </p>
-        <h1 className="font-heading font-bold text-white" style={{ fontSize: '20px' }}>
-          Поставщики
-        </h1>
-        <p className="font-body text-[#6B7280] mt-1" style={{ fontSize: '13px' }}>
-          Статус подключения каждого внешнего источника товаров/ключей и ручной запуск синхронизации каталога.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="font-pixel text-[#7C3AED] mb-1" style={{ fontSize: '9px', letterSpacing: '0.12em' }}>
+            ВНЕШНИЕ КАТАЛОГИ
+          </p>
+          <h1 className="font-heading font-bold text-white" style={{ fontSize: '20px' }}>
+            Поставщики
+          </h1>
+          <p className="font-body text-[#6B7280] mt-1" style={{ fontSize: '13px' }}>
+            Статус подключения каждого внешнего источника товаров/ключей и ручной запуск синхронизации каталога.
+          </p>
+        </div>
+        <Link href="/admin/dropship/add"
+          className="flex items-center gap-2 rounded-xl px-4 py-2.5 font-heading font-semibold text-sm text-white flex-shrink-0"
+          style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', boxShadow: '0 0 20px rgba(124,58,237,0.25)' }}>
+          <Plus style={{ width: '15px', height: '15px' }} /> Добавить игру
+        </Link>
       </div>
 
       <div>
