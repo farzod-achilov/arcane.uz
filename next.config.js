@@ -23,6 +23,7 @@ const nextConfig = {
       { protocol: 'https', hostname: '*.steampowered.com' },
       { protocol: 'https', hostname: 'media.rawg.io' },
       { protocol: 'https', hostname: 'images.igdb.com' },
+      { protocol: 'https', hostname: 'static.kinguin.net' },
     ],
   },
 
