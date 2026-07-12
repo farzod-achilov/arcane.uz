@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react';
 import Link from 'next/link';
 import {
-  Search, Loader2, CheckCircle2, XCircle, ExternalLink, X, Pencil, TrendingUp, PackagePlus,
+  Search, Loader2, CheckCircle2, XCircle, ExternalLink, X, Pencil, TrendingUp, PackagePlus, AlertTriangle,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import { STRATEGY_META } from '@/lib/smartPricing/strategies';
@@ -69,14 +69,21 @@ async function fetchRawgMatch(name: string): Promise<{ results: RawgResult[]; to
   }
 }
 
+interface BulkSearchRow {
+  query:         string;
+  picked:        KinguinResult | null;
+  candidates:    KinguinResult[];
+  reason?:       string;
+  included:      boolean;
+  overrideOpen:  boolean;
+}
+
 export default function BulkAddFlow() {
-  // ── Search stage ──
-  const [kQuery,   setKQuery]   = useState('');
-  const [kLoading, setKLoading] = useState(false);
-  const [kResults, setKResults] = useState<KinguinResult[] | null>(null);
-  const [kBlockedCount, setKBlockedCount] = useState(0);
-  const [kError,   setKError]   = useState('');
-  const [selected, setSelected] = useState<Map<number, KinguinResult>>(new Map());
+  // ── Search stage: множество тайтлов, каждый ищется и подбирается отдельно ──
+  const [bulkText,    setBulkText]    = useState('');
+  const [bulkLoading,  setBulkLoading]  = useState(false);
+  const [bulkRows,     setBulkRows]     = useState<BulkSearchRow[] | null>(null);
+  const [bulkError,    setBulkError]    = useState('');
 
   // ── Review stage ──
   const [stage,    setStage]    = useState<'search' | 'review'>('search');
@@ -84,33 +91,43 @@ export default function BulkAddFlow() {
   const [strategy, setStrategy] = useState<PricingStrategy>('GLOBAL');
   const [running,  setRunning]  = useState(false);
 
-  const searchKinguin = useCallback(async () => {
-    if (kQuery.trim().length < 3) { setKError('Минимум 3 символа'); return; }
-    setKLoading(true); setKError(''); setKResults(null); setKBlockedCount(0);
-    try {
-      const res  = await fetch(`/api/admin/dropship/search-kinguin?q=${encodeURIComponent(kQuery.trim())}`);
-      const json = await res.json();
-      if (!json.ok) { setKError(json.error ?? 'Ошибка поиска'); return; }
-      setKResults(json.results);
-      setKBlockedCount(json.blockedCount ?? 0);
-    } catch {
-      setKError('Ошибка сети');
-    } finally {
-      setKLoading(false);
-    }
-  }, [kQuery]);
+  const searchBulk = useCallback(async () => {
+    const titles = Array.from(new Set(
+      bulkText.split('\n').map(t => t.trim()).filter(t => t.length >= 3),
+    ));
+    if (!titles.length) { setBulkError('Введите хотя бы одно название (от 3 символов), по одному на строку'); return; }
+    if (titles.length > 25) { setBulkError('Максимум 25 тайтлов за раз'); return; }
 
-  const toggleSelect = (r: KinguinResult) => {
-    setSelected(prev => {
-      const next = new Map(prev);
-      if (next.has(r.kinguinId)) next.delete(r.kinguinId);
-      else next.set(r.kinguinId, r);
-      return next;
-    });
+    setBulkLoading(true); setBulkError(''); setBulkRows(null);
+    try {
+      const res  = await fetch('/api/admin/dropship/bulk-search-kinguin', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ titles }),
+      });
+      const json = await res.json();
+      if (!json.ok) { setBulkError(json.error ?? 'Ошибка поиска'); return; }
+      setBulkRows(json.results.map((r: { query: string; picked: KinguinResult | null; candidates: KinguinResult[]; reason?: string }) => ({
+        query: r.query, picked: r.picked, candidates: r.candidates, reason: r.reason,
+        included: Boolean(r.picked), overrideOpen: false,
+      })));
+    } catch {
+      setBulkError('Ошибка сети');
+    } finally {
+      setBulkLoading(false);
+    }
+  }, [bulkText]);
+
+  const updateBulkRow = (query: string, patch: Partial<BulkSearchRow>) => {
+    setBulkRows(prev => prev?.map(r => r.query === query ? { ...r, ...patch } : r) ?? null);
   };
 
+  const bulkIncludedCount = bulkRows?.filter(r => r.included && r.picked).length ?? 0;
+
   const startReview = async () => {
-    const picked = Array.from(selected.values());
+    const picked = (bulkRows ?? [])
+      .filter(r => r.included && r.picked)
+      .map(r => r.picked as KinguinResult);
     if (!picked.length) return;
 
     setRows(picked.map(k => ({
@@ -209,7 +226,7 @@ export default function BulkAddFlow() {
   };
 
   const reset = () => {
-    setKQuery(''); setKResults(null); setKError(''); setSelected(new Map());
+    setBulkText(''); setBulkRows(null); setBulkError('');
     setRows([]); setStage('search');
   };
 
@@ -220,81 +237,112 @@ export default function BulkAddFlow() {
   if (stage === 'search') {
     return (
       <div className="rounded-2xl p-5 mb-4" style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)' }}>
-        <p className="font-body text-[#9CA3AF] mb-3" style={{ fontSize: '12px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-          Найти на Kinguin — выберите несколько
+        <p className="font-body text-[#9CA3AF] mb-1" style={{ fontSize: '12px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          Список игр — по одному названию на строку
         </p>
-        <div className="flex gap-2">
-          <input
-            value={kQuery}
-            onChange={e => setKQuery(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && searchKinguin()}
-            placeholder="Название игры, например Hollow Knight"
-            className="flex-1 rounded-xl px-4 py-2.5 font-body text-white text-sm outline-none"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
-          />
-          <button onClick={searchKinguin} disabled={kLoading}
-            className="flex items-center gap-2 rounded-xl px-4 py-2.5 font-heading font-semibold text-sm text-white disabled:opacity-50"
-            style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)' }}>
-            {kLoading ? <Loader2 style={{ width: '14px', height: '14px' }} className="animate-spin" /> : <Search style={{ width: '14px', height: '14px' }} />}
-            Искать
-          </button>
-        </div>
-        {kError && (
-          <p className="font-body mt-2.5" style={{ fontSize: '12px', color: '#FCA5A5' }}>{kError}</p>
-        )}
-        {kBlockedCount > 0 && (
-          <p className="font-body mt-2.5" style={{ fontSize: '11.5px', color: '#F59E0B' }}>
-            Скрыто {kBlockedCount} {kBlockedCount === 1 ? 'товар' : 'товара(ов)'} — ключ не активируется в Узбекистане
-          </p>
+        <p className="font-body text-[#4B5563] mb-3" style={{ fontSize: '11.5px' }}>
+          Каждая строка ищется на Kinguin отдельно и подбирается автоматически (только Steam, в наличии, без DLC/бонусов)
+        </p>
+        <textarea
+          value={bulkText}
+          onChange={e => setBulkText(e.target.value)}
+          placeholder={'Hollow Knight\nCyberpunk 2077\nStardew Valley'}
+          rows={5}
+          className="w-full rounded-xl px-4 py-3 font-body text-white text-sm outline-none resize-y"
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+        />
+        <button onClick={searchBulk} disabled={bulkLoading}
+          className="w-full mt-2.5 flex items-center justify-center gap-2 rounded-xl py-2.5 font-heading font-semibold text-sm text-white disabled:opacity-50"
+          style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)' }}>
+          {bulkLoading ? <Loader2 style={{ width: '14px', height: '14px' }} className="animate-spin" /> : <Search style={{ width: '14px', height: '14px' }} />}
+          {bulkLoading ? 'Ищу на Kinguin…' : 'Искать'}
+        </button>
+        {bulkError && (
+          <p className="font-body mt-2.5" style={{ fontSize: '12px', color: '#FCA5A5' }}>{bulkError}</p>
         )}
 
-        {kResults && (
-          <div className="mt-3 space-y-1.5 max-h-96 overflow-y-auto">
-            {kResults.length === 0 ? (
-              <p className="font-body text-[#4B5563] py-4 text-center" style={{ fontSize: '13px' }}>Ничего не найдено</p>
-            ) : kResults.map(r => {
-              const isSelected = selected.has(r.kinguinId);
-              return (
-                <button
-                  key={r.kinguinId}
-                  onClick={() => toggleSelect(r)}
-                  className="w-full flex items-center gap-3 rounded-xl p-3 text-left transition-all"
-                  style={{
-                    background: isSelected ? 'rgba(124,58,237,0.12)' : 'rgba(255,255,255,0.02)',
-                    border: `1px solid ${isSelected ? 'rgba(124,58,237,0.4)' : 'rgba(255,255,255,0.06)'}`,
-                  }}
-                >
-                  <div className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
-                       style={{ background: isSelected ? '#7C3AED' : 'rgba(255,255,255,0.06)', border: isSelected ? 'none' : '1px solid rgba(255,255,255,0.15)' }}>
-                    {isSelected && <CheckCircle2 style={{ width: '14px', height: '14px', color: 'white' }} />}
+        {bulkRows && (
+          <div className="mt-4 space-y-2">
+            {bulkRows.map(row => (
+              <div key={row.query} className="rounded-xl p-3"
+                   style={{
+                     background: row.picked ? 'rgba(255,255,255,0.02)' : 'rgba(245,158,11,0.05)',
+                     border: `1px solid ${row.picked ? 'rgba(255,255,255,0.06)' : 'rgba(245,158,11,0.2)'}`,
+                     opacity: row.picked && !row.included ? 0.5 : 1,
+                   }}>
+                {row.picked ? (
+                  <div className="flex items-center gap-3">
+                    <input type="checkbox" checked={row.included}
+                      onChange={e => updateBulkRow(row.query, { included: e.target.checked })}
+                      className="flex-shrink-0" />
+                    {row.picked.cover ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={row.picked.cover} alt="" className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-9 h-9 rounded-lg flex-shrink-0" style={{ background: 'rgba(124,58,237,0.1)' }} />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-body text-white truncate" style={{ fontSize: '12.5px' }}>{row.picked.name}</p>
+                      <p className="font-body text-[#4B5563] truncate" style={{ fontSize: '10.5px' }}>по запросу «{row.query}»</p>
+                    </div>
+                    <span className="font-heading font-bold flex-shrink-0" style={{ fontSize: '13px', color: '#F59E0B' }}>
+                      ${row.picked.costUsd.toFixed(2)}
+                    </span>
+                    <button onClick={() => updateBulkRow(row.query, { overrideOpen: !row.overrideOpen })}
+                      className="p-1.5 rounded-lg flex-shrink-0" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                      <Pencil style={{ width: '12px', height: '12px', color: '#9CA3AF' }} />
+                    </button>
                   </div>
-                  {r.cover ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={r.cover} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-lg flex-shrink-0" style={{ background: 'rgba(124,58,237,0.1)' }} />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-body text-white truncate" style={{ fontSize: '13px' }}>{r.name}</p>
-                    <p className="font-body text-[#4B5563]" style={{ fontSize: '11px' }}>
-                      {r.platform ?? '—'} · {r.inStock ? <span style={{ color: '#22C55E' }}>в наличии</span> : <span style={{ color: '#EF4444' }}>нет в наличии</span>}
-                    </p>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle style={{ width: '15px', height: '15px', color: '#F59E0B', flexShrink: 0 }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-body text-white truncate" style={{ fontSize: '12.5px' }}>«{row.query}»</p>
+                      <p className="font-body text-[#F59E0B]" style={{ fontSize: '10.5px' }}>{row.reason}</p>
+                    </div>
+                    {row.candidates.length > 0 && (
+                      <button onClick={() => updateBulkRow(row.query, { overrideOpen: !row.overrideOpen })}
+                        className="rounded-lg px-2.5 py-1.5 font-body flex-shrink-0" style={{ fontSize: '11px', color: '#9CA3AF', background: 'rgba(255,255,255,0.04)' }}>
+                        Показать {row.candidates.length}
+                      </button>
+                    )}
                   </div>
-                  <span className="font-heading font-bold flex-shrink-0" style={{ fontSize: '14px', color: '#F59E0B' }}>
-                    ${r.costUsd.toFixed(2)}
-                  </span>
-                </button>
-              );
-            })}
+                )}
+
+                {row.overrideOpen && (
+                  <div className="mt-2.5 pt-2.5 space-y-1.5 max-h-56 overflow-y-auto" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                    {row.candidates.length === 0 ? (
+                      <p className="font-body text-[#4B5563]" style={{ fontSize: '11px' }}>Других вариантов нет</p>
+                    ) : row.candidates.map(c => (
+                      <button key={c.kinguinId}
+                        onClick={() => updateBulkRow(row.query, { picked: c, included: true, overrideOpen: false })}
+                        className="w-full flex items-center gap-2 rounded-lg p-1.5 text-left"
+                        style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        {c.cover ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={c.cover} alt="" className="w-7 h-7 rounded object-cover flex-shrink-0" />
+                        ) : <div className="w-7 h-7 rounded flex-shrink-0" style={{ background: 'rgba(124,58,237,0.1)' }} />}
+                        <span className="flex-1 font-body text-white truncate" style={{ fontSize: '11.5px' }}>{c.name}</span>
+                        <span className="font-body flex-shrink-0" style={{ fontSize: '11px', color: c.inStock ? '#22C55E' : '#EF4444' }}>
+                          {c.platform ?? '—'} · ${c.costUsd.toFixed(2)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
 
-        <button onClick={startReview} disabled={selected.size === 0}
-          className="w-full mt-4 flex items-center justify-center gap-2 rounded-xl py-3 font-heading font-bold text-white text-sm disabled:opacity-50"
-          style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', boxShadow: '0 0 24px rgba(124,58,237,0.25)' }}>
-          <PackagePlus style={{ width: '15px', height: '15px' }} />
-          Далее: подобрать обложки ({selected.size})
-        </button>
+        {bulkRows && (
+          <button onClick={startReview} disabled={bulkIncludedCount === 0}
+            className="w-full mt-4 flex items-center justify-center gap-2 rounded-xl py-3 font-heading font-bold text-white text-sm disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', boxShadow: '0 0 24px rgba(124,58,237,0.25)' }}>
+            <PackagePlus style={{ width: '15px', height: '15px' }} />
+            Далее: подобрать обложки ({bulkIncludedCount})
+          </button>
+        )}
       </div>
     );
   }

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { requireAdminOrSyncSecret } from '@/lib/apiGuard';
-import { isKinguinEnabled, searchProductsByName, cheapestInStockOffer, isBlockedInUzbekistan } from '@/lib/kinguin';
+import { isKinguinEnabled, searchProductsByName } from '@/lib/kinguin';
+import { normalizeSearchResults } from '@/lib/kinguin/basePicker';
+import { isBlockedInUzbekistan } from '@/lib/kinguin/productMapper';
 
 /* ─────────────────────────────────────────────────────────
    GET /api/admin/dropship/search-kinguin?q=...
@@ -35,20 +37,7 @@ export async function GET(req: Request) {
   try {
     const items = await searchProductsByName(q, 15);
     const blockedCount = items.filter(isBlockedInUzbekistan).length;
-    const results = items
-      .filter(item => !isBlockedInUzbekistan(item))
-      .map(item => {
-        const offer = cheapestInStockOffer(item);
-        return {
-          kinguinId: item.kinguinId,
-          name:      item.name,
-          platform:  item.platform ?? null,
-          cover:     item.images?.cover?.thumbnail ?? null,
-          genres:    item.genres ?? [],
-          costUsd:   offer?.price ?? item.price,
-          inStock:   Boolean(offer),
-        };
-      });
+    const results = normalizeSearchResults(items);
     return NextResponse.json({ ok: true, results, blockedCount });
   } catch (err) {
     return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : 'search failed' }, { status: 502 });

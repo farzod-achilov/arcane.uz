@@ -1,0 +1,75 @@
+import type { KinguinProductItem } from './types';
+import { cheapestInStockOffer, isBlockedInUzbekistan } from './productMapper';
+
+/* ─────────────────────────────────────────────────────────
+   Auto-pick a clean, purchasable base-game Kinguin offer for a
+   given search title — used by the bulk-add flow, where an admin
+   pastes many titles and no human eyeballs each search result.
+
+   Strict by design, no fallbacks: a first version of this logic
+   (inline in a one-off script) fell back to non-Steam platforms
+   when no Steam offer existed, and picked "Elden Ring - Pre-Order
+   Bonus DLC Xbox Series X|S CD Key" as if it were the base PC game
+   — it briefly went live on the storefront before being caught.
+   Never repeat that: only Steam, only in-stock, never DLC/bonus/
+   soundtrack listings. Titles with no clean match are surfaced to
+   the admin as "not found" rather than guessed at.
+───────────────────────────────────────────────────────── */
+
+export interface KinguinSearchResult {
+  kinguinId: number;
+  name:      string;
+  platform:  string | null;
+  cover:     string | null;
+  genres:    string[];
+  costUsd:   number;
+  inStock:   boolean;
+}
+
+export function normalizeSearchResults(items: KinguinProductItem[]): KinguinSearchResult[] {
+  return items
+    .filter(item => !isBlockedInUzbekistan(item))
+    .map(item => {
+      const offer = cheapestInStockOffer(item);
+      return {
+        kinguinId: item.kinguinId,
+        name:      item.name,
+        platform:  item.platform ?? null,
+        cover:     item.images?.cover?.thumbnail ?? null,
+        genres:    item.genres ?? [],
+        costUsd:   offer?.price ?? item.price,
+        inStock:   Boolean(offer),
+      };
+    });
+}
+
+const BLOCK_WORDS = [
+  'dlc', 'pre-order', 'preorder', 'bonus', 'season pass', 'expansion pass',
+  'soundtrack', ' ost', 'artbook', 'art book', 'currency', 'points',
+  'gift card', 'skin pack', 'beta', 'demo', 'trainer',
+];
+
+function isCleanBaseGame(name: string): boolean {
+  const lower = name.toLowerCase();
+  return !BLOCK_WORDS.some(w => lower.includes(w));
+}
+
+/**
+ * Best clean Steam base-game offer for `title`, or null if nothing
+ * qualifies (wrong platform only, out of stock, or DLC/bonus only).
+ */
+export function pickBestBaseGameOffer(results: KinguinSearchResult[], title: string): KinguinSearchResult | null {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const t = norm(title);
+
+  const candidates = results.filter(r => r.platform === 'Steam' && r.inStock && isCleanBaseGame(r.name));
+  if (!candidates.length) return null;
+
+  candidates.sort((a, b) => {
+    const aMatch = norm(a.name).startsWith(t) ? 0 : 1;
+    const bMatch = norm(b.name).startsWith(t) ? 0 : 1;
+    if (aMatch !== bMatch) return aMatch - bMatch;
+    return a.costUsd - b.costUsd;
+  });
+  return candidates[0];
+}
