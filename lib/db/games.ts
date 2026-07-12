@@ -16,7 +16,7 @@ const LIST_SELECT = {
   variants: {
     where:   { isActive: true },
     orderBy: { sortOrder: 'asc' },
-    select:  { id: true, label: true, priceUzs: true },
+    select:  { id: true, label: true, priceUzs: true, productType: true },
   },
 } as const;
 

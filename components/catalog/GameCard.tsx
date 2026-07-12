@@ -20,7 +20,15 @@ interface Props { game: GameListItem; index?: number }
 export default function GameCard({ game, index = 0 }: Props) {
   const cc = useDict().catalog.card;
   const inStock = game.stockStore > 0 || game.deliveryType === 'MANUAL' || game.deliveryType === 'DROPSHIP';
-  const formatLabel = game.productType === 'ACCOUNT' ? cc.account : game.productType === 'GIFT' ? cc.gift : cc.key;
+  // games.productType isn't kept in sync once a game has variants (only
+  // priceUzs/dropshipExternalId are — see lib/db/gameVariants.ts) — the
+  // badge has to look at the same cheapest variant the price already
+  // reflects, or they'd show mismatched type/price like Terraria did.
+  const cheapestVariant = game.variants.length
+    ? [...game.variants].sort((a, b) => a.priceUzs - b.priceUzs)[0]
+    : undefined;
+  const cardProductType = cheapestVariant?.productType ?? game.productType;
+  const formatLabel = cardProductType === 'ACCOUNT' ? cc.account : cardProductType === 'GIFT' ? cc.gift : cc.key;
 
   return (
     <motion.div
