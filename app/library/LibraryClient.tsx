@@ -7,10 +7,10 @@ import {
   BookOpen, Copy, Eye, EyeOff, ExternalLink,
   Clock, CheckCircle2, AlertCircle, Package,
   Filter, Search, Monitor, Apple, Terminal,
-  ChevronRight,
+  ChevronRight, Info,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { isDeliveredValueLink } from '@/lib/utils';
+import { parseDeliveredValue } from '@/lib/deliveryFormat';
 
 /* ── Types ── */
 interface LibraryItem {
@@ -56,16 +56,74 @@ function PlatformIcon({ p }: { p: string }) {
 }
 
 /* ── Key reveal cell ── */
-function KeyCell({ value }: { value: string }) {
-  const [visible, setVisible] = useState(false);
-  const isLink = isDeliveredValueLink(value);
-
+function CopyBtn({ value, small }: { value: string; small?: boolean }) {
   const copy = () => {
     navigator.clipboard.writeText(value).then(() =>
-      toast.success('Ключ скопирован!', { duration: 2000 })
+      toast.success('Скопировано!', { duration: 2000 })
     );
   };
+  return (
+    <button onClick={copy}
+            className={`${small ? 'p-1.5' : 'p-2'} rounded-lg transition-all duration-150 flex-shrink-0`}
+            style={{ background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.2)' }}
+            title="Копировать">
+      <Copy className={small ? 'w-3 h-3' : 'w-3.5 h-3.5'} style={{ color: '#06B6D4' }} />
+    </button>
+  );
+}
 
+function MaskedRow({ label, value, visible }: { label: string; value: string; visible: boolean }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 min-w-0">
+        <p className="font-body" style={{ fontSize: '10px', color: '#6B7280' }}>{label}</p>
+        <p className="font-mono truncate" style={{ fontSize: '12.5px', color: visible ? '#E2E8F0' : 'transparent',
+             textShadow: visible ? 'none' : '0 0 8px rgba(200,200,255,0.6)', filter: visible ? 'none' : 'blur(4px)' }}>
+          {value}
+        </p>
+      </div>
+      {visible && <CopyBtn value={value} small />}
+    </div>
+  );
+}
+
+function KeyCell({ value }: { value: string }) {
+  const [visible, setVisible] = useState(false);
+  const parsed = parseDeliveredValue(value);
+
+  // ── Готовый аккаунт (Steam + почта) — доставка "Steam Account" SKU ──
+  if (parsed.type === 'account') {
+    return (
+      <div className="rounded-lg p-2.5" style={{ background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.15)' }}>
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="flex items-start gap-1.5">
+            <Info style={{ width: '12px', height: '12px', color: '#7C3AED', flexShrink: 0, marginTop: '1px' }} />
+            <p className="font-body" style={{ fontSize: '10.5px', color: '#C4B5FD' }}>
+              Готовый аккаунт — войдите с этими данными, не активируйте как ключ
+            </p>
+          </div>
+          <button onClick={() => setVisible(v => !v)}
+                  className="p-1.5 rounded-lg flex-shrink-0" style={{ background: 'rgba(124,58,237,0.1)' }}
+                  title={visible ? 'Скрыть' : 'Показать'}>
+            {visible ? <EyeOff className="w-3 h-3" style={{ color: '#9D60FA' }} /> : <Eye className="w-3 h-3" style={{ color: '#9D60FA' }} />}
+          </button>
+        </div>
+        <div className="space-y-2">
+          {parsed.pairs.map((p, i) => (
+            <div key={i}>
+              <p className="font-heading font-semibold" style={{ fontSize: '10px', color: p.label === 'Steam' ? '#9D60FA' : '#06B6D4' }}>
+                {p.label === 'Steam' ? '🎮 Steam' : '✉️ Почта'}
+              </p>
+              <MaskedRow label="Логин" value={p.login} visible={visible} />
+              {p.password && <MaskedRow label="Пароль" value={p.password} visible={visible} />}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const isLink = parsed.type === 'link';
   return (
     <div>
       <div className="flex items-center gap-2">
@@ -90,12 +148,7 @@ function KeyCell({ value }: { value: string }) {
             <ExternalLink className="w-3.5 h-3.5" style={{ color: '#22C55E' }} />
           </a>
         ) : (
-          <button onClick={copy}
-                  className="p-2 rounded-lg transition-all duration-150 flex-shrink-0"
-                  style={{ background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.2)' }}
-                  title="Копировать ключ">
-            <Copy className="w-3.5 h-3.5" style={{ color: '#06B6D4' }} />
-          </button>
+          <CopyBtn value={value} />
         )}
       </div>
       {isLink && (

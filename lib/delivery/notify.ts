@@ -1,4 +1,5 @@
-import { formatPrice, isDeliveredValueLink } from '@/lib/utils';
+import { formatPrice } from '@/lib/utils';
+import { parseDeliveredValue } from '@/lib/deliveryFormat';
 import { prisma } from '@/lib/prisma';
 import { sendKeyDeliveryEmail, sendPriceDropEmail } from '@/lib/email';
 import { createNotification } from '@/lib/notifications';
@@ -47,10 +48,15 @@ export async function notifyUserOrderComplete(params: {
     `✅ <b>Ваш заказ выполнен!</b>`,
     ``,
     `🕹 <b>${params.gameTitle}</b>`,
+    // Account-бандл (логин Steam + почта) не публикуем в чат — он слишком
+    // чувствительный, чтобы оседать в истории Telegram; шлём на library
     params.keyValue
-      ? (isDeliveredValueLink(params.keyValue)
-          ? `🎁 Ссылка на подарок Steam: ${params.keyValue}`
-          : `🔑 Ключ: <code>${params.keyValue}</code>`)
+      ? (() => {
+          const parsed = parseDeliveredValue(params.keyValue!);
+          if (parsed.type === 'link')    return `🎁 Ссылка на подарок Steam: ${params.keyValue}`;
+          if (parsed.type === 'account') return `🎮 Готовый аккаунт — данные в личном кабинете`;
+          return `🔑 Ключ: <code>${params.keyValue}</code>`;
+        })()
       : `🔑 Ключ доступен в личном кабинете`,
     ``,
     `📦 Проверьте <a href="https://arcane.com.uz/library">Мою библиотеку</a>`,

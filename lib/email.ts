@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
-import { formatPrice, isDeliveredValueLink } from '@/lib/utils';
+import { formatPrice } from '@/lib/utils';
+import { parseDeliveredValue } from '@/lib/deliveryFormat';
 
 const FROM     = process.env.EMAIL_FROM ?? 'ARCANE.UZ <noreply@arcane.com.uz>';
 const SITE_URL = 'https://arcane.com.uz';
@@ -245,9 +246,19 @@ export async function sendKeyDeliveryEmail(params: {
   // live 2026-07-12 (Kinguin's downloadKeys() returns a
   // store.steampowered.com/account/ackgift/... URL for Gift-type SKUs).
   // "Введи ключ в Steam" would be actively wrong instructions for those.
-  const isLink = !!keyValue && isDeliveredValueLink(keyValue);
+  //
+  // "Steam Account" deliveries are a different beast — confirmed live the
+  // same day via a real purchase: Kinguin hands back a bundle of the Steam
+  // account's OWN login/password PLUS its recovery email's login/password
+  // (needed for Steam Guard). Full account+email credentials are too
+  // sensitive to sit in plaintext in an inbox indefinitely — point to the
+  // library's structured, hidden-by-default view instead of dumping them
+  // into the email body.
+  const parsed    = keyValue ? parseDeliveredValue(keyValue) : null;
+  const isLink     = parsed?.type === 'link';
+  const isAccount  = parsed?.type === 'account';
 
-  const keyBlock = keyValue
+  const keyBlock = (keyValue && !isAccount)
     ? `<div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:14px;padding:20px;margin-bottom:20px;text-align:center;">
         <p style="margin:0 0 8px;color:#374151;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;">${isLink ? 'Ссылка на подарок' : 'Ключ активации'}</p>
         <code style="color:#4ADE80;font-size:${isLink ? '13px' : '22px'};font-weight:700;letter-spacing:0.02em;word-break:break-all;">${keyValue}</code>
@@ -255,11 +266,12 @@ export async function sendKeyDeliveryEmail(params: {
       </div>`
     : `<div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2);border-radius:14px;padding:16px;margin-bottom:20px;">
         <p style="margin:0;color:#A78BFA;font-size:13px;">
-          🔑 Ключ доступен в <a href="${SITE_URL}/library" style="color:#7C3AED;font-weight:600;">Моей библиотеке</a>
+          ${isAccount ? '🎮 Это готовый Steam-аккаунт с игрой. Из соображений безопасности логин и пароль не отправляются в письме — смотрите их в' : '🔑 Ключ доступен в'}
+          <a href="${SITE_URL}/library" style="color:#7C3AED;font-weight:600;">Моей библиотеке</a>
         </p>
       </div>`;
 
-  const instruction = !keyValue ? '' : isLink
+  const instruction = (!keyValue || isAccount) ? '' : isLink
     ? `<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:16px;margin-bottom:24px;">
         <p style="margin:0 0 8px;color:#9CA3AF;font-size:12px;font-weight:600;">Как принять подарок Steam:</p>
         <ol style="margin:0;padding-left:20px;color:#6B7280;font-size:12px;line-height:1.8;">

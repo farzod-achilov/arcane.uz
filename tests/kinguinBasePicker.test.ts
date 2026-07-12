@@ -60,4 +60,32 @@ describe('pickBestBaseGameOffer', () => {
   it('returns null when no results are given', () => {
     expect(pickBestBaseGameOffer([], 'Anything')).toBeNull();
   });
+
+  // Account-офферы доставляют логин/пароль Steam + почты (см.
+  // lib/deliveryFormat.ts), а не простой ключ — заметно сложнее для
+  // покупателя. Предпочитаем CD Key/Gift, если Account не дешевле
+  // ощутимо (порог: дешевле в 0.6 раза).
+  describe('Account vs CD Key/Gift preference', () => {
+    it('prefers CD Key over a marginally cheaper Account offer', () => {
+      const results = [
+        offer({ kinguinId: 1, name: 'Some Game PC Steam Account', costUsd: 4.5 }),
+        offer({ kinguinId: 2, name: 'Some Game PC Steam CD Key', costUsd: 5 }),
+      ];
+      expect(pickBestBaseGameOffer(results, 'Some Game')?.kinguinId).toBe(2);
+    });
+
+    it('still picks Account when it is dramatically cheaper (real Hades case: $1.16 vs $8+)', () => {
+      const results = [
+        offer({ kinguinId: 1, name: 'Hades PC Steam Gift', costUsd: 15 }),
+        offer({ kinguinId: 2, name: 'Hades PC Steam Account', costUsd: 1.16 }),
+        offer({ kinguinId: 3, name: 'Hades PC Steam CD Key', costUsd: 8 }),
+      ];
+      expect(pickBestBaseGameOffer(results, 'Hades')?.kinguinId).toBe(2);
+    });
+
+    it('picks Account when it is the only clean Steam offer available', () => {
+      const results = [offer({ kinguinId: 1, name: 'Undertale Steam Account', costUsd: 0.96 })];
+      expect(pickBestBaseGameOffer(results, 'Undertale')?.kinguinId).toBe(1);
+    });
+  });
 });

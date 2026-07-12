@@ -54,6 +54,18 @@ function isCleanBaseGame(name: string): boolean {
   return !BLOCK_WORDS.some(w => lower.includes(w));
 }
 
+const ACCOUNT_RE = /\baccount\b/i;
+
+/**
+ * "Account"-офферы (готовый Steam-аккаунт с игрой) обычно дешевле CD Key/
+ * Gift, но покупатель получает не ключ активации, а логин/пароль Steam
+ * ПЛЮС логин/пароль привязанной почты (для кода подтверждения) — см.
+ * lib/deliveryFormat.ts. Заметно более сложный опыт для покупателя, чем
+ * обычный ключ. Берём Account только если он ощутимо (40%+) дешевле
+ * лучшего CD Key/Gift-варианта — иначе экономия не стоит путаницы.
+ */
+const ACCOUNT_DISCOUNT_THRESHOLD = 0.6; // account должен быть дешевле ×0.6 от non-account
+
 /**
  * Best clean Steam base-game offer for `title`, or null if nothing
  * qualifies (wrong platform only, out of stock, or DLC/bonus only).
@@ -62,14 +74,27 @@ export function pickBestBaseGameOffer(results: KinguinSearchResult[], title: str
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
   const t = norm(title);
 
+  const sortPool = (pool: KinguinSearchResult[]): KinguinSearchResult[] =>
+    [...pool].sort((a, b) => {
+      const aMatch = norm(a.name).startsWith(t) ? 0 : 1;
+      const bMatch = norm(b.name).startsWith(t) ? 0 : 1;
+      if (aMatch !== bMatch) return aMatch - bMatch;
+      return a.costUsd - b.costUsd;
+    });
+
   const candidates = results.filter(r => r.platform === 'Steam' && r.inStock && isCleanBaseGame(r.name));
   if (!candidates.length) return null;
 
-  candidates.sort((a, b) => {
-    const aMatch = norm(a.name).startsWith(t) ? 0 : 1;
-    const bMatch = norm(b.name).startsWith(t) ? 0 : 1;
-    if (aMatch !== bMatch) return aMatch - bMatch;
-    return a.costUsd - b.costUsd;
-  });
-  return candidates[0];
+  const nonAccount = candidates.filter(c => !ACCOUNT_RE.test(c.name));
+  const account    = candidates.filter(c => ACCOUNT_RE.test(c.name));
+
+  if (nonAccount.length) {
+    const bestNonAccount = sortPool(nonAccount)[0];
+    const bestAccount    = account.length ? sortPool(account)[0] : null;
+    if (bestAccount && bestAccount.costUsd < bestNonAccount.costUsd * ACCOUNT_DISCOUNT_THRESHOLD) {
+      return bestAccount;
+    }
+    return bestNonAccount;
+  }
+  return account.length ? sortPool(account)[0] : null;
 }
