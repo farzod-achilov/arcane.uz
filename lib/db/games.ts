@@ -103,11 +103,11 @@ export async function getGameBySlug(slug: string) {
       genres: true, platforms: true, rating: true,
       priceUzs: true, priceUsd: true,
       releaseDate: true, developer: true, publisher: true,
-      isActive: true, stockStore: true, deliveryType: true, externalId: true, source: true,
+      isActive: true, stockStore: true, deliveryType: true, productType: true, externalId: true, source: true,
       variants: {
         where:   { isActive: true },
         orderBy: { sortOrder: 'asc' },
-        select:  { id: true, label: true, priceUzs: true, priceUsd: true },
+        select:  { id: true, label: true, priceUzs: true, priceUsd: true, productType: true },
       },
     },
   });

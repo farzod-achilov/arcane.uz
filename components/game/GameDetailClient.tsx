@@ -331,6 +331,13 @@ export default function GameDetailClient({
 
   const isManual   = game.deliveryType === 'MANUAL';
   const isDropship = game.deliveryType === 'DROPSHIP';
+  // Which variant is selected (if any) decides the delivery format shown
+  // below — a game can offer both "Ключ" (KEY) and "Аккаунт" (ACCOUNT) as
+  // separate purchase variants with different productType each.
+  const productType   = selectedVariant?.productType ?? game.productType;
+  const isAccount     = productType === 'ACCOUNT';
+  const isGift        = productType === 'GIFT';
+  const formatSuffix  = isAccount ? ' · Аккаунт' : isGift ? ' · Подарок' : '';
   // DROPSHIP games are never pre-stocked by design — the key is bought
   // from the supplier at order time, so stockStore staying 0 is normal.
   const inStock    = game.stockStore > 0 || isManual || isDropship;
@@ -589,7 +596,7 @@ export default function GameDetailClient({
                   <span className="font-body text-sm" style={{
                     color: isManual ? '#A78BFA' : isDropship ? '#F59E0B' : inStock ? '#22C55E' : '#6B7280'
                   }}>
-                    {isManual ? 'Ручная доставка' : isDropship ? 'Мгновенная доставка' : inStock ? `В наличии · ${game.stockStore} шт.` : 'Нет в наличии'}
+                    {isManual ? 'Ручная доставка' : isDropship ? `Мгновенная доставка${formatSuffix}` : inStock ? `В наличии · ${game.stockStore} шт.${formatSuffix}` : 'Нет в наличии'}
                   </span>
                 </div>
 
@@ -787,12 +794,16 @@ export default function GameDetailClient({
                 <Zap style={{ width: '16px', height: '16px', color: isManual ? '#A78BFA' : '#22C55E', flexShrink: 0 }} />
                 <div>
                   <p className="font-heading font-semibold" style={{ color: isManual ? '#A78BFA' : '#22C55E', fontSize: '13px' }}>
-                    {isManual ? 'Ручная доставка' : 'Мгновенная доставка'}
+                    {isManual ? 'Ручная доставка' : `Мгновенная доставка${formatSuffix}`}
                   </p>
                   <p className="font-body" style={{ color: '#374151', fontSize: '12px' }}>
                     {isManual
                       ? 'Администратор обработает заказ вручную после оплаты'
-                      : 'Ключ отправляется на email сразу после оплаты'}
+                      : isAccount
+                        ? 'Логин и пароль от аккаунта придут на email сразу после оплаты'
+                        : isGift
+                          ? 'Подарок будет отправлен на ваш Steam-аккаунт сразу после оплаты'
+                          : 'Ключ отправляется на email сразу после оплаты'}
                   </p>
                 </div>
               </div>
