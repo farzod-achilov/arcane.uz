@@ -17,7 +17,11 @@ export async function GET(req: Request) {
   const sortBy       = searchParams.get('sortBy')       ?? 'createdAt';
   const sortDir      = searchParams.get('sortDir')      === 'asc' ? 'asc' : 'desc';
   const page         = Math.max(1, parseInt(searchParams.get('page') ?? '1'));
-  const limit        = 20;
+  // Default 20 matches /admin/products' own paged UI (page controls, "N игр");
+  // /admin/keys instead wants the whole catalog in one shot for client-side
+  // filtering (no pagination there) and passes ?limit=200 — which this route
+  // silently ignored entirely, always returning page 1 of 20 regardless.
+  const limit        = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') ?? '20')));
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = {};
