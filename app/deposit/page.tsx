@@ -1,14 +1,18 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Wallet, CreditCard, CheckCircle, Copy, ArrowRight, Info, Clock, AlertTriangle, RefreshCw,
+  Wallet, CreditCard, CheckCircle, Copy, ArrowRight, Info, Clock, AlertTriangle, RefreshCw, Gamepad2, XCircle,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
+import { SKINSBACK_ENABLED } from '@/lib/featureFlags';
 
 const PRESETS = [50_000, 100_000, 200_000, 500_000, 1_000_000];
 const POLL_INTERVAL_MS = 5_000;
+
+type Method = 'card' | 'skinsback';
 
 interface ActiveDeposit {
   id:           string;
@@ -67,8 +71,11 @@ function Countdown({ expiresAt, onExpire }: { expiresAt: string; onExpire: () =>
   );
 }
 
-export default function DepositPage() {
-  const [step,     setStep]     = useState<'amount' | 'pay' | 'success' | 'expired'>('amount');
+function DepositPageInner() {
+  const searchParams = useSearchParams();
+
+  const [step,     setStep]     = useState<'amount' | 'pay' | 'processing' | 'success' | 'expired' | 'failed'>('amount');
+  const [method,   setMethod]   = useState<Method>('card');
   const [amount,   setAmount]   = useState<number | ''>('');
   const [custom,   setCustom]   = useState('');
   const [loading,  setLoading]  = useState(false);
@@ -85,7 +92,7 @@ export default function DepositPage() {
 
   useEffect(() => stopPolling, [stopPolling]);
 
-  const startPolling = useCallback((id: string) => {
+  const startPolling = useCallback((id: string, onWaitStep: 'pay' | 'processing' = 'pay') => {
     stopPolling();
     pollRef.current = setInterval(async () => {
       try {
@@ -97,18 +104,27 @@ export default function DepositPage() {
           setStep('success');
           stopPolling();
         } else if (d.status === 'EXPIRED' || d.status === 'REJECTED') {
-          setStep('expired');
+          setStep(onWaitStep === 'processing' ? 'failed' : 'expired');
           stopPolling();
         }
       } catch { /* сеть моргнула — следующий тик */ }
     }, POLL_INTERVAL_MS);
   }, [stopPolling]);
 
-  const createDeposit = async () => {
-    if (!finalAmount || finalAmount < 10_000) {
-      setError('Минимальная сумма — 10 000 сум');
-      return;
+  // Возврат из SkinsBack (success_url/fail_url) — приходят на /deposit?skinsback=success|fail&id=...
+  useEffect(() => {
+    const sb = searchParams.get('skinsback');
+    const id = searchParams.get('id');
+    if (!sb || !id) return;
+    if (sb === 'success') {
+      setStep('processing');
+      startPolling(id, 'processing');
+    } else {
+      setStep('failed');
     }
+  }, [searchParams, startPolling]);
+
+  const createCardDeposit = async () => {
     setLoading(true);
     setError('');
     try {
@@ -123,13 +139,44 @@ export default function DepositPage() {
       } else {
         setDeposit({ id: d.id, uniqueAmount: d.uniqueAmount, expiresAt: d.expiresAt, card: d.card });
         setStep('pay');
-        startPolling(d.id);
+        startPolling(d.id, 'pay');
       }
     } catch {
       setError('Ошибка соединения');
     } finally {
       setLoading(false);
     }
+  };
+
+  const createSkinsbackDeposit = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/deposit/skinsback', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ amount: finalAmount }),
+      });
+      const d = await res.json();
+      if (!res.ok) {
+        setError(d.error ?? 'Ошибка запроса');
+        setLoading(false);
+      } else {
+        window.location.href = d.redirectUrl; // уходим на чекаут SkinsBack
+      }
+    } catch {
+      setError('Ошибка соединения');
+      setLoading(false);
+    }
+  };
+
+  const createDeposit = () => {
+    if (!finalAmount || finalAmount < 10_000) {
+      setError('Минимальная сумма — 10 000 сум');
+      return;
+    }
+    if (method === 'card') createCardDeposit();
+    else createSkinsbackDeposit();
   };
 
   const reset = (cancelActive = false) => {
@@ -175,6 +222,64 @@ export default function DepositPage() {
     );
   }
 
+  /* ── PROCESSING (вернулись из SkinsBack, ждём вебхук) ─── */
+  if (step === 'processing') {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: '#0A0A0F', paddingTop: '96px' }}>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.92 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="rounded-3xl p-10 text-center max-w-md w-full"
+          style={{ background: '#0D0D16', border: '1px solid rgba(124,58,237,0.25)' }}
+        >
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
+               style={{ background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.2)' }}>
+            <div className="w-6 h-6 border-2 border-[#7C3AED] border-t-transparent rounded-full animate-spin" />
+          </div>
+          <h2 className="font-heading font-bold text-white mb-2" style={{ fontSize: '22px' }}>
+            Подтверждаем оплату
+          </h2>
+          <p className="font-body text-[#6B7280]" style={{ fontSize: '13px' }}>
+            SkinsBack сообщил об успешной сделке — зачисляем баланс, обычно занимает несколько секунд.
+          </p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  /* ── FAILED (SkinsBack fail_url или отклонено) ─────────── */
+  if (step === 'failed') {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: '#0A0A0F', paddingTop: '96px' }}>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.92 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="rounded-3xl p-10 text-center max-w-md w-full"
+          style={{ background: '#0D0D16', border: '1px solid rgba(239,68,68,0.25)' }}
+        >
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
+               style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.2)' }}>
+            <XCircle style={{ width: '28px', height: '28px', color: '#EF4444' }} />
+          </div>
+          <h2 className="font-heading font-bold text-white mb-2" style={{ fontSize: '22px' }}>
+            Оплата не прошла
+          </h2>
+          <p className="font-body text-[#6B7280] mb-6" style={{ fontSize: '13px' }}>
+            Сделка со скинами не завершилась (истекло время обмена или она была отменена).
+            Баланс не списан — попробуйте ещё раз.
+          </p>
+          <button
+            onClick={() => reset()}
+            className="w-full flex items-center justify-center gap-2 rounded-xl px-5 py-3 font-heading font-semibold text-white text-sm transition-all hover:opacity-90"
+            style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)' }}
+          >
+            <RefreshCw style={{ width: '14px', height: '14px' }} /> Попробовать снова
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
   /* ── EXPIRED ─────────────────────────────────────────── */
   if (step === 'expired') {
     return (
@@ -208,7 +313,7 @@ export default function DepositPage() {
     );
   }
 
-  /* ── PAY ─────────────────────────────────────────────── */
+  /* ── PAY (карта) ─────────────────────────────────────── */
   if (step === 'pay' && deposit) {
     return (
       <div className="min-h-screen" style={{ background: '#0A0A0F', paddingTop: '96px', paddingBottom: '80px' }}>
@@ -312,9 +417,37 @@ export default function DepositPage() {
             Пополнение баланса
           </h1>
           <p className="font-body text-[#6B7280]" style={{ fontSize: '14px' }}>
-            Перевод на карту — зачисление автоматическое
+            Зачисление автоматическое
           </p>
         </div>
+
+        {/* Method selector */}
+        {SKINSBACK_ENABLED && (
+          <div className="rounded-2xl p-2 mb-4 grid grid-cols-2 gap-2" style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <button
+              onClick={() => { setMethod('card'); setError(''); }}
+              className="flex items-center justify-center gap-2 rounded-xl py-3 font-heading font-semibold text-sm transition-all"
+              style={{
+                background: method === 'card' ? 'rgba(124,58,237,0.15)' : 'transparent',
+                border:     `1px solid ${method === 'card' ? 'rgba(124,58,237,0.4)' : 'transparent'}`,
+                color:      method === 'card' ? '#A78BFA' : '#6B7280',
+              }}
+            >
+              <CreditCard style={{ width: '15px', height: '15px' }} /> Перевод на карту
+            </button>
+            <button
+              onClick={() => { setMethod('skinsback'); setError(''); }}
+              className="flex items-center justify-center gap-2 rounded-xl py-3 font-heading font-semibold text-sm transition-all"
+              style={{
+                background: method === 'skinsback' ? 'rgba(124,58,237,0.15)' : 'transparent',
+                border:     `1px solid ${method === 'skinsback' ? 'rgba(124,58,237,0.4)' : 'transparent'}`,
+                color:      method === 'skinsback' ? '#A78BFA' : '#6B7280',
+              }}
+            >
+              <Gamepad2 style={{ width: '15px', height: '15px' }} /> Скинами CS2/Dota
+            </button>
+          </div>
+        )}
 
         {/* Amount selection */}
         <div className="rounded-2xl p-5 mb-4" style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)' }}>
@@ -356,9 +489,12 @@ export default function DepositPage() {
              style={{ background: 'rgba(6,182,212,0.05)', border: '1px solid rgba(6,182,212,0.12)' }}>
           <Info style={{ width: '13px', height: '13px', color: '#06B6D4', flexShrink: 0, marginTop: '2px' }} />
           <p className="font-body text-[#9CA3AF]" style={{ fontSize: '12px' }}>
-            Мы выдадим номер карты и точную сумму (например, {finalAmount >= 10_000 ? formatPrice(finalAmount + 347) : '100 347 сум'}).
-            Переведите её с любого приложения — система распознает платёж по сумме
-            и пополнит баланс автоматически, обычно за 1–2 минуты.
+            {method === 'card'
+              ? <>Мы выдадим номер карты и точную сумму (например, {finalAmount >= 10_000 ? formatPrice(finalAmount + 347) : '100 347 сум'}).
+                  Переведите её с любого приложения — система распознает платёж по сумме
+                  и пополнит баланс автоматически, обычно за 1–2 минуты.</>
+              : <>Вы попадёте на SkinsBack, где обмениваете предметы из инвентаря CS2 или Dota 2
+                  на нужную сумму. После завершения сделки баланс пополнится автоматически.</>}
           </p>
         </div>
 
@@ -377,10 +513,22 @@ export default function DepositPage() {
           className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 font-heading font-bold text-white text-base transition-all hover:opacity-90 disabled:opacity-40"
           style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', boxShadow: '0 0 30px rgba(124,58,237,0.3)' }}
         >
-          <CreditCard style={{ width: '16px', height: '16px' }} />
-          {loading ? 'Создание заявки...' : 'Получить реквизиты'}
+          {method === 'card' ? <CreditCard style={{ width: '16px', height: '16px' }} /> : <Gamepad2 style={{ width: '16px', height: '16px' }} />}
+          {loading ? 'Создание заявки...' : method === 'card' ? 'Получить реквизиты' : 'Перейти к обмену скинами'}
         </button>
       </div>
     </div>
+  );
+}
+
+export default function DepositPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0A0F' }}>
+        <div className="w-6 h-6 border-2 border-[#7C3AED] border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <DepositPageInner />
+    </Suspense>
   );
 }

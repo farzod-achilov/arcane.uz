@@ -151,6 +151,18 @@ export async function notifyAdminSmsUnmatched(smsText: string, sender: string | 
   await sendMessage(ADMIN_CHAT, text);
 }
 
+/** Generic "needs manual review" alert — deposit couldn't be auto-confirmed for any reason */
+export async function notifyAdminDepositNeedsReview(source: string, detail: string): Promise<void> {
+  const text = [
+    `⚠️ <b>ДЕПОЗИТ ТРЕБУЕТ ПРОВЕРКИ</b> (${source})`,
+    ``,
+    `<pre>${detail.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`,
+    ``,
+    `Проверь вручную: Admin → /admin/deposits`,
+  ].join('\n');
+  await sendMessage(ADMIN_CHAT, text);
+}
+
 /** Notify admin that a dropship supplier's balance is running low */
 export async function notifyAdminLowSupplierBalance(params: {
   supplier:     string;

@@ -294,6 +294,9 @@ model deposit_requests {
   comment      String?
   confirmedVia String?
   cardId       String?
+  // Внешний ID транзакции у платёжного провайдера (SkinsBack transaction_id
+  // и т.п.) — для сверки и поддержки при спорах. Не используется P2P-картами.
+  providerRef  String?
   expiresAt    DateTime?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime
