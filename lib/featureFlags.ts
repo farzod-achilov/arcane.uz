@@ -19,3 +19,13 @@ export const CASES_COMING_SOON =
  */
 export const SKINSBACK_ENABLED =
   process.env.NEXT_PUBLIC_SKINSBACK_ENABLED === 'true';
+
+/**
+ * Показывать ли на /deposit способ оплаты «USDT через @CryptoBot».
+ * Выключено по умолчанию — CRYPTOBOT_TOKEN ещё не заведён. После
+ * получения токена (t.me/CryptoBot → Crypto Pay → Create App):
+ * заполнить CRYPTOBOT_TOKEN в .env.local И поставить
+ * NEXT_PUBLIC_CRYPTOBOT_ENABLED=true, затем rebuild.
+ */
+export const CRYPTOBOT_ENABLED =
+  process.env.NEXT_PUBLIC_CRYPTOBOT_ENABLED === 'true';

@@ -72,7 +72,7 @@ export async function expireStaleDeposits(): Promise<void> {
  */
 export async function approveDeposit(
   depositId: string,
-  via: 'admin' | 'sms' | 'telegram' | 'skinsback',
+  via: 'admin' | 'sms' | 'telegram' | 'skinsback' | 'cryptobot',
   comment?: string,
 ) {
   return prisma.$transaction(async (tx) => {

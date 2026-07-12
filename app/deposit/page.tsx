@@ -4,15 +4,20 @@ import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Wallet, CreditCard, CheckCircle, Copy, ArrowRight, Info, Clock, AlertTriangle, RefreshCw, Gamepad2, XCircle,
+  Wallet, CreditCard, CheckCircle, Copy, ArrowRight, Info, Clock, AlertTriangle, RefreshCw, Gamepad2, XCircle, Bitcoin,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
-import { SKINSBACK_ENABLED } from '@/lib/featureFlags';
+import { SKINSBACK_ENABLED, CRYPTOBOT_ENABLED } from '@/lib/featureFlags';
 
 const PRESETS = [50_000, 100_000, 200_000, 500_000, 1_000_000];
 const POLL_INTERVAL_MS = 5_000;
 
-type Method = 'card' | 'skinsback';
+type Method = 'card' | 'skinsback' | 'cryptobot';
+
+const EXTERNAL_LABEL: Record<'skinsback' | 'cryptobot', string> = {
+  skinsback: 'SkinsBack',
+  cryptobot: 'Crypto Pay',
+};
 
 interface ActiveDeposit {
   id:           string;
@@ -82,6 +87,7 @@ function DepositPageInner() {
   const [error,    setError]    = useState('');
   const [deposit,  setDeposit]  = useState<ActiveDeposit | null>(null);
   const [credited, setCredited] = useState<number | null>(null);
+  const [returnedFrom, setReturnedFrom] = useState<'skinsback' | 'cryptobot' | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const finalAmount = typeof amount === 'number' ? amount : parseInt(custom.replace(/\s/g, '')) || 0;
@@ -111,16 +117,22 @@ function DepositPageInner() {
     }, POLL_INTERVAL_MS);
   }, [stopPolling]);
 
-  // Возврат из SkinsBack (success_url/fail_url) — приходят на /deposit?skinsback=success|fail&id=...
+  // Возврат с внешнего чекаута (SkinsBack/Crypto Pay) — приходят на
+  // /deposit?skinsback=success|fail&id=... или ?cryptobot=success|fail&id=...
   useEffect(() => {
-    const sb = searchParams.get('skinsback');
     const id = searchParams.get('id');
-    if (!sb || !id) return;
-    if (sb === 'success') {
-      setStep('processing');
-      startPolling(id, 'processing');
-    } else {
-      setStep('failed');
+    if (!id) return;
+    for (const provider of ['skinsback', 'cryptobot'] as const) {
+      const status = searchParams.get(provider);
+      if (!status) continue;
+      setReturnedFrom(provider);
+      if (status === 'success') {
+        setStep('processing');
+        startPolling(id, 'processing');
+      } else {
+        setStep('failed');
+      }
+      return;
     }
   }, [searchParams, startPolling]);
 
@@ -170,13 +182,36 @@ function DepositPageInner() {
     }
   };
 
+  const createCryptobotDeposit = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/deposit/cryptobot', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ amount: finalAmount }),
+      });
+      const d = await res.json();
+      if (!res.ok) {
+        setError(d.error ?? 'Ошибка запроса');
+        setLoading(false);
+      } else {
+        window.location.href = d.redirectUrl; // уходим на чекаут Crypto Pay
+      }
+    } catch {
+      setError('Ошибка соединения');
+      setLoading(false);
+    }
+  };
+
   const createDeposit = () => {
     if (!finalAmount || finalAmount < 10_000) {
       setError('Минимальная сумма — 10 000 сум');
       return;
     }
     if (method === 'card') createCardDeposit();
-    else createSkinsbackDeposit();
+    else if (method === 'skinsback') createSkinsbackDeposit();
+    else createCryptobotDeposit();
   };
 
   const reset = (cancelActive = false) => {
@@ -186,6 +221,7 @@ function DepositPageInner() {
     }
     setDeposit(null);
     setCredited(null);
+    setReturnedFrom(null);
     setStep('amount');
     setError('');
   };
@@ -240,7 +276,7 @@ function DepositPageInner() {
             Подтверждаем оплату
           </h2>
           <p className="font-body text-[#6B7280]" style={{ fontSize: '13px' }}>
-            SkinsBack сообщил об успешной сделке — зачисляем баланс, обычно занимает несколько секунд.
+            {returnedFrom ? EXTERNAL_LABEL[returnedFrom] : 'Платёж'} сообщил об успешной оплате — зачисляем баланс, обычно занимает несколько секунд.
           </p>
         </motion.div>
       </div>
@@ -265,8 +301,10 @@ function DepositPageInner() {
             Оплата не прошла
           </h2>
           <p className="font-body text-[#6B7280] mb-6" style={{ fontSize: '13px' }}>
-            Сделка со скинами не завершилась (истекло время обмена или она была отменена).
-            Баланс не списан — попробуйте ещё раз.
+            {returnedFrom === 'cryptobot'
+              ? 'Счёт в USDT не был оплачен (истекло время или платёж отменён).'
+              : 'Сделка со скинами не завершилась (истекло время обмена или она была отменена).'}
+            {' '}Баланс не списан — попробуйте ещё раз.
           </p>
           <button
             onClick={() => reset()}
@@ -422,8 +460,10 @@ function DepositPageInner() {
         </div>
 
         {/* Method selector */}
-        {SKINSBACK_ENABLED && (
-          <div className="rounded-2xl p-2 mb-4 grid grid-cols-2 gap-2" style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)' }}>
+        {(SKINSBACK_ENABLED || CRYPTOBOT_ENABLED) && (
+          <div className="rounded-2xl p-2 mb-4 grid gap-2"
+               style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)',
+                        gridTemplateColumns: `repeat(${1 + Number(SKINSBACK_ENABLED) + Number(CRYPTOBOT_ENABLED)}, 1fr)` }}>
             <button
               onClick={() => { setMethod('card'); setError(''); }}
               className="flex items-center justify-center gap-2 rounded-xl py-3 font-heading font-semibold text-sm transition-all"
@@ -433,19 +473,34 @@ function DepositPageInner() {
                 color:      method === 'card' ? '#A78BFA' : '#6B7280',
               }}
             >
-              <CreditCard style={{ width: '15px', height: '15px' }} /> Перевод на карту
+              <CreditCard style={{ width: '15px', height: '15px' }} /> Карта
             </button>
-            <button
-              onClick={() => { setMethod('skinsback'); setError(''); }}
-              className="flex items-center justify-center gap-2 rounded-xl py-3 font-heading font-semibold text-sm transition-all"
-              style={{
-                background: method === 'skinsback' ? 'rgba(124,58,237,0.15)' : 'transparent',
-                border:     `1px solid ${method === 'skinsback' ? 'rgba(124,58,237,0.4)' : 'transparent'}`,
-                color:      method === 'skinsback' ? '#A78BFA' : '#6B7280',
-              }}
-            >
-              <Gamepad2 style={{ width: '15px', height: '15px' }} /> Скинами CS2/Dota
-            </button>
+            {SKINSBACK_ENABLED && (
+              <button
+                onClick={() => { setMethod('skinsback'); setError(''); }}
+                className="flex items-center justify-center gap-2 rounded-xl py-3 font-heading font-semibold text-sm transition-all"
+                style={{
+                  background: method === 'skinsback' ? 'rgba(124,58,237,0.15)' : 'transparent',
+                  border:     `1px solid ${method === 'skinsback' ? 'rgba(124,58,237,0.4)' : 'transparent'}`,
+                  color:      method === 'skinsback' ? '#A78BFA' : '#6B7280',
+                }}
+              >
+                <Gamepad2 style={{ width: '15px', height: '15px' }} /> Скины
+              </button>
+            )}
+            {CRYPTOBOT_ENABLED && (
+              <button
+                onClick={() => { setMethod('cryptobot'); setError(''); }}
+                className="flex items-center justify-center gap-2 rounded-xl py-3 font-heading font-semibold text-sm transition-all"
+                style={{
+                  background: method === 'cryptobot' ? 'rgba(124,58,237,0.15)' : 'transparent',
+                  border:     `1px solid ${method === 'cryptobot' ? 'rgba(124,58,237,0.4)' : 'transparent'}`,
+                  color:      method === 'cryptobot' ? '#A78BFA' : '#6B7280',
+                }}
+              >
+                <Bitcoin style={{ width: '15px', height: '15px' }} /> USDT
+              </button>
+            )}
           </div>
         )}
 
@@ -489,12 +544,16 @@ function DepositPageInner() {
              style={{ background: 'rgba(6,182,212,0.05)', border: '1px solid rgba(6,182,212,0.12)' }}>
           <Info style={{ width: '13px', height: '13px', color: '#06B6D4', flexShrink: 0, marginTop: '2px' }} />
           <p className="font-body text-[#9CA3AF]" style={{ fontSize: '12px' }}>
-            {method === 'card'
-              ? <>Мы выдадим номер карты и точную сумму (например, {finalAmount >= 10_000 ? formatPrice(finalAmount + 347) : '100 347 сум'}).
-                  Переведите её с любого приложения — система распознает платёж по сумме
-                  и пополнит баланс автоматически, обычно за 1–2 минуты.</>
-              : <>Вы попадёте на SkinsBack, где обмениваете предметы из инвентаря CS2 или Dota 2
-                  на нужную сумму. После завершения сделки баланс пополнится автоматически.</>}
+            {method === 'card' &&
+              <>Мы выдадим номер карты и точную сумму (например, {finalAmount >= 10_000 ? formatPrice(finalAmount + 347) : '100 347 сум'}).
+                Переведите её с любого приложения — система распознает платёж по сумме
+                и пополнит баланс автоматически, обычно за 1–2 минуты.</>}
+            {method === 'skinsback' &&
+              <>Вы попадёте на SkinsBack, где обмениваете предметы из инвентаря CS2 или Dota 2
+                на нужную сумму. После завершения сделки баланс пополнится автоматически.</>}
+            {method === 'cryptobot' &&
+              <>Вы попадёте в @CryptoBot в Telegram и оплатите точную сумму в USDT.
+                После подтверждения платежа в блокчейне баланс пополнится автоматически.</>}
           </p>
         </div>
 
@@ -513,8 +572,14 @@ function DepositPageInner() {
           className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 font-heading font-bold text-white text-base transition-all hover:opacity-90 disabled:opacity-40"
           style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', boxShadow: '0 0 30px rgba(124,58,237,0.3)' }}
         >
-          {method === 'card' ? <CreditCard style={{ width: '16px', height: '16px' }} /> : <Gamepad2 style={{ width: '16px', height: '16px' }} />}
-          {loading ? 'Создание заявки...' : method === 'card' ? 'Получить реквизиты' : 'Перейти к обмену скинами'}
+          {method === 'card' && <CreditCard style={{ width: '16px', height: '16px' }} />}
+          {method === 'skinsback' && <Gamepad2 style={{ width: '16px', height: '16px' }} />}
+          {method === 'cryptobot' && <Bitcoin style={{ width: '16px', height: '16px' }} />}
+          {loading
+            ? 'Создание заявки...'
+            : method === 'card' ? 'Получить реквизиты'
+            : method === 'skinsback' ? 'Перейти к обмену скинами'
+            : 'Оплатить в USDT'}
         </button>
       </div>
     </div>
