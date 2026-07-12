@@ -356,7 +356,11 @@ function VariantsEditor({ gameId, gameTitle }: { gameId: string; gameTitle: stri
               {kResults.length === 0 ? (
                 <p className="font-body text-[#4B5563]" style={{ fontSize: '11px' }}>Ничего не найдено</p>
               ) : kResults.map(r => (
-                <button key={r.kinguinId} onClick={() => setPicked(r)}
+                <button key={r.kinguinId}
+                        onClick={() => {
+                          if (!r.inStock && !confirm(`«${r.name}» сейчас нет в наличии на Kinguin — если добавить, заказ уйдёт в ручную обработку, пока не появится. Точно добавить?`)) return;
+                          setPicked(r);
+                        }}
                         className="w-full flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left"
                         style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                   <span className="font-body text-white truncate flex-1" style={{ fontSize: '11px' }}>{r.name}</span>

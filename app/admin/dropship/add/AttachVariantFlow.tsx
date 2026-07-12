@@ -227,7 +227,10 @@ export default function AttachVariantFlow() {
                 ) : kResults.map(r => (
                   <button
                     key={r.kinguinId}
-                    onClick={() => setPicked(r)}
+                    onClick={() => {
+                      if (!r.inStock && !confirm(`«${r.name}» сейчас нет в наличии на Kinguin — если добавить, заказ уйдёт в ручную обработку, пока не появится. Точно добавить?`)) return;
+                      setPicked(r);
+                    }}
                     className="w-full flex items-center gap-3 rounded-xl p-3 text-left transition-all"
                     style={{
                       background: picked?.kinguinId === r.kinguinId ? 'rgba(124,58,237,0.12)' : 'rgba(255,255,255,0.02)',

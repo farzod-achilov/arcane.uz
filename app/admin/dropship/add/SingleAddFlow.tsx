@@ -86,6 +86,7 @@ export default function SingleAddFlow() {
   }, [kQuery]);
 
   const pickKinguin = (r: KinguinResult) => {
+    if (!r.inStock && !confirm(`«${r.name}» сейчас нет в наличии на Kinguin — если добавить, заказ уйдёт в ручную обработку, пока не появится. Точно добавить?`)) return;
     setPicked(r);
     if (!sQuery) setSQuery(r.name);
     if (!rQuery) setRQuery(r.name);
