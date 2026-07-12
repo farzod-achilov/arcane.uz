@@ -23,7 +23,7 @@ export default function Footer() {
       { label: fl.keyDelivery, href: '/faq' },
       { label: fl.returns,     href: '/terms' },
       { label: fl.coins,       href: '/#arcane-coins' },
-      { label: fl.partner,     href: '/support' },
+      { label: fl.partner,     href: '/profile?tab=referral' },
     ],
     support: [
       { label: fl.tgSupport, href: 'https://t.me/arcaneuz_support' },
