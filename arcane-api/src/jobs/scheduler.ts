@@ -14,7 +14,7 @@ import {
 } from './keys.cron';
 
 // ── Dropship supplier cache jobs ─────────────────────────────────────────────
-import { kinguinCatalogSyncJob, enebaCatalogSyncJob, dropshipRepriceJob, kinguinBalanceCheckJob } from './suppliers.cron';
+import { kinguinCatalogSyncJob, enebaCatalogSyncJob, dropshipRepriceJob, kinguinBalanceCheckJob, dropshipAutoRetryJob } from './suppliers.cron';
 import { alertJobFailure } from './alertFailure';
 
 // A job failing once is often transient (a timeout, a flaky upstream) — only
@@ -55,6 +55,8 @@ class Scheduler {
     { name: 'dropship-reprice',     schedule: '20 */6 * * *', handler: dropshipRepriceJob },
     // алерт в Telegram при низком балансе Kinguin
     { name: 'kinguin-balance-check', schedule: '10 */2 * * *', handler: kinguinBalanceCheckJob },
+    // авто-повтор доставки застрявших dropship-заказов
+    { name: 'dropship-auto-retry', schedule: '*/15 * * * *', handler: dropshipAutoRetryJob },
   ];
 
   start(): void {

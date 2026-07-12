@@ -122,3 +122,37 @@ export async function kinguinBalanceCheckJob(): Promise<void> {
     logger.debug(`[BalanceCheck] Kinguin balance $${data.balanceUsd}`);
   }
 }
+
+/**
+ * Автоматический повтор доставки для заказов, застрявших в
+ * WAITING_MANUAL из-за неудачной закупки у dropship-поставщика
+ * (не хватило баланса, временная ошибка сети, холодный кэш каталога).
+ * Раньше это делал только админ вручную кнопкой «Повторить закупку».
+ */
+export async function dropshipAutoRetryJob(): Promise<void> {
+  if (!config.suppliers.syncSecret) {
+    logger.warn('[AutoRetryDropship] Skipping — SYNC_SECRET not configured');
+    return;
+  }
+
+  const res = await fetch(`${config.suppliers.mainAppUrl}/api/admin/orders/auto-retry-dropship`, {
+    method: 'POST',
+    headers: { 'x-sync-secret': config.suppliers.syncSecret },
+    signal: AbortSignal.timeout(60_000),
+  });
+
+  const data = await res.json().catch(() => ({})) as {
+    ok?: boolean; error?: string; candidates?: number; completed?: number; stillWaiting?: number; errored?: number;
+  };
+
+  if (!res.ok || !data.ok) {
+    logger.warn(`[AutoRetryDropship] failed: ${data.error ?? res.status}`);
+    return;
+  }
+
+  if ((data.candidates ?? 0) > 0) {
+    logger.info(`[AutoRetryDropship] ${data.candidates} candidates → ${data.completed} completed, ${data.stillWaiting} still waiting, ${data.errored} errored`);
+  } else {
+    logger.debug('[AutoRetryDropship] no stuck dropship orders');
+  }
+}
