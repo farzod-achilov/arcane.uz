@@ -38,28 +38,65 @@ const DELIVERY_TYPE_META = {
 
 /* ── Variant list editor (within EditModal) ───────────────────────── */
 interface VariantRow {
-  id:       string;
-  label:    string;
-  priceUzs: number;
-  isActive: boolean;
+  id:                 string;
+  label:              string;
+  priceUzs:           number;
+  isActive:           boolean;
+  dropshipSource:     string | null;
+  dropshipExternalId: string | null;
 }
 
-function VariantsEditor({ gameId }: { gameId: string }) {
+interface KinguinPickResult {
+  kinguinId: number;
+  name:      string;
+  platform:  string | null;
+  costUsd:   number;
+  inStock:   boolean;
+}
+
+function VariantsEditor({ gameId, gameTitle }: { gameId: string; gameTitle: string }) {
   const [variants, setVariants] = useState<VariantRow[] | null>(null);
   const [drafts,   setDrafts]   = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [refreshingId, setRefreshingId] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Steam reference price — shared across all variants of the game (Steam
+  // sells one canonical version regardless of which Kinguin delivery
+  // format the customer buys from us), so it lives once here, not per-row.
+  const [steamPrice,       setSteamPrice]       = useState('');
+  const [steamPriceSaving, setSteamPriceSaving] = useState(false);
+
+  // Inline "add a new activation type" mini-flow — trims AttachVariantFlow
+  // down to just the Kinguin-search + label steps, since gameId is already
+  // known from context here.
+  const [addOpen,  setAddOpen]  = useState(false);
+  const [kQuery,   setKQuery]   = useState('');
+  const [kLoading, setKLoading] = useState(false);
+  const [kResults, setKResults] = useState<KinguinPickResult[] | null>(null);
+  const [picked,   setPicked]   = useState<KinguinPickResult | null>(null);
+  const [label,    setLabel]    = useState('');
+  const [creating, setCreating] = useState(false);
+  const [addError, setAddError] = useState('');
+
+  const loadVariants = useCallback(() => {
     fetch(`/api/admin/game-variants?gameId=${gameId}`)
       .then(r => r.json())
       .then(json => { if (json.ok) setVariants(json.variants); })
       .catch(() => setVariants([]));
   }, [gameId]);
 
+  useEffect(() => { loadVariants(); }, [loadVariants]);
+
+  useEffect(() => {
+    fetch(`/api/admin/game/${gameId}/pricing`)
+      .then(r => r.json())
+      .then(json => { if (json.success && json.data?.steamPriceUsd != null) setSteamPrice(String(json.data.steamPriceUsd)); })
+      .catch(() => {});
+  }, [gameId]);
+
   if (variants === null) {
     return <Loader2 className="w-4 h-4 animate-spin text-[#6B7280]" />;
   }
-  if (variants.length === 0) return null;
 
   async function patchVariant(id: string, data: { isActive?: boolean; priceUzs?: number }) {
     setSavingId(id);
@@ -78,39 +115,210 @@ function VariantsEditor({ gameId }: { gameId: string }) {
     }
   }
 
+  async function refreshVariantPrice(id: string) {
+    setRefreshingId(id);
+    try {
+      const res  = await fetch(`/api/admin/game-variants/${id}/refresh-price`, { method: 'POST' });
+      const json = await res.json();
+      if (json.ok) {
+        setVariants(prev => prev!.map(v => v.id === id ? { ...v, priceUzs: json.variant.priceUzs } : v));
+      } else {
+        alert(json.error ?? 'Не удалось обновить цену');
+      }
+    } finally {
+      setRefreshingId(null);
+    }
+  }
+
+  async function saveSteamPrice() {
+    setSteamPriceSaving(true);
+    try {
+      await fetch(`/api/admin/game/${gameId}/steam-price`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ steamPriceUsd: steamPrice.trim() ? Number(steamPrice) : null }),
+      });
+    } finally {
+      setSteamPriceSaving(false);
+    }
+  }
+
+  async function searchKinguin() {
+    if (kQuery.trim().length < 3) return;
+    setKLoading(true); setKResults(null); setPicked(null);
+    try {
+      const res  = await fetch(`/api/admin/dropship/search-kinguin?q=${encodeURIComponent(kQuery.trim())}`);
+      const json = await res.json();
+      if (json.ok) setKResults(json.results);
+    } finally {
+      setKLoading(false);
+    }
+  }
+
+  async function addVariant() {
+    if (!picked || !label.trim()) return;
+    setCreating(true); setAddError('');
+    try {
+      const res  = await fetch('/api/admin/dropship/create-variant', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ gameId, label: label.trim(), kinguinId: picked.kinguinId, costUsd: picked.costUsd, title: picked.name }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) { setAddError(json.error ?? 'Ошибка создания'); return; }
+      loadVariants();
+      setAddOpen(false); setKQuery(''); setKResults(null); setPicked(null); setLabel('');
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <div>
-      <p className="font-pixel text-[#4B5563] mb-2" style={{ fontSize: '8px', letterSpacing: '0.1em' }}>ВАРИАНТЫ ПОКУПКИ</p>
-      <div className="space-y-2">
-        {variants.map(v => (
-          <div key={v.id} className="flex items-center gap-2 rounded-xl px-3 py-2"
-               style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-            <span className="font-body text-white flex-1 truncate" style={{ fontSize: '12.5px', opacity: v.isActive ? 1 : 0.4 }}>
-              {v.label}
-            </span>
+      <div className="flex items-center justify-between mb-2">
+        <p className="font-pixel text-[#4B5563]" style={{ fontSize: '8px', letterSpacing: '0.1em' }}>
+          ВАРИАНТЫ ПОКУПКИ{variants.length > 0 ? ` (${variants.length})` : ''}
+        </p>
+        <button
+          onClick={() => { setAddOpen(v => !v); setKQuery(prev => prev || gameTitle); }}
+          className="flex items-center gap-1 font-body transition-colors"
+          style={{ fontSize: '11px', color: '#7C3AED' }}
+        >
+          <Plus className="w-3 h-3" /> Добавить тип
+        </button>
+      </div>
+
+      {/* Steam reference price */}
+      <div className="flex items-center gap-2 mb-2 rounded-xl px-3 py-2"
+           style={{ background: 'rgba(102,192,244,0.06)', border: '1px solid rgba(102,192,244,0.2)' }}>
+        <span className="font-body flex-shrink-0" style={{ fontSize: '11px', color: '#66C0F4' }}>Steam $</span>
+        <input
+          type="number" step="0.01" value={steamPrice}
+          onChange={e => setSteamPrice(e.target.value)}
+          onBlur={saveSteamPrice}
+          placeholder="0.00"
+          className="flex-1 rounded-lg px-2 py-1 font-body text-white text-xs outline-none"
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+        />
+        {steamPriceSaving && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#66C0F4] flex-shrink-0" />}
+      </div>
+
+      {variants.length > 0 && (
+        <div className="space-y-2 mb-2">
+          {variants.map(v => (
+            <div key={v.id} className="flex items-center gap-2 rounded-xl px-3 py-2"
+                 style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <span className="font-body text-white flex-1 truncate" style={{ fontSize: '12.5px', opacity: v.isActive ? 1 : 0.4 }}>
+                {v.label}
+              </span>
+              <input
+                type="number"
+                defaultValue={v.priceUzs}
+                onChange={e => setDrafts(prev => ({ ...prev, [v.id]: e.target.value }))}
+                onBlur={() => {
+                  const draft = drafts[v.id];
+                  if (draft && Number(draft) > 0 && Number(draft) !== v.priceUzs) patchVariant(v.id, { priceUzs: Number(draft) });
+                }}
+                className="w-24 rounded-lg px-2 py-1 font-body text-white text-xs outline-none"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+              />
+              {v.dropshipSource === 'kinguin' && v.dropshipExternalId && (
+                <button
+                  onClick={() => refreshVariantPrice(v.id)}
+                  disabled={refreshingId === v.id}
+                  className="p-1.5 rounded-lg flex-shrink-0 transition-colors"
+                  style={{ color: '#06B6D4' }}
+                  title="Подтянуть текущую цену с Kinguin"
+                >
+                  {refreshingId === v.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                </button>
+              )}
+              <button
+                onClick={() => patchVariant(v.id, { isActive: !v.isActive })}
+                disabled={savingId === v.id}
+                className="p-1.5 rounded-lg flex-shrink-0 transition-colors"
+                style={{ color: v.isActive ? '#22C55E' : '#4B5563' }}
+                title={v.isActive ? 'Скрыть вариант' : 'Показать вариант'}
+              >
+                {savingId === v.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : v.isActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {addOpen && (
+        <div className="rounded-xl p-3 space-y-2" style={{ background: 'rgba(124,58,237,0.05)', border: '1px solid rgba(124,58,237,0.2)' }}>
+          <div className="flex gap-2">
             <input
-              type="number"
-              defaultValue={v.priceUzs}
-              onChange={e => setDrafts(prev => ({ ...prev, [v.id]: e.target.value }))}
-              onBlur={() => {
-                const draft = drafts[v.id];
-                if (draft && Number(draft) > 0 && Number(draft) !== v.priceUzs) patchVariant(v.id, { priceUzs: Number(draft) });
-              }}
-              className="w-24 rounded-lg px-2 py-1 font-body text-white text-xs outline-none"
+              value={kQuery}
+              onChange={e => setKQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && searchKinguin()}
+              placeholder="Название на Kinguin"
+              className="flex-1 rounded-lg px-2.5 py-1.5 font-body text-white text-xs outline-none"
               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
             />
-            <button
-              onClick={() => patchVariant(v.id, { isActive: !v.isActive })}
-              disabled={savingId === v.id}
-              className="p-1.5 rounded-lg flex-shrink-0 transition-colors"
-              style={{ color: v.isActive ? '#22C55E' : '#4B5563' }}
-              title={v.isActive ? 'Скрыть вариант' : 'Показать вариант'}
-            >
-              {savingId === v.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : v.isActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+            <button onClick={searchKinguin} disabled={kLoading}
+                    className="rounded-lg px-2.5 flex items-center justify-center flex-shrink-0"
+                    style={{ background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.3)' }}>
+              {kLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-[#7C3AED]" /> : <Search className="w-3.5 h-3.5 text-[#7C3AED]" />}
             </button>
           </div>
-        ))}
-      </div>
+
+          {kResults && !picked && (
+            <div className="space-y-1 max-h-40 overflow-y-auto">
+              {kResults.length === 0 ? (
+                <p className="font-body text-[#4B5563]" style={{ fontSize: '11px' }}>Ничего не найдено</p>
+              ) : kResults.map(r => (
+                <button key={r.kinguinId} onClick={() => setPicked(r)}
+                        className="w-full flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left"
+                        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <span className="font-body text-white truncate flex-1" style={{ fontSize: '11px' }}>{r.name}</span>
+                  <span className="font-body flex-shrink-0" style={{ fontSize: '11px', color: r.inStock ? '#22C55E' : '#EF4444' }}>
+                    ${r.costUsd.toFixed(2)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {picked && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5"
+                   style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)' }}>
+                <span className="font-body text-white truncate flex-1" style={{ fontSize: '11px' }}>{picked.name}</span>
+                <button onClick={() => setPicked(null)} className="font-body flex-shrink-0" style={{ fontSize: '10px', color: '#4B5563' }}>изменить</button>
+              </div>
+              <div className="flex gap-1.5">
+                {['Ключ', 'Аккаунт', 'Подарок'].map(preset => (
+                  <button key={preset} onClick={() => setLabel(preset)}
+                          className="rounded-lg px-2 py-1 font-body text-xs"
+                          style={{
+                            background: label === preset ? 'rgba(124,58,237,0.15)' : 'rgba(255,255,255,0.03)',
+                            border: `1px solid ${label === preset ? 'rgba(124,58,237,0.4)' : 'rgba(255,255,255,0.07)'}`,
+                            color: label === preset ? '#C4B5FD' : '#9CA3AF',
+                          }}>
+                    {preset}
+                  </button>
+                ))}
+              </div>
+              <input
+                value={label} onChange={e => setLabel(e.target.value)}
+                placeholder="Название варианта"
+                className="w-full rounded-lg px-2.5 py-1.5 font-body text-white text-xs outline-none"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+              />
+              {addError && <p className="font-body" style={{ fontSize: '10.5px', color: '#FCA5A5' }}>{addError}</p>}
+              <button onClick={addVariant} disabled={creating || !label.trim()}
+                      className="w-full flex items-center justify-center gap-1.5 rounded-lg py-1.5 font-heading font-semibold text-white text-xs disabled:opacity-50"
+                      style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)' }}>
+                {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                Добавить
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -192,7 +400,7 @@ function EditModal({ game, onClose, onSaved }: { game: GameRow; onClose: () => v
           />
         </div>
 
-        <VariantsEditor gameId={game.id} />
+        <VariantsEditor gameId={game.id} gameTitle={game.title} />
 
         <button
           onClick={save}
