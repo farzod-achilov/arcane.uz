@@ -6,14 +6,18 @@ import { createNotification } from '@/lib/notifications';
 import type { DeliveryContext, DropshipDeliveryResult } from './types';
 
 /* ─────────────────────────────────────────────────────────
-   Dropship delivery — buys the key from an external supplier at
-   order time instead of pulling from pre-stocked game_keys.
+   Dropship delivery — prefers a manually-stocked game_keys row (e.g. the
+   admin found a cheaper key elsewhere and added it by hand via the usual
+   "add key" UI) over paying the supplier again; only buys from the
+   external supplier when no such stock exists. DROPSHIP games still
+   never get PRE-loaded stock by any automated flow — this only changes
+   what happens if stock was added on purpose.
 
    Handles a MIXED cart (some items DROPSHIP, some AUTO) since a
-   customer's order isn't guaranteed to be single-supplier. AUTO
-   items reuse the exact same lock/decrypt/mark-SOLD logic as
-   lib/delivery/autoDeliver.ts via the shared deliverAutoItem()
-   helper — not duplicated here.
+   customer's order isn't guaranteed to be single-supplier. AUTO items,
+   and DROPSHIP items served from our own stock, reuse the exact same
+   lock/decrypt/mark-SOLD logic via the shared deliverAutoItem() helper
+   from lib/delivery/autoDeliver.ts — not duplicated here.
 
    The external supplier call happens OUTSIDE any DB transaction:
    holding Postgres row locks open across an HTTP round-trip to
@@ -64,8 +68,26 @@ export async function dropshipDeliver(ctx: DeliveryContext): Promise<DropshipDel
     .filter(i => i.keyValue)
     .map(i => ({ itemId: i.id, gameTitle: i.gameTitle, keyValue: i.keyValue as string }));
 
-  const dropshipItems = ctx.items.filter(i => i.deliveryType === 'DROPSHIP' && !i.keyValue);
-  const otherItems     = ctx.items.filter(i => i.deliveryType !== 'DROPSHIP' && !i.keyValue);
+  const dropshipItemsAll = ctx.items.filter(i => i.deliveryType === 'DROPSHIP' && !i.keyValue);
+  const otherItems       = ctx.items.filter(i => i.deliveryType !== 'DROPSHIP' && !i.keyValue);
+
+  // ── Phase 0: try our own stock first — fast, DB-only, its own short
+  // transaction so it never holds row locks across Phase 1's HTTP calls.
+  const stockDelivered: DropshipPurchase[] = [];
+  const dropshipItems: typeof dropshipItemsAll = [];
+
+  if (dropshipItemsAll.length > 0) {
+    await prisma.$transaction(async tx => {
+      for (const item of dropshipItemsAll) {
+        const result = await deliverAutoItem(tx, ctx, item);
+        if (result.status === 'delivered') {
+          stockDelivered.push({ itemId: item.id, gameTitle: item.gameTitle, keyValue: result.keyValue });
+        } else {
+          dropshipItems.push(item);
+        }
+      }
+    });
+  }
 
   // ── Phase 1: purchase from suppliers, outside any transaction ──────────
   const purchased: DropshipPurchase[] = [];
@@ -102,7 +124,7 @@ export async function dropshipDeliver(ctx: DeliveryContext): Promise<DropshipDel
   }
 
   // ── Phase 2: short transaction — write results + handle AUTO items ─────
-  const keys: DropshipDeliveryResult['keys'] = [...alreadyDelivered];
+  const keys: DropshipDeliveryResult['keys'] = [...alreadyDelivered, ...stockDelivered];
   let waiting = dropshipWaiting;
 
   await prisma.$transaction(async tx => {

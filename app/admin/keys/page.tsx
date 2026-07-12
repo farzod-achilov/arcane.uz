@@ -23,10 +23,19 @@ interface DbGame {
 function toStockInfo(g: DbGame): GameStockInfo {
   const total     = g.stockStore + g.stockDrop;
   const threshold = 5;
+  // DROPSHIP games with zero stock aren't a real problem — dropshipDeliver()
+  // falls back to buying from the supplier at order time — so 0 stays 'OK'
+  // there instead of a false "Нет ключей" alert. Any stock they DO carry
+  // (an admin can add keys manually, e.g. a cheaper deal found elsewhere;
+  // dropshipDeliver() now prefers that over paying the supplier again)
+  // still follows the normal LOW/CRITICAL thresholds, since that's real,
+  // depletable inventory once it exists.
   const health: GameStockInfo['health'] =
-    total === 0                            ? 'EMPTY'    :
-    total <= Math.floor(threshold * 0.5)  ? 'CRITICAL' :
-    total <= threshold                     ? 'LOW'      : 'OK';
+    total === 0
+      ? (g.deliveryType === 'DROPSHIP' ? 'OK' : 'EMPTY')
+      : total <= Math.floor(threshold * 0.5) ? 'CRITICAL'
+      : total <= threshold                    ? 'LOW'
+      :                                          'OK';
 
   return {
     gameId:            g.id,
@@ -191,12 +200,12 @@ export default function KeysAdminPage() {
       const res  = await fetch('/api/admin/games?limit=200');
       const data = await res.json();
       if (data.games?.length) {
-        // DROPSHIP games never carry pre-stocked game_keys by design (the
-        // key is bought from the supplier at order time) — including them
-        // here just floods "Нет ключей" with games that were never
-        // supposed to have stock. This page is for AUTO/MANUAL inventory.
-        const stocked = (data.games as DbGame[]).filter(g => g.deliveryType !== 'DROPSHIP');
-        setGames(stocked.map(toStockInfo));
+        // DROPSHIP games are included (searchable, addable-to) — an admin
+        // can manually stock a cheaper key found elsewhere and
+        // dropshipDeliver() now prefers it over paying the supplier again.
+        // toStockInfo() keeps their 0-stock state out of the EMPTY alert,
+        // since dropshipDeliver() still falls back to the supplier fine.
+        setGames((data.games as DbGame[]).map(toStockInfo));
       }
     } finally { setLoading(false); }
   }, []);
