@@ -51,8 +51,18 @@ interface DropshipPurchase {
 export async function dropshipDeliver(ctx: DeliveryContext): Promise<DropshipDeliveryResult> {
   await auditLog(ctx.orderId, 'DROPSHIP_DELIVERY_START');
 
-  const dropshipItems = ctx.items.filter(i => i.deliveryType === 'DROPSHIP');
-  const otherItems     = ctx.items.filter(i => i.deliveryType !== 'DROPSHIP');
+  // Re-entrant: the admin "retry" action on a WAITING_MANUAL order calls
+  // processDelivery() → here again. Items that already have a key
+  // (delivered on a prior partial attempt — e.g. a mixed cart where the
+  // AUTO item succeeded but the DROPSHIP one didn't) must be skipped, not
+  // re-purchased/re-decremented. Already-delivered ones are reported back
+  // as delivered so the caller's counts stay accurate.
+  const alreadyDelivered: DropshipDeliveryResult['keys'] = ctx.items
+    .filter(i => i.keyValue)
+    .map(i => ({ itemId: i.id, gameTitle: i.gameTitle, keyValue: i.keyValue as string }));
+
+  const dropshipItems = ctx.items.filter(i => i.deliveryType === 'DROPSHIP' && !i.keyValue);
+  const otherItems     = ctx.items.filter(i => i.deliveryType !== 'DROPSHIP' && !i.keyValue);
 
   // ── Phase 1: purchase from suppliers, outside any transaction ──────────
   const purchased: DropshipPurchase[] = [];
@@ -89,7 +99,7 @@ export async function dropshipDeliver(ctx: DeliveryContext): Promise<DropshipDel
   }
 
   // ── Phase 2: short transaction — write results + handle AUTO items ─────
-  const keys: DropshipDeliveryResult['keys'] = [];
+  const keys: DropshipDeliveryResult['keys'] = [...alreadyDelivered];
   let waiting = dropshipWaiting;
 
   await prisma.$transaction(async tx => {

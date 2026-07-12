@@ -151,8 +151,25 @@ function OrderRow({ order, onComplete, onRefresh }: {
   onRefresh:  () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [retryErr, setRetryErr] = useState('');
   const game   = order.items[0]?.game;
   const isWait = order.status === 'WAITING_MANUAL' || order.status === 'PAID';
+  const hasDropship = order.items.some(i => i.game.deliveryType === 'DROPSHIP');
+
+  async function retryDropship() {
+    setRetrying(true); setRetryErr('');
+    try {
+      const res  = await fetch(`/api/orders/${order.id}/retry-dropship`, { method: 'POST' });
+      const json = await res.json();
+      if (!res.ok || !json.ok) { setRetryErr(json.error ?? 'Ошибка'); return; }
+      onRefresh();
+    } catch {
+      setRetryErr('Ошибка сети');
+    } finally {
+      setRetrying(false);
+    }
+  }
 
   return (
     <div
@@ -206,6 +223,22 @@ function OrderRow({ order, onComplete, onRefresh }: {
 
         {/* Actions */}
         <div className="flex items-center gap-2 flex-shrink-0">
+          {isWait && hasDropship && (
+            <button
+              onClick={retryDropship}
+              disabled={retrying}
+              title={retryErr || 'Повторить закупку у поставщика для позиций без ключа'}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-heading font-semibold text-xs transition-all hover:opacity-90 disabled:opacity-50"
+              style={{
+                background: retryErr ? 'rgba(239,68,68,0.1)' : 'rgba(6,182,212,0.1)',
+                border: `1px solid ${retryErr ? 'rgba(239,68,68,0.3)' : 'rgba(6,182,212,0.3)'}`,
+                color: retryErr ? '#F87171' : '#06B6D4',
+              }}
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${retrying ? 'animate-spin' : ''}`} />
+              {retrying ? 'Закупаю…' : retryErr ? 'Не вышло' : 'Повторить закупку'}
+            </button>
+          )}
           {isWait && (
             <button
               onClick={() => onComplete(order)}

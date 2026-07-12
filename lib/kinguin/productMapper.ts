@@ -8,6 +8,20 @@ import { buildPurchaseUrl } from './client';
    Product mapper — KinguinProductItem → Product
 ───────────────────────────────────────────────────────── */
 
+const UZBEKISTAN_ISO = 'UZ';
+
+/**
+ * True if this Kinguin product's key will NOT activate for a customer in
+ * Uzbekistan. Caught live once already (Hollow Knight EU, kinguinId 56646,
+ * had "UZ" in its country blacklist) before it ever reached a real order —
+ * every call site that picks or buys a Kinguin product should check this
+ * first. "REGION FREE" products have an empty countryLimitation and are
+ * always safe.
+ */
+export function isBlockedInUzbekistan(item: KinguinProductItem): boolean {
+  return (item.countryLimitation ?? []).includes(UZBEKISTAN_ISO);
+}
+
 /**
  * Kinguin is a marketplace — a product's top-level price/qty are aggregate/
  * reference values, not directly orderable. This finds the cheapest offer

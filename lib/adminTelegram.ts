@@ -151,3 +151,22 @@ export async function notifyAdminSmsUnmatched(smsText: string, sender: string | 
   await sendMessage(ADMIN_CHAT, text);
 }
 
+/** Notify admin that a dropship supplier's balance is running low */
+export async function notifyAdminLowSupplierBalance(params: {
+  supplier:     string;
+  balanceUsd:   number;
+  thresholdUsd: number;
+  topUpUrl:     string;
+}): Promise<void> {
+  const text = [
+    `🪫 <b>НИЗКИЙ БАЛАНС: ${params.supplier.toUpperCase()}</b>`,
+    ``,
+    `Остаток: <b>$${params.balanceUsd.toFixed(2)}</b> (порог: $${params.thresholdUsd.toFixed(2)})`,
+    ``,
+    `Новые dropship-заказы будут уходить в ручную доставку, пока баланс не пополнят.`,
+    ``,
+    `🔗 Пополнить: ${params.topUpUrl}`,
+  ].join('\n');
+  await sendMessage(ADMIN_CHAT, text);
+}
+

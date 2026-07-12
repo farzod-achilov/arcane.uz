@@ -85,3 +85,40 @@ export async function dropshipRepriceJob(): Promise<void> {
 
   logger.info(`[DropshipReprice] ${data.updated ?? 0}/${data.total ?? 0} games repriced`);
 }
+
+/**
+ * Проверка баланса Kinguin: шлёт Telegram-алерт админу, если баланс
+ * упал ниже порога. Цель — узнать об этом до того, как реальный заказ
+ * клиента упадёт с InsufficientBalance и тихо уйдёт в ручную доставку.
+ */
+export async function kinguinBalanceCheckJob(): Promise<void> {
+  if (!config.suppliers.syncSecret) {
+    logger.warn('[BalanceCheck] Skipping — SYNC_SECRET not configured');
+    return;
+  }
+
+  const res = await fetch(`${config.suppliers.mainAppUrl}/api/admin/kinguin/balance-check`, {
+    method: 'POST',
+    headers: { 'x-sync-secret': config.suppliers.syncSecret },
+    signal: AbortSignal.timeout(30_000),
+  });
+
+  const data = await res.json().catch(() => ({})) as {
+    ok?: boolean; error?: string; balanceUsd?: number; alerted?: boolean;
+  };
+
+  if (!res.ok || !data.ok) {
+    if (data.error && /not configured/i.test(data.error)) {
+      logger.debug(`[BalanceCheck] ${data.error}`);
+      return;
+    }
+    logger.warn(`[BalanceCheck] failed: ${data.error ?? res.status}`);
+    return;
+  }
+
+  if (data.alerted) {
+    logger.warn(`[BalanceCheck] Kinguin balance low ($${data.balanceUsd}) — Telegram alert sent`);
+  } else {
+    logger.debug(`[BalanceCheck] Kinguin balance $${data.balanceUsd}`);
+  }
+}

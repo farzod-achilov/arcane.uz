@@ -46,6 +46,7 @@ export default function AddDropshipGamePage() {
   const [kQuery,   setKQuery]   = useState('');
   const [kLoading, setKLoading] = useState(false);
   const [kResults, setKResults] = useState<KinguinResult[] | null>(null);
+  const [kBlockedCount, setKBlockedCount] = useState(0);
   const [kError,   setKError]   = useState('');
   const [picked,   setPicked]   = useState<KinguinResult | null>(null);
 
@@ -72,12 +73,13 @@ export default function AddDropshipGamePage() {
 
   const searchKinguin = useCallback(async () => {
     if (kQuery.trim().length < 3) { setKError('Минимум 3 символа'); return; }
-    setKLoading(true); setKError(''); setKResults(null); setPicked(null);
+    setKLoading(true); setKError(''); setKResults(null); setKBlockedCount(0); setPicked(null);
     try {
       const res  = await fetch(`/api/admin/dropship/search-kinguin?q=${encodeURIComponent(kQuery.trim())}`);
       const json = await res.json();
       if (!json.ok) { setKError(json.error ?? 'Ошибка поиска'); return; }
       setKResults(json.results);
+      setKBlockedCount(json.blockedCount ?? 0);
     } catch {
       setKError('Ошибка сети');
     } finally {
@@ -246,6 +248,11 @@ export default function AddDropshipGamePage() {
             </div>
             {kError && (
               <p className="font-body mt-2.5" style={{ fontSize: '12px', color: '#FCA5A5' }}>{kError}</p>
+            )}
+            {kBlockedCount > 0 && (
+              <p className="font-body mt-2.5" style={{ fontSize: '11.5px', color: '#F59E0B' }}>
+                Скрыто {kBlockedCount} {kBlockedCount === 1 ? 'товар' : 'товара(ов)'} — ключ не активируется в Узбекистане
+              </p>
             )}
 
             {kResults && (

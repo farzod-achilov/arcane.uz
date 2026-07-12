@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/apiGuard';
-import { isKinguinEnabled, searchProductsByName, cheapestInStockOffer } from '@/lib/kinguin';
+import { isKinguinEnabled, searchProductsByName, cheapestInStockOffer, isBlockedInUzbekistan } from '@/lib/kinguin';
 
 /* ─────────────────────────────────────────────────────────
    GET /api/admin/dropship/search-kinguin?q=...
@@ -10,6 +10,12 @@ import { isKinguinEnabled, searchProductsByName, cheapestInStockOffer } from '@/
    Returns only what the picker needs: id, name, platform, cover,
    and the cheapest in-stock offer price (the same one an order
    would actually buy) — not the raw catalog shape.
+
+   Region-locked products (see isBlockedInUzbekistan — caught live
+   once already with Hollow Knight EU) are dropped from the results
+   entirely rather than shown with a warning: an admin clicking
+   through a warning is exactly how that one shipped in the first
+   place, so the safer default is to never offer the pick at all.
 ───────────────────────────────────────────────────────── */
 
 export const dynamic = 'force-dynamic';
@@ -28,19 +34,22 @@ export async function GET(req: Request) {
 
   try {
     const items = await searchProductsByName(q, 15);
-    const results = items.map(item => {
-      const offer = cheapestInStockOffer(item);
-      return {
-        kinguinId: item.kinguinId,
-        name:      item.name,
-        platform:  item.platform ?? null,
-        cover:     item.images?.cover?.thumbnail ?? null,
-        genres:    item.genres ?? [],
-        costUsd:   offer?.price ?? item.price,
-        inStock:   Boolean(offer),
-      };
-    });
-    return NextResponse.json({ ok: true, results });
+    const blockedCount = items.filter(isBlockedInUzbekistan).length;
+    const results = items
+      .filter(item => !isBlockedInUzbekistan(item))
+      .map(item => {
+        const offer = cheapestInStockOffer(item);
+        return {
+          kinguinId: item.kinguinId,
+          name:      item.name,
+          platform:  item.platform ?? null,
+          cover:     item.images?.cover?.thumbnail ?? null,
+          genres:    item.genres ?? [],
+          costUsd:   offer?.price ?? item.price,
+          inStock:   Boolean(offer),
+        };
+      });
+    return NextResponse.json({ ok: true, results, blockedCount });
   } catch (err) {
     return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : 'search failed' }, { status: 502 });
   }

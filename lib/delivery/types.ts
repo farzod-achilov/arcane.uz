@@ -28,6 +28,10 @@ export interface DeliveryContext {
     // supplier for the same game.
     source:       string | null;
     externalId:   string | null;
+    // Already-delivered items (re-processing a WAITING_MANUAL order via
+    // the admin "retry" button) must be skipped, not re-purchased — see
+    // lib/delivery/dropshipDeliver.ts.
+    keyValue:     string | null;
   }>;
 }
 

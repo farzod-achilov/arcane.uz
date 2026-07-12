@@ -30,6 +30,17 @@ export interface KinguinProductItem {
     availableQty: number; // the actually-purchasable count for THIS offer
     merchantName?: string;
   }>;
+  /**
+   * Region lock — a PRODUCT-level property (a region-locked SKU is a
+   * different kinguinId entirely, e.g. "Hollow Knight EU..." vs plain
+   * "Hollow Knight..."), not per-offer. "REGION FREE" + empty
+   * countryLimitation means no restriction. Otherwise countryLimitation
+   * is a BLACKLIST of ISO country codes where the key will NOT activate —
+   * confirmed live: a "EUROPE" product's list included "UZ" alongside
+   * ~150 other non-EU countries. See isBlockedInUzbekistan().
+   */
+  regionalLimitations?: string;
+  countryLimitation?: string[];
 }
 
 /** GET /v1/products — response envelope */

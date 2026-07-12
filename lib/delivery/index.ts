@@ -30,6 +30,9 @@ export async function processDelivery(orderId: string): Promise<DeliveryResult> 
   if (order.status === 'COMPLETED') {
     throw new DeliveryError('Order already completed', 'ALREADY_COMPLETED', 409);
   }
+  if (order.status === 'CANCELLED') {
+    throw new DeliveryError('Cannot deliver a cancelled order', 'ORDER_CANCELLED', 409);
+  }
 
   await auditLog(orderId, 'ORDER_PAID');
 
@@ -48,6 +51,7 @@ export async function processDelivery(orderId: string): Promise<DeliveryResult> 
       price:        i.price,
       source:       i.game?.dropshipSource     ?? null,
       externalId:   i.game?.dropshipExternalId ?? null,
+      keyValue:     i.keyValue,
     })),
   };
 

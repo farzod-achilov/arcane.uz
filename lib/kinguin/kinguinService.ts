@@ -1,6 +1,6 @@
 import { isKinguinEnabled, KINGUIN_CONFIG } from './config';
 import { fetchAllProducts, fetchProductById, purchaseProduct, fetchBalance, buildTopUpUrl } from './client';
-import { mapProductsToArcane, cheapestInStockOffer } from './productMapper';
+import { mapProductsToArcane, cheapestInStockOffer, isBlockedInUzbekistan } from './productMapper';
 import { kinguinCache, CK } from './cache';
 import { products as mockProducts } from '@/lib/mockData';
 import type { Product } from '@/lib/types';
@@ -114,6 +114,15 @@ export async function purchaseKey(externalId: string): Promise<KinguinPurchaseRe
     product = await fetchProductById(kinguinId);
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : `Failed to look up Kinguin product ${kinguinId}` };
+  }
+
+  // Safety net, not the primary defense — the add-form already excludes
+  // region-locked products from being linked in the first place. This
+  // catches the case where a product's own region policy changes AFTER
+  // it was linked (Kinguin controls that, not us). Failing here routes
+  // the order to WAITING_MANUAL instead of ever buying a dead key.
+  if (isBlockedInUzbekistan(product)) {
+    return { ok: false, error: `Kinguin product ${kinguinId} is region-locked and will not activate in Uzbekistan` };
   }
 
   const cheapest = cheapestInStockOffer(product);
