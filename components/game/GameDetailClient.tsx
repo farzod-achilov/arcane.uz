@@ -974,7 +974,7 @@ export default function GameDetailClient({
 
         {/* ── Activation guide ── */}
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-10">
-          <ActivationGuide productType={productType} isManual={isManual} />
+          <ActivationGuide productType={productType} isManual={isManual} platforms={game.platforms} />
         </div>
 
         {/* ── Trust indicators ── */}
