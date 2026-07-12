@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAdminOrSyncSecret } from '@/lib/apiGuard';
 import { isKinguinEnabled, searchProductsByName } from '@/lib/kinguin';
 import { normalizeSearchResults, pickBestBaseGameOffer, type KinguinSearchResult } from '@/lib/kinguin/basePicker';
+import { getEurUsdRate } from '@/lib/shared/fxRate';
 
 /* ─────────────────────────────────────────────────────────
    POST /api/admin/dropship/bulk-search-kinguin
@@ -51,11 +52,12 @@ export async function POST(req: Request) {
   }
 
   const results: TitleResult[] = [];
+  const eurUsdRate = await getEurUsdRate();
 
   for (const query of titles) {
     try {
       const items = await searchProductsByName(query, 15);
-      const candidates = normalizeSearchResults(items);
+      const candidates = normalizeSearchResults(items, eurUsdRate);
       const picked = pickBestBaseGameOffer(candidates, query);
       results.push({
         query, picked, candidates,

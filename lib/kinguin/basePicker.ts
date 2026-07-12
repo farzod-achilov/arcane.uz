@@ -26,7 +26,10 @@ export interface KinguinSearchResult {
   inStock:   boolean;
 }
 
-export function normalizeSearchResults(items: KinguinProductItem[]): KinguinSearchResult[] {
+// eurUsdRate — Kinguin's own price/offer.price fields are EUR, not USD
+// (see lib/shared/fxRate.ts header comment); costUsd below is what the
+// admin UI shows and what create/create-variant persist as game cost.
+export function normalizeSearchResults(items: KinguinProductItem[], eurUsdRate: number): KinguinSearchResult[] {
   return items
     .filter(item => !isBlockedInUzbekistan(item))
     .map(item => {
@@ -37,7 +40,7 @@ export function normalizeSearchResults(items: KinguinProductItem[]): KinguinSear
         platform:  item.platform ?? null,
         cover:     item.images?.cover?.thumbnail ?? null,
         genres:    item.genres ?? [],
-        costUsd:   offer?.price ?? item.price,
+        costUsd:   (offer?.price ?? item.price) * eurUsdRate,
         inStock:   Boolean(offer),
       };
     });

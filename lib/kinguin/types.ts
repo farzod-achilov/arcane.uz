@@ -11,6 +11,15 @@
    Actual purchasing is per-`offer` — each offer has its own
    `offerId`, `price`, `availableQty`, `merchantName`. Ordering
    must reference a specific offerId (see KinguinOrderRequest).
+
+   CORRECTED 2026-07-13: both `price` fields below are EUR, not USD —
+   confirmed against the same reference repo's api/products/v1/README.md
+   ("Cheapest offer price in EUR" / "Offer price in EUR") and against a
+   live comparison (this API returned 10.47 for a product a human had just
+   seen listed as €10.46 on kinguin.net). Every call site that reads these
+   now converts through lib/shared/fxRate.ts's getEurUsdRate() before
+   treating the result as USD — except the raw value handed back to
+   POST /v1/order, which must echo Kinguin's own EUR number unconverted.
 ───────────────────────────────────────────────────────── */
 
 /** GET /v1/products — one item in `results` */
@@ -18,14 +27,14 @@ export interface KinguinProductItem {
   kinguinId: number;
   productId: string; // Mongo-style id, distinct from the numeric kinguinId
   name: string;
-  price: number; // USD, major units — reference price, NOT orderable directly
+  price: number; // EUR, major units — reference price, NOT orderable directly
   qty: number;   // aggregate across all offers — NOT orderable directly
   platform?: string; // single string, e.g. "Steam" | "Ubisoft" | "Origin"
   genres?: string[];
   images?: { cover?: { thumbnail?: string }; screenshots?: Array<{ url?: string; thumbnail?: string }> };
   offers?: Array<{
     offerId: string;
-    price: number;
+    price: number; // EUR, major units — see header comment
     qty: number;
     availableQty: number; // the actually-purchasable count for THIS offer
     merchantName?: string;

@@ -35,21 +35,29 @@ export function cheapestInStockOffer(item: KinguinProductItem) {
     : undefined;
 }
 
-export function normalizeProduct(item: KinguinProductItem): KinguinNormalizedProduct {
+/**
+ * eurUsdRate — Kinguin's own price/offer.price fields are EUR (see
+ * lib/shared/fxRate.ts header comment), converted to USD here since
+ * everything downstream (KinguinNormalizedProduct.priceUsd, game_pricing,
+ * Smart Pricing) assumes USD.
+ */
+export function normalizeProduct(item: KinguinProductItem, eurUsdRate: number): KinguinNormalizedProduct {
   const cheapest = cheapestInStockOffer(item);
+  const priceEur = cheapest?.price ?? item.price;
+  const priceUsd = priceEur * eurUsdRate;
 
   return {
     kinguinId: item.kinguinId,
     title: item.name,
-    priceUsd: cheapest?.price ?? item.price,
-    priceUzs: usdToUzs(cheapest?.price ?? item.price),
+    priceUsd,
+    priceUzs: usdToUzs(priceUsd),
     inStock: Boolean(cheapest),
     imageUrl: item.images?.cover?.thumbnail || `https://picsum.photos/seed/kinguin${item.kinguinId}/400/550`,
     platform: item.platform ?? 'PC',
     purchaseUrl: buildPurchaseUrl(item.kinguinId),
     lastSynced: new Date().toISOString(),
     cheapestOfferId: cheapest?.offerId,
-    cheapestOfferPriceUsd: cheapest?.price,
+    cheapestOfferPriceUsd: cheapest ? cheapest.price * eurUsdRate : undefined,
   };
 }
 
@@ -90,6 +98,6 @@ export function toArcaneProduct(norm: KinguinNormalizedProduct): Product {
   };
 }
 
-export function mapProductsToArcane(items: KinguinProductItem[]): Product[] {
-  return items.map(i => toArcaneProduct(normalizeProduct(i)));
+export function mapProductsToArcane(items: KinguinProductItem[], eurUsdRate: number): Product[] {
+  return items.map(i => toArcaneProduct(normalizeProduct(i, eurUsdRate)));
 }

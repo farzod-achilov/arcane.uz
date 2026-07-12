@@ -7,6 +7,7 @@ import { fetchProductById } from '@/lib/kinguin/client';
 import { cheapestInStockOffer } from '@/lib/kinguin/productMapper';
 import { isKinguinEnabled } from '@/lib/kinguin';
 import { requireAdmin } from '@/lib/apiGuard';
+import { getEurUsdRate } from '@/lib/shared/fxRate';
 
 /* ─────────────────────────────────────────────────────────
    POST /api/admin/pricing/dropship-reprice
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
   });
   const pricingMap = new Map(pricingRows.map(p => [p.gameId, p]));
 
-  const [settings, currency] = await Promise.all([getPriceSettings(), getCurrencySettings()]);
+  const [settings, currency, eurUsdRate] = await Promise.all([getPriceSettings(), getCurrencySettings(), getEurUsdRate()]);
   const engine = new PriceEngineService(settings, currency);
 
   type Item = {
@@ -100,10 +101,12 @@ export async function POST(request: Request) {
 
     let costUsd: number;
     try {
-      const product = await fetchProductById(Number(game.dropshipExternalId));
-      const offer   = cheapestInStockOffer(product);
-      costUsd       = offer?.price ?? product.price;
-      if (!costUsd || costUsd <= 0) throw new Error('supplier returned zero price');
+      const product   = await fetchProductById(Number(game.dropshipExternalId));
+      const offer      = cheapestInStockOffer(product);
+      const costEur    = offer?.price ?? product.price;
+      if (!costEur || costEur <= 0) throw new Error('supplier returned zero price');
+      // Kinguin's price/offer.price are EUR — see lib/kinguin/types.ts header comment
+      costUsd = costEur * eurUsdRate;
     } catch (err) {
       items.push({
         title: game.title, costUsd: null, oldPriceUzs: oldUzs, newPriceUzs: oldUzs,

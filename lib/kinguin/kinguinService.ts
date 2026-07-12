@@ -5,6 +5,7 @@ import { usdToUzs } from './pricingMapper';
 import { kinguinCache, CK } from './cache';
 import { products as mockProducts } from '@/lib/mockData';
 import { DEFAULT_PRICE_SETTINGS } from '@/lib/smartPricing/engine';
+import { getEurUsdRate } from '@/lib/shared/fxRate';
 import type { Product } from '@/lib/types';
 import type { SyncResult, KinguinPurchaseResult } from './types';
 
@@ -20,8 +21,8 @@ export async function getProducts(): Promise<Product[]> {
   const cached = kinguinCache.get<Product[]>(CK.productList());
   if (cached) return cached;
 
-  const items = await fetchAllProducts();
-  const products = mapProductsToArcane(items);
+  const [items, eurUsdRate] = await Promise.all([fetchAllProducts(), getEurUsdRate()]);
+  const products = mapProductsToArcane(items, eurUsdRate);
 
   kinguinCache.set(CK.productList(), products, KINGUIN_CONFIG.cacheTtl.productList);
   return products;
@@ -58,8 +59,8 @@ export async function syncProducts(): Promise<SyncResult> {
   kinguinCache.invalidatePrefix('kinguin:product');
 
   try {
-    const items = await fetchAllProducts();
-    const products = mapProductsToArcane(items);
+    const [items, eurUsdRate] = await Promise.all([fetchAllProducts(), getEurUsdRate()]);
+    const products = mapProductsToArcane(items, eurUsdRate);
     kinguinCache.set(CK.productList(), products, KINGUIN_CONFIG.cacheTtl.productList);
 
     const result: SyncResult = {
@@ -140,7 +141,12 @@ export async function purchaseKey(externalId: string, expectedSalePriceUzs?: num
   }
 
   if (expectedSalePriceUzs != null) {
-    const actualCostUzs = usdToUzs(cheapest.price);
+    // cheapest.price is EUR (Kinguin's own currency) — convert before
+    // comparing against minimumProfitUsd, or this check understates the
+    // real cost by ~the EUR/USD spread and can wave through a purchase
+    // that's actually below the minimum profit (or a loss).
+    const eurUsdRate = await getEurUsdRate();
+    const actualCostUzs = usdToUzs(cheapest.price * eurUsdRate);
     const minProfitUzs = usdToUzs(DEFAULT_PRICE_SETTINGS.minimumProfitUsd);
     if (actualCostUzs + minProfitUzs > expectedSalePriceUzs) {
       return {
@@ -153,7 +159,7 @@ export async function purchaseKey(externalId: string, expectedSalePriceUzs?: num
   return purchaseProduct(kinguinId, cheapest.price, cheapest.offerId);
 }
 
-/** Current merchant account balance (USD) — null if not configured or the lookup fails */
+/** Current merchant account balance (EUR — see client.ts's fetchBalance) — null if not configured or the lookup fails */
 export async function getBalance(): Promise<number | null> {
   if (!isKinguinEnabled()) return null;
   try {

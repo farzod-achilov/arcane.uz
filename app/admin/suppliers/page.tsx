@@ -29,6 +29,10 @@ const SUPPLIERS = [
     disabledHint: 'добавьте KINGUIN_MERCHANT_API_KEY',
     color: '#06B6D4',
     balanceEndpoint: '/api/kinguin/balance',
+    // Kinguin's own API bills in EUR (confirmed against their reference
+    // docs — see lib/kinguin/types.ts) — showing "$" here would be wrong,
+    // not just a rounding difference.
+    balanceCurrency: '€',
   },
   {
     key: 'eneba',
@@ -88,6 +92,7 @@ export default function AdminSuppliersPage() {
             disabledHint={s.disabledHint}
             color={s.color}
             balanceEndpoint={'balanceEndpoint' in s ? s.balanceEndpoint : undefined}
+            balanceCurrency={'balanceCurrency' in s ? s.balanceCurrency : undefined}
           />
         ))}
       </div>

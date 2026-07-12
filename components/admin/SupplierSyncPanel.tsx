@@ -25,9 +25,11 @@ export interface SupplierSyncPanelProps {
   color: string;
   /** Optional — when set, fetches and shows a wallet balance + top-up button */
   balanceEndpoint?: string;
+  /** Currency symbol for the balance figure — the supplier's own billing currency, not necessarily USD */
+  balanceCurrency?: string;
 }
 
-export default function SupplierSyncPanel({ name, statusEndpoint, syncEndpoint, disabledHint, color, balanceEndpoint }: SupplierSyncPanelProps) {
+export default function SupplierSyncPanel({ name, statusEndpoint, syncEndpoint, disabledHint, color, balanceEndpoint, balanceCurrency = '$' }: SupplierSyncPanelProps) {
   const [sync, setSync] = useState<SyncState>({ status: 'idle' });
   const [balance, setBalance] = useState<BalanceState>({ loading: Boolean(balanceEndpoint) });
 
@@ -82,7 +84,7 @@ export default function SupplierSyncPanel({ name, statusEndpoint, syncEndpoint, 
                     style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)' }}>
                 <Wallet style={{ width: '10px', height: '10px', color: '#22C55E' }} />
                 <span className="font-body" style={{ fontSize: '11px', color: '#22C55E' }}>
-                  ${balance.balanceUsd.toFixed(2)}
+                  {balanceCurrency}{balance.balanceUsd.toFixed(2)}
                 </span>
               </span>
             )}

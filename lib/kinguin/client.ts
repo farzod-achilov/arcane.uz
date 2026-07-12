@@ -155,7 +155,7 @@ export function buildPurchaseUrl(kinguinId: number): string {
   return `https://www.kinguin.net/category/${kinguinId}`;
 }
 
-/** GET /v1/balance — current merchant account balance (USD, major units) */
+/** GET /v1/balance — current merchant account balance (EUR, major units — same billing currency as /v1/products) */
 export async function fetchBalance(): Promise<number> {
   const res = await fetchWithTimeout(`${KINGUIN_CONFIG.apiBaseUrl}/v1/balance`, {
     headers: authHeaders(),
