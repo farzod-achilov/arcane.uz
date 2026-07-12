@@ -135,6 +135,9 @@ function VariantsEditor({ gameId, gameTitle }: { gameId: string; gameTitle: stri
       const json = await res.json();
       if (json.ok) {
         setVariants(prev => prev!.map(v => v.id === id ? { ...v, priceUzs: json.variant.priceUzs } : v));
+        // Drop any unsaved manual edit — the input remounts (keyed on
+        // priceUzs) and would otherwise reapply a now-stale draft on blur.
+        setDrafts(prev => { const { [id]: _drop, ...rest } = prev; return rest; });
       } else {
         alert(json.error ?? 'Не удалось обновить цену');
       }
@@ -274,6 +277,7 @@ function VariantsEditor({ gameId, gameTitle }: { gameId: string; gameTitle: stri
                   {v.label}
                 </span>
                 <input
+                  key={`price-${v.id}-${v.priceUzs}`}
                   type="number"
                   defaultValue={v.priceUzs}
                   onChange={e => setDrafts(prev => ({ ...prev, [v.id]: e.target.value }))}
