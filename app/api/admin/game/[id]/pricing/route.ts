@@ -30,6 +30,15 @@ export async function PATCH(req: Request, { params }: Ctx) {
   if (guard) return guard;
 
   try {
+    // Games with active purchase variants (game_variants) have their own
+    // per-variant price/dropship SKU — games.priceUzs there is a synced
+    // "starting from" minimum. This form edits a single supplierPriceUsd,
+    // which has no defined meaning once multiple SKUs exist for one game.
+    const activeVariants = await prisma.game_variants.count({ where: { gameId: params.id, isActive: true } });
+    if (activeVariants > 0) {
+      return NextResponse.json({ success: false, error: 'У игры есть варианты покупки — редактируйте цену через список вариантов' }, { status: 409 });
+    }
+
     const body = await req.json() as {
       supplierPriceUsd?:      number;
       steamPriceUsd?:         number | null;

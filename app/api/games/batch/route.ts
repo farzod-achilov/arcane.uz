@@ -20,6 +20,10 @@ export async function GET(req: NextRequest) {
       platforms:    true,
       deliveryType: true,
       stockStore:   true,
+      variants: {
+        where:  { isActive: true },
+        select: { id: true, label: true, priceUzs: true },
+      },
     },
   });
 

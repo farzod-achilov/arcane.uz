@@ -36,6 +36,85 @@ const DELIVERY_TYPE_META = {
   DROPSHIP: { label: 'Dropship', color: '#F59E0B', Icon: Truck },
 } as const;
 
+/* ── Variant list editor (within EditModal) ───────────────────────── */
+interface VariantRow {
+  id:       string;
+  label:    string;
+  priceUzs: number;
+  isActive: boolean;
+}
+
+function VariantsEditor({ gameId }: { gameId: string }) {
+  const [variants, setVariants] = useState<VariantRow[] | null>(null);
+  const [drafts,   setDrafts]   = useState<Record<string, string>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/admin/game-variants?gameId=${gameId}`)
+      .then(r => r.json())
+      .then(json => { if (json.ok) setVariants(json.variants); })
+      .catch(() => setVariants([]));
+  }, [gameId]);
+
+  if (variants === null) {
+    return <Loader2 className="w-4 h-4 animate-spin text-[#6B7280]" />;
+  }
+  if (variants.length === 0) return null;
+
+  async function patchVariant(id: string, data: { isActive?: boolean; priceUzs?: number }) {
+    setSavingId(id);
+    try {
+      const res  = await fetch(`/api/admin/game-variants/${id}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setVariants(prev => prev!.map(v => v.id === id ? { ...v, ...json.variant } : v));
+      }
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  return (
+    <div>
+      <p className="font-pixel text-[#4B5563] mb-2" style={{ fontSize: '8px', letterSpacing: '0.1em' }}>ВАРИАНТЫ ПОКУПКИ</p>
+      <div className="space-y-2">
+        {variants.map(v => (
+          <div key={v.id} className="flex items-center gap-2 rounded-xl px-3 py-2"
+               style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <span className="font-body text-white flex-1 truncate" style={{ fontSize: '12.5px', opacity: v.isActive ? 1 : 0.4 }}>
+              {v.label}
+            </span>
+            <input
+              type="number"
+              defaultValue={v.priceUzs}
+              onChange={e => setDrafts(prev => ({ ...prev, [v.id]: e.target.value }))}
+              onBlur={() => {
+                const draft = drafts[v.id];
+                if (draft && Number(draft) > 0 && Number(draft) !== v.priceUzs) patchVariant(v.id, { priceUzs: Number(draft) });
+              }}
+              className="w-24 rounded-lg px-2 py-1 font-body text-white text-xs outline-none"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+            />
+            <button
+              onClick={() => patchVariant(v.id, { isActive: !v.isActive })}
+              disabled={savingId === v.id}
+              className="p-1.5 rounded-lg flex-shrink-0 transition-colors"
+              style={{ color: v.isActive ? '#22C55E' : '#4B5563' }}
+              title={v.isActive ? 'Скрыть вариант' : 'Показать вариант'}
+            >
+              {savingId === v.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : v.isActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ── Edit Modal ─────────────────────────────────────────────────── */
 function EditModal({ game, onClose, onSaved }: { game: GameRow; onClose: () => void; onSaved: (g: Partial<GameRow>) => void }) {
   const [saving, setSaving]     = useState(false);
@@ -112,6 +191,8 @@ function EditModal({ game, onClose, onSaved }: { game: GameRow; onClose: () => v
             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
           />
         </div>
+
+        <VariantsEditor gameId={game.id} />
 
         <button
           onClick={save}

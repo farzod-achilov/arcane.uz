@@ -31,7 +31,8 @@ function validateCreateOrder(body: unknown): CreateOrderDto {
     if (typeof it.gameId !== 'string' || !it.gameId.trim()) {
       throw new OrderError(`items[${idx}].gameId is required`, 'INVALID_ITEM', 400);
     }
-    return { gameId: it.gameId.trim() };
+    const variantId = typeof it.variantId === 'string' && it.variantId.trim() ? it.variantId.trim() : undefined;
+    return { gameId: it.gameId.trim(), variantId };
   });
 
   if (items.length > 10) {

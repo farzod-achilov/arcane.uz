@@ -21,6 +21,8 @@ import { useCart } from '@/lib/cartContext';
 /* ── Types ────────────────────────────────────────────── */
 interface CheckoutItem {
   gameId:       string;
+  variantId?:   string;
+  label?:       string;
   title:        string;
   cover:        string | null;
   priceUzs:     number;
@@ -143,7 +145,7 @@ function OrderSummary({
         <div className="px-5 py-4 space-y-3"
              style={{ borderBottom: '1px solid rgba(255,255,255,0.055)' }}>
           {items.map(item => (
-            <div key={item.gameId} className="flex items-center gap-3">
+            <div key={`${item.gameId}:${item.variantId ?? ''}`} className="flex items-center gap-3">
               <div className="relative w-10 h-12 rounded-xl overflow-hidden flex-shrink-0">
                 {item.cover
                   ? <Image src={item.cover} alt={item.title} fill className="object-cover" unoptimized />
@@ -153,7 +155,7 @@ function OrderSummary({
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-heading font-semibold text-white line-clamp-1" style={{ fontSize: '12.5px' }}>
-                  {item.title}
+                  {item.title}{item.label && <span className="text-[#6B7280]"> · {item.label}</span>}
                 </p>
                 <DeliveryBadge type={item.deliveryType} />
               </div>
@@ -283,14 +285,16 @@ function SuccessView({ orderId, items, total, email }: {
           className="rounded-2xl p-5 mb-6 text-left"
           style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)' }}>
           {items.map(item => (
-            <div key={item.gameId} className="flex items-center gap-3">
+            <div key={`${item.gameId}:${item.variantId ?? ''}`} className="flex items-center gap-3">
               <div className="relative w-10 h-12 rounded-lg overflow-hidden flex-shrink-0">
                 {item.cover
                   ? <Image src={item.cover} alt={item.title} fill unoptimized className="object-cover" />
                   : <div className="w-full h-full" style={{ background: 'rgba(124,58,237,0.1)' }} />}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-body text-white" style={{ fontSize: '13px' }}>{item.title}</p>
+                <p className="font-body text-white" style={{ fontSize: '13px' }}>
+                  {item.title}{item.label && <span className="text-[#6B7280]"> · {item.label}</span>}
+                </p>
                 <DeliveryBadge type={item.deliveryType} />
               </div>
               <span className="font-heading font-bold text-[#22C55E]" style={{ fontSize: '14px' }}>
@@ -328,7 +332,7 @@ function SuccessView({ orderId, items, total, email }: {
 function CheckoutInner() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
-  const { gameIds, removeGame, clear: clearCart } = useCart();
+  const { items: cartLines, removeGame, clear: clearCart } = useCart();
 
   const [step, setStep]               = useState<Step>('cart');
   const [items, setItems]             = useState<CheckoutItem[]>([]);
@@ -368,25 +372,31 @@ function CheckoutInner() {
 
   // Load games: from URL param (buy-now) or from cart
   useEffect(() => {
-    const urlGameId = searchParams.get('gameId');
-    const idsToLoad = urlGameId ? [urlGameId] : gameIds;
+    const urlGameId    = searchParams.get('gameId');
+    const urlVariantId = searchParams.get('variantId') ?? undefined;
+    const linesToLoad  = urlGameId ? [{ gameId: urlGameId, variantId: urlVariantId }] : cartLines;
 
-    if (idsToLoad.length === 0) { setLoadingGame(false); return; }
+    if (linesToLoad.length === 0) { setLoadingGame(false); return; }
 
     setLoadingGame(true);
     Promise.all(
-      idsToLoad.map(id =>
-        fetch(`/api/arcane/games/${id}`)
+      linesToLoad.map(line =>
+        fetch(`/api/arcane/games/${line.gameId}${line.variantId ? `?variantId=${line.variantId}` : ''}`)
           .then(r => r.json())
           .catch(() => null)
       )
     )
       .then(results => {
-        type GameData = { id: string; title: string; cover: string | null; priceUzs: number | null; deliveryType: string };
+        type GameData = {
+          id: string; title: string; cover: string | null; priceUzs: number | null; deliveryType: string;
+          variantId?: string; variantLabel?: string;
+        };
         const loaded = results
           .filter((d): d is { success: true; data: GameData } => d?.success && !!d.data)
           .map(d => ({
             gameId:       d.data.id,
+            variantId:    d.data.variantId,
+            label:        d.data.variantLabel,
             title:        d.data.title,
             cover:        d.data.cover,
             priceUzs:     d.data.priceUzs ?? 0,
@@ -396,7 +406,7 @@ function CheckoutInner() {
       })
       .finally(() => setLoadingGame(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, gameIds.join(',')]); // join to avoid infinite loop on array ref
+  }, [searchParams, cartLines.map(l => `${l.gameId}:${l.variantId ?? ''}`).join(',')]);
 
   const subtotal      = items.reduce((s, i) => s + i.priceUzs, 0);
   const coinsDiscount = useCoins ? Math.min(userArcCoins, Math.round(subtotal * 0.1)) : 0;
@@ -439,7 +449,7 @@ function CheckoutInner() {
           headers: { 'Content-Type': 'application/json' },
           body:    JSON.stringify({
             userId:        (session.user as { id: string }).id,
-            items:         items.map(i => ({ gameId: i.gameId })),
+            items:         items.map(i => ({ gameId: i.gameId, variantId: i.variantId })),
             paymentMethod: payMethod === 'balance' ? 'balance' : undefined,
             promoId:       promoData?.promoId ?? undefined,
             coinsToUse:    useCoins && coinsDiscount > 0 ? Math.ceil(coinsDiscount / 10) : 0,
@@ -462,9 +472,9 @@ function CheckoutInner() {
     }
   };
 
-  const removeItem = (gameId: string) => {
-    setItems(prev => prev.filter(i => i.gameId !== gameId));
-    removeGame(gameId);
+  const removeItem = (gameId: string, variantId?: string) => {
+    setItems(prev => prev.filter(i => !(i.gameId === gameId && (i.variantId ?? undefined) === variantId)));
+    removeGame(gameId, variantId);
   };
 
   // Auth guard
@@ -562,7 +572,7 @@ function CheckoutInner() {
                       ) : (
                         <div className="divide-y divide-white/[0.05]">
                           {items.map(item => (
-                            <div key={item.gameId} className="flex gap-4 px-5 py-4">
+                            <div key={`${item.gameId}:${item.variantId ?? ''}`} className="flex gap-4 px-5 py-4">
                               <div className="relative w-14 rounded-xl overflow-hidden flex-shrink-0" style={{ height: '72px' }}>
                                 {item.cover
                                   ? <Image src={item.cover} alt={item.title} fill className="object-cover" unoptimized />
@@ -574,14 +584,14 @@ function CheckoutInner() {
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="min-w-0">
                                     <h3 className="font-heading font-semibold text-white line-clamp-1" style={{ fontSize: '14px' }}>
-                                      {item.title}
+                                      {item.title}{item.label && <span className="text-[#6B7280]"> · {item.label}</span>}
                                     </h3>
                                     <div className="flex items-center gap-2 mt-1">
                                       <DeliveryBadge type={item.deliveryType} />
                                     </div>
                                   </div>
                                   <button
-                                    onClick={() => removeItem(item.gameId)}
+                                    onClick={() => removeItem(item.gameId, item.variantId)}
                                     className="p-1.5 rounded-lg transition-all duration-200 text-[#374151] hover:text-[#F87171] hover:bg-red-400/10 flex-shrink-0">
                                     <Trash2 style={{ width: '14px', height: '14px' }} />
                                   </button>

@@ -134,12 +134,43 @@ model games {
   wishlists         wishlists[]
   reviews           reviews[]
   discounts         discounts[]
+  variants          game_variants[]
 
   @@unique([externalId, source])
   @@index([slug])
   @@index([isActive])
   @@index([isActive, createdAt])
   @@index([salesCount])
+}
+
+// Purchase variants of one game — e.g. "Ключ" vs "Аккаунт" on the same
+// product card, each its own price + dropship SKU. Purely additive: a game
+// with zero rows here behaves exactly as before this model existed (games'
+// own priceUzs/deliveryType/dropshipSource/dropshipExternalId stay the
+// source of truth). When a game HAS active variants, games.priceUzs is kept
+// in sync as the minimum active variant price (see lib/db/gameVariants.ts's
+// syncGameFromVariants) so catalog filter/sort-by-price needs no changes.
+// No delete route is ever built for this model — a variant is retired via
+// isActive=false only, so order_items.variantId never dangles.
+model game_variants {
+  id                 String       @id @default(cuid())
+  gameId             String       @map("game_id")
+  label              String
+  productType        ProductType  @default(KEY)
+  deliveryType       DeliveryType @default(DROPSHIP)
+  dropshipSource     String?
+  dropshipExternalId String?
+  priceUzs           Int
+  priceUsd           Float?
+  sortOrder          Int          @default(0)
+  isActive           Boolean      @default(true)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  game        games         @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  order_items order_items[]
+
+  @@index([gameId])
 }
 
 model discounts {
@@ -716,13 +747,19 @@ model order_items {
   id          String    @id @default(cuid())
   orderId     String    @map("order_id")
   gameId      String    @map("game_id")
+  // Which purchase variant (e.g. "Ключ" vs "Аккаунт") this line is for —
+  // null means the game's own price/dropship config was used, exactly as
+  // before game_variants existed. No onDelete: Cascade — variants are only
+  // ever deactivated (isActive=false), never deleted, so this FK never dangles.
+  variantId   String?   @map("variant_id")
   price       Int
   keyValue    String?   @map("key_value")
   deliveredAt DateTime? @map("delivered_at")
   createdAt   DateTime  @default(now()) @map("created_at")
 
-  order orders @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  game  games  @relation(fields: [gameId], references: [id])
+  order   orders         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  game    games          @relation(fields: [gameId], references: [id])
+  variant game_variants? @relation(fields: [variantId], references: [id])
 
   @@index([orderId])
 }

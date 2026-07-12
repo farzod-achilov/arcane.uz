@@ -17,21 +17,32 @@ interface CartItemData {
   platforms:    string[];
   deliveryType: string;
   stockStore:   number;
+  variants:     Array<{ id: string; label: string; priceUzs: number }>;
+}
+
+// One rendered row per cart LINE (not per unique game) — a customer who
+// added two variants of the same game (e.g. "Ключ" + "Аккаунт") must see
+// two rows, otherwise the drawer looks like it silently dropped one.
+interface CartRow {
+  line:  { gameId: string; variantId?: string };
+  game:  CartItemData;
+  label: string | null;
+  price: number | null;
 }
 
 export default function CartDrawer() {
-  const { gameIds, removeGame, count, isOpen, closeCart } = useCart();
-  const [items,   setItems]   = useState<CartItemData[]>([]);
+  const { items: cartLines, gameIds, removeGame, count, isOpen, closeCart } = useCart();
+  const [games,   setGames]   = useState<CartItemData[]>([]);
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async (ids: string[]) => {
-    if (!ids.length) { setItems([]); return; }
+    if (!ids.length) { setGames([]); return; }
     setLoading(true);
     try {
       const res  = await fetch(`/api/games/batch?ids=${ids.join(',')}`);
       const data = await res.json() as { items?: CartItemData[] };
-      setItems(data.items ?? []);
-    } catch { setItems([]); }
+      setGames(data.items ?? []);
+    } catch { setGames([]); }
     finally  { setLoading(false); }
   }, []);
 
@@ -40,13 +51,27 @@ export default function CartDrawer() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  // Re-sync items list when a game is removed while drawer is open
+  // Re-sync games list when a game is removed while drawer is open
   useEffect(() => {
     if (!isOpen) return;
-    setItems(prev => prev.filter(g => gameIds.includes(g.id)));
+    setGames(prev => prev.filter(g => gameIds.includes(g.id)));
   }, [gameIds, isOpen]);
 
-  const total = items.reduce((s, g) => s + (g.priceUzs ?? 0), 0);
+  const rows: CartRow[] = cartLines
+    .map(line => {
+      const game = games.find(g => g.id === line.gameId);
+      if (!game) return null;
+      const variant = line.variantId ? game.variants.find(v => v.id === line.variantId) : undefined;
+      return {
+        line,
+        game,
+        label: variant?.label ?? null,
+        price: variant?.priceUzs ?? game.priceUzs,
+      };
+    })
+    .filter((r): r is CartRow => r !== null);
+
+  const total = rows.reduce((s, r) => s + (r.price ?? 0), 0);
 
   return (
     <AnimatePresence>
@@ -133,11 +158,11 @@ export default function CartDrawer() {
                 </div>
               ) : (
                 <div className="p-4 space-y-2.5">
-                  {items.map(g => {
+                  {rows.map(({ line, game: g, label, price }) => {
                     const instant = (g.deliveryType === 'AUTO' && g.stockStore > 0) || g.deliveryType === 'DROPSHIP';
                     return (
                       <motion.div
-                        key={g.id}
+                        key={`${line.gameId}:${line.variantId ?? ''}`}
                         layout
                         initial={{ opacity: 0, x: 16 }}
                         animate={{ opacity: 1, x: 0 }}
@@ -170,12 +195,12 @@ export default function CartDrawer() {
                             className="font-heading font-semibold text-white text-sm leading-snug line-clamp-2 hover:text-[#C4B5FD] transition-colors"
                             style={{ fontSize: '13px' }}
                           >
-                            {g.title}
+                            {g.title}{label && <span className="text-[#6B7280]"> · {label}</span>}
                           </Link>
                           <div className="flex items-center gap-2 mt-1">
                             <p className="font-heading font-bold"
                                style={{ fontSize: '13px', color: '#A78BFA' }}>
-                              {g.priceUzs != null ? formatPrice(g.priceUzs) : '—'}
+                              {price != null ? formatPrice(price) : '—'}
                             </p>
                             {instant && (
                               <div className="flex items-center gap-0.5">
@@ -188,7 +213,7 @@ export default function CartDrawer() {
 
                         {/* Remove */}
                         <button
-                          onClick={() => removeGame(g.id)}
+                          onClick={() => removeGame(line.gameId, line.variantId)}
                           className="p-1.5 rounded-lg flex-shrink-0 self-start transition-colors"
                           style={{ color: '#374151' }}
                           onMouseEnter={e => (e.currentTarget.style.color = '#EF4444')}

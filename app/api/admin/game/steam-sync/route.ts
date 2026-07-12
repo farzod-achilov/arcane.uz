@@ -54,6 +54,15 @@ export async function POST() {
     });
     const pricingMap = new Map(pricingRows.map((p) => [p.gameId, p]));
 
+    // Games with active purchase variants (game_variants) — priceUzs there
+    // is a synced "starting from" minimum, not this single-SKU sync's to write.
+    const variantCounts = await prisma.game_variants.groupBy({
+      by:     ['gameId'],
+      where:  { gameId: { in: games.map((g) => g.id) }, isActive: true },
+      _count: { _all: true },
+    });
+    const gamesWithVariants = new Set(variantCounts.map((v) => v.gameId));
+
     const [settings, currency] = await Promise.all([getPriceSettings(), getCurrencySettings()]);
     const engine = new PriceEngineService(settings, currency);
 
@@ -64,6 +73,12 @@ export async function POST() {
     const details: Array<{ id: string; title: string; status: 'updated' | 'failed' | 'skipped'; oldUzs: number; newUzs: number }> = [];
 
     for (const game of games) {
+      if (gamesWithVariants.has(game.id)) {
+        skipped++;
+        details.push({ id: game.id, title: game.title, status: 'skipped', oldUzs: Number(game.priceUzs ?? 0), newUzs: Number(game.priceUzs ?? 0) });
+        continue;
+      }
+
       const steamData = await fetchSteamPrice(game.externalId!);
       await delay(250);
 

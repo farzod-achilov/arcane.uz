@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { gameStore } from '@/lib/gameStore';
 import { requireAdmin } from '@/lib/apiGuard';
+import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,9 +18,38 @@ function authHeaders() {
 // ── GET /api/arcane/games/[id] ────────────────────────────────────────────────
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: { id: string } }
 ) {
+  // A ?variantId= request always resolves locally — arcane-api (a separate
+  // backend/schema) has no concept of game_variants, so proxying there
+  // would silently ignore the variant and return the game's base price.
+  // This is what checkout uses to charge the price the customer actually
+  // picked (e.g. "Аккаунт" instead of the cheaper "Ключ"), not the
+  // synced-to-minimum games.priceUzs.
+  const variantId = new URL(req.url).searchParams.get('variantId');
+  if (variantId) {
+    const variant = await prisma.game_variants.findUnique({ where: { id: variantId } });
+    if (!variant || variant.gameId !== params.id || !variant.isActive) {
+      return NextResponse.json({ success: false, error: 'Variant not found' }, { status: 404 });
+    }
+    const game = await gameStore.getById(params.id);
+    if (!game) {
+      return NextResponse.json({ success: false, error: 'Game not found' }, { status: 404 });
+    }
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...game,
+        priceUzs:     variant.priceUzs,
+        priceUsd:     variant.priceUsd ?? game.priceUsd,
+        deliveryType: variant.deliveryType,
+        variantId:    variant.id,
+        variantLabel: variant.label,
+      },
+    });
+  }
+
   // 1. Try arcane-api backend first
   try {
     const res = await fetch(`${BACKEND}/api/games/${params.id}`, {

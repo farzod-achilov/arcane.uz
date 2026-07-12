@@ -52,6 +52,17 @@ export async function POST(request: Request) {
   });
   if (games.length === 0) return NextResponse.json({ ok: true, updated: 0, items: [] });
 
+  // Games with active purchase variants (game_variants) have their own
+  // per-variant pricing/dropship SKUs — games.priceUzs there is a synced
+  // "starting from" minimum (see lib/db/gameVariants.ts), not something
+  // this single-SKU reprice should ever overwrite directly.
+  const variantCounts = await prisma.game_variants.groupBy({
+    by:     ['gameId'],
+    where:  { gameId: { in: games.map(g => g.id) }, isActive: true },
+    _count: { _all: true },
+  });
+  const gamesWithVariants = new Set(variantCounts.map(v => v.gameId));
+
   const pricingRows = await prisma.game_pricing.findMany({
     where: { gameId: { in: games.map(g => g.id) } },
   });
@@ -77,6 +88,13 @@ export async function POST(request: Request) {
     // ручную цену админа автоматика не перетирает
     if (strategy === 'MANUAL') {
       items.push({ title: game.title, costUsd: null, oldPriceUzs: oldUzs, newPriceUzs: oldUzs, marginPercent: null, skipped: 'MANUAL strategy' });
+      continue;
+    }
+
+    // has purchase variants — priceUzs here is a synced minimum, not this
+    // game's own single SKU's price; repricing per-variant is a deferred v2
+    if (gamesWithVariants.has(game.id)) {
+      items.push({ title: game.title, costUsd: null, oldPriceUzs: oldUzs, newPriceUzs: oldUzs, marginPercent: null, skipped: 'has purchase variants' });
       continue;
     }
 

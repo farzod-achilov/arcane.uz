@@ -8,11 +8,13 @@ export interface OrderItem {
   id:          string;
   orderId:     string;
   gameId:      string;
+  variantId:   string | null;
   price:       number;
   keyValue:    string | null;
   deliveredAt: Date | null;
   createdAt:   Date;
-  game?: Pick<games, 'id' | 'title' | 'slug' | 'cover'>;
+  game?:    Pick<games, 'id' | 'title' | 'slug' | 'cover'>;
+  variant?: { id: string; label: string } | null;
 }
 
 export interface OrderDelivery {
@@ -59,8 +61,11 @@ export interface Order {
 // ── Request / Response DTOs ────────────────────────────────────────────────────
 
 export interface CreateOrderItemDto {
-  gameId: string;
-  quantity?: number;
+  gameId:     string;
+  // Which purchase variant (e.g. "Ключ" vs "Аккаунт") — omitted means use
+  // the game's own price/dropship config, exactly as before variants existed.
+  variantId?: string;
+  quantity?:  number;
 }
 
 export interface CreateOrderDto {
@@ -118,6 +123,7 @@ export function mapOrder(raw: any): Order {
       id:        it.id,
       orderId:   it.orderId,
       gameId:    it.gameId,
+      variantId: it.variantId ?? null,
       price:     it.price,
       keyValue:    it.keyValue   ?? null,
       deliveredAt: it.deliveredAt ?? null,
@@ -128,6 +134,7 @@ export function mapOrder(raw: any): Order {
         slug:  it.game.slug,
         cover: it.game.cover ?? null,
       } : undefined,
+      variant: it.variant ? { id: it.variant.id, label: it.variant.label } : null,
     })),
     user: raw.user ? {
       id:       raw.user.id,

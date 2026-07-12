@@ -5,9 +5,18 @@ import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import SingleAddFlow from './SingleAddFlow';
 import BulkAddFlow from './BulkAddFlow';
+import AttachVariantFlow from './AttachVariantFlow';
+
+type Mode = 'single' | 'bulk' | 'variant';
 
 export default function AddDropshipGamePage() {
-  const [mode, setMode] = useState<'single' | 'bulk'>('single');
+  const [mode, setMode] = useState<Mode>('single');
+
+  const TABS: Array<{ id: Mode; label: string }> = [
+    { id: 'single',  label: 'Один товар' },
+    { id: 'bulk',    label: 'Пакетное добавление' },
+    { id: 'variant', label: 'Вариант к игре' },
+  ];
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
@@ -28,27 +37,22 @@ export default function AddDropshipGamePage() {
       </div>
 
       <div className="flex gap-2 mb-5">
-        <button onClick={() => setMode('single')}
-          className="flex-1 rounded-xl py-2.5 font-heading font-semibold text-sm transition-all"
-          style={{
-            background: mode === 'single' ? 'rgba(124,58,237,0.15)' : 'rgba(255,255,255,0.03)',
-            border: `1px solid ${mode === 'single' ? 'rgba(124,58,237,0.45)' : 'rgba(255,255,255,0.07)'}`,
-            color: mode === 'single' ? '#A78BFA' : '#6B7280',
-          }}>
-          Один товар
-        </button>
-        <button onClick={() => setMode('bulk')}
-          className="flex-1 rounded-xl py-2.5 font-heading font-semibold text-sm transition-all"
-          style={{
-            background: mode === 'bulk' ? 'rgba(124,58,237,0.15)' : 'rgba(255,255,255,0.03)',
-            border: `1px solid ${mode === 'bulk' ? 'rgba(124,58,237,0.45)' : 'rgba(255,255,255,0.07)'}`,
-            color: mode === 'bulk' ? '#A78BFA' : '#6B7280',
-          }}>
-          Пакетное добавление
-        </button>
+        {TABS.map(tab => (
+          <button key={tab.id} onClick={() => setMode(tab.id)}
+            className="flex-1 rounded-xl py-2.5 font-heading font-semibold text-sm transition-all"
+            style={{
+              background: mode === tab.id ? 'rgba(124,58,237,0.15)' : 'rgba(255,255,255,0.03)',
+              border: `1px solid ${mode === tab.id ? 'rgba(124,58,237,0.45)' : 'rgba(255,255,255,0.07)'}`,
+              color: mode === tab.id ? '#A78BFA' : '#6B7280',
+            }}>
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {mode === 'single' ? <SingleAddFlow /> : <BulkAddFlow />}
+      {mode === 'single' && <SingleAddFlow />}
+      {mode === 'bulk' && <BulkAddFlow />}
+      {mode === 'variant' && <AttachVariantFlow />}
     </div>
   );
 }

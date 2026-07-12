@@ -10,7 +10,8 @@ export { mapOrder } from './types';
 export const ORDER_INCLUDE = {
   items: {
     include: {
-      game: { select: { id: true, title: true, slug: true, cover: true } },
+      game:    { select: { id: true, title: true, slug: true, cover: true } },
+      variant: { select: { id: true, label: true } },
     },
   },
   user: { select: { id: true, email: true, username: true } },
@@ -84,9 +85,28 @@ export async function createOrderTx(dto: CreateOrderDto) {
       throw new OrderError(`Game not found: ${missing}`, 'GAME_NOT_FOUND', 404);
     }
 
+    // 2a. Load & validate any referenced purchase variants (e.g. "Ключ" vs
+    // "Аккаунт") — price/config come from the variant when one was picked,
+    // exactly matching today's game-level behavior when it wasn't.
+    const variantIds = Array.from(new Set(items.map(i => i.variantId).filter((v): v is string => !!v)));
+    const variants = variantIds.length
+      ? await tx.game_variants.findMany({ where: { id: { in: variantIds }, isActive: true } })
+      : [];
+    if (variants.length !== variantIds.length) {
+      const missing = variantIds.find(id => !variants.find(v => v.id === id));
+      throw new OrderError(`Variant not found or inactive: ${missing}`, 'VARIANT_NOT_FOUND', 404);
+    }
+
     const lineItems = items.map(item => {
       const game = games.find(g => g.id === item.gameId)!;
-      return { gameId: game.id, price: game.priceUzs ?? 0 };
+      if (item.variantId) {
+        const variant = variants.find(v => v.id === item.variantId)!;
+        if (variant.gameId !== item.gameId) {
+          throw new OrderError(`Variant ${variant.id} does not belong to game ${item.gameId}`, 'VARIANT_MISMATCH', 400);
+        }
+        return { gameId: game.id, variantId: variant.id, price: variant.priceUzs };
+      }
+      return { gameId: game.id, variantId: null as string | null, price: game.priceUzs ?? 0 };
     });
 
     const subtotal = lineItems.reduce((sum, li) => sum + li.price, 0);
@@ -161,9 +181,10 @@ export async function createOrderTx(dto: CreateOrderDto) {
         status: paymentMethod === 'balance' ? 'PAID' : 'PENDING',
         items: {
           create: lineItems.map(li => ({
-            gameId:   li.gameId,
-            price:    li.price,
-            keyValue: null,
+            gameId:    li.gameId,
+            variantId: li.variantId,
+            price:     li.price,
+            keyValue:  null,
           })),
         },
       },

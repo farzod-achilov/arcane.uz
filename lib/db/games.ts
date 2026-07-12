@@ -9,6 +9,15 @@ const LIST_SELECT = {
   priceUzs: true, priceUsd: true,
   stockStore: true, stockDrop: true, deliveryType: true,
   releaseDate: true, developer: true, description: true,
+  // priceUzs above is kept in sync as the minimum active variant price
+  // (see lib/db/gameVariants.ts's syncGameFromVariants) — this just tells
+  // the UI whether to show a "от" (starting-from) price prefix and lets a
+  // picker be built without a second query.
+  variants: {
+    where:   { isActive: true },
+    orderBy: { sortOrder: 'asc' },
+    select:  { id: true, label: true, priceUzs: true },
+  },
 } as const;
 
 export type GameListItem = Prisma.gamesGetPayload<{ select: typeof LIST_SELECT }>;
@@ -95,6 +104,11 @@ export async function getGameBySlug(slug: string) {
       priceUzs: true, priceUsd: true,
       releaseDate: true, developer: true, publisher: true,
       isActive: true, stockStore: true, deliveryType: true, externalId: true, source: true,
+      variants: {
+        where:   { isActive: true },
+        orderBy: { sortOrder: 'asc' },
+        select:  { id: true, label: true, priceUzs: true, priceUsd: true },
+      },
     },
   });
 }

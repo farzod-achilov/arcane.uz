@@ -25,6 +25,7 @@ import { parseMedia, isVideoMedia, isYouTubeMedia } from '@/lib/media';
 import { useHls, isHlsUrl } from '@/hooks/useHls';
 import type { GameListItem } from '@/lib/db/games';
 import type { getGameBySlug } from '@/lib/db/games';
+import VariantPicker from '@/components/game/VariantPicker';
 
 type GameDetail = NonNullable<Awaited<ReturnType<typeof getGameBySlug>>>;
 
@@ -315,7 +316,18 @@ export default function GameDetailClient({
 
   // Record this game as recently viewed
   useEffect(() => { addId(game.id); }, [game.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const inCart = has(game.id);
+
+  // Purchase variants (e.g. "Ключ" vs "Аккаунт") — defaults to the
+  // cheapest active one. Cart/checkout/price all key off this instead of
+  // the game's own priceUzs whenever the game has variants.
+  const cheapestVariant = game.variants.length
+    ? [...game.variants].sort((a, b) => a.priceUzs - b.priceUzs)[0]
+    : undefined;
+  const [selectedVariantId, setSelectedVariantId] = useState<string | undefined>(cheapestVariant?.id);
+  const selectedVariant = game.variants.find(v => v.id === selectedVariantId);
+  const displayPriceUzs = selectedVariant?.priceUzs ?? game.priceUzs;
+
+  const inCart = has(game.id, selectedVariantId);
 
   const isManual   = game.deliveryType === 'MANUAL';
   const isDropship = game.deliveryType === 'DROPSHIP';
@@ -325,7 +337,7 @@ export default function GameDetailClient({
 
   function handleCart() {
     if (inCart) { openCart(); return; }
-    addGame(game.id);
+    addGame(game.id, selectedVariantId);
     openCart();
   }
 
@@ -581,8 +593,15 @@ export default function GameDetailClient({
                   </span>
                 </div>
 
+                {/* Purchase variant picker (Ключ / Аккаунт / etc.) */}
+                <VariantPicker
+                  variants={game.variants}
+                  selectedId={selectedVariantId}
+                  onSelect={setSelectedVariantId}
+                />
+
                 {/* Price + coins */}
-                {game.priceUzs != null && (
+                {displayPriceUzs != null && (
                   <div className="flex items-center justify-between mb-5">
                     <div>
                       <span className="font-heading font-bold" style={{
@@ -590,9 +609,9 @@ export default function GameDetailClient({
                         letterSpacing: '-0.025em', color: '#fff',
                         textShadow: '0 0 40px rgba(255,255,255,0.08)',
                       }}>
-                        {formatPrice(game.priceUzs)}
+                        {formatPrice(displayPriceUzs)}
                       </span>
-                      {game.priceUsd != null && (
+                      {selectedVariant == null && game.priceUsd != null && (
                         <p className="font-body mt-0.5" style={{ fontSize: '12px', color: '#4B5563' }}>
                           ≈ ${game.priceUsd.toFixed(2)}
                         </p>
@@ -604,7 +623,7 @@ export default function GameDetailClient({
                     }}>
                       <Zap style={{ width: '11px', height: '11px', color: '#9D60FA' }} />
                       <span className="font-heading font-semibold" style={{ color: '#9D60FA', fontSize: '11px' }}>
-                        +{Math.round(game.priceUzs / 1000)} Arcane Coins
+                        +{Math.round(displayPriceUzs / 1000)} Arcane Coins
                       </span>
                     </div>
                   </div>
@@ -616,7 +635,7 @@ export default function GameDetailClient({
                   <div className="flex gap-3">
                     {inStock ? (
                       <Link
-                        href={`/checkout?gameId=${game.id}`}
+                        href={`/checkout?gameId=${game.id}${selectedVariantId ? `&variantId=${selectedVariantId}` : ''}`}
                         className="flex-1 relative overflow-hidden rounded-2xl font-heading font-bold flex items-center justify-center gap-2 text-white"
                         style={{
                           padding: '15px 24px', fontSize: '14px', letterSpacing: '0.02em',

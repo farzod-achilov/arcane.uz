@@ -20,6 +20,11 @@ export async function processDelivery(orderId: string): Promise<DeliveryResult> 
               dropshipSource: true, dropshipExternalId: true,
             },
           },
+          variant: {
+            select: {
+              id: true, deliveryType: true, dropshipSource: true, dropshipExternalId: true,
+            },
+          },
         },
       },
       user: { select: { id: true, email: true, username: true } },
@@ -42,15 +47,18 @@ export async function processDelivery(orderId: string): Promise<DeliveryResult> 
     userEmail:  order.user?.email    ?? '',
     username:   order.user?.username ?? '',
     totalPrice: order.totalPrice,
+    // A variant (e.g. "Ключ" vs "Аккаунт") carries its own delivery
+    // config — resolve from it when the order line picked one, falling
+    // back to the game's own fields exactly as before variants existed.
     items: order.items.map(i => ({
       id:           i.id,
       gameId:       i.gameId,
       gameTitle:    i.game?.title    ?? i.gameId,
       gameCover:    i.game?.cover    ?? null,
-      deliveryType: (i.game?.deliveryType ?? 'MANUAL') as 'AUTO' | 'MANUAL' | 'DROPSHIP',
+      deliveryType: (i.variant?.deliveryType ?? i.game?.deliveryType ?? 'MANUAL') as 'AUTO' | 'MANUAL' | 'DROPSHIP',
       price:        i.price,
-      source:       i.game?.dropshipSource     ?? null,
-      externalId:   i.game?.dropshipExternalId ?? null,
+      source:       i.variant?.dropshipSource     ?? i.game?.dropshipSource     ?? null,
+      externalId:   i.variant?.dropshipExternalId ?? i.game?.dropshipExternalId ?? null,
       keyValue:     i.keyValue,
     })),
   };
