@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import {
   KeyRound, Package, TrendingUp, AlertTriangle,
   ChevronRight, ShoppingBag, Archive,
-  BarChart2, RefreshCw, ExternalLink, FileSpreadsheet,
+  BarChart2, RefreshCw, ExternalLink, FileSpreadsheet, Search, X,
 } from 'lucide-react';
 import StockHealthBadge from '@/components/admin/keys/StockHealthBadge';
 import type { GameStockInfo } from '@/lib/admin/adminKeysTypes';
@@ -16,6 +16,7 @@ import type { GameStockInfo } from '@/lib/admin/adminKeysTypes';
 interface DbGame {
   id: string; title: string; slug: string; cover: string | null;
   isActive: boolean; stockStore: number; stockDrop: number;
+  deliveryType: 'AUTO' | 'MANUAL' | 'DROPSHIP';
   _count: { game_keys: number; order_items: number };
 }
 
@@ -180,6 +181,7 @@ function AlertBanner({ games, type }: { games: GameStockInfo[]; type: 'LOW' | 'C
 /* ── Page ───────────────────────────────────────────────────── */
 export default function KeysAdminPage() {
   const [filter,  setFilter]  = useState<'ALL' | 'OK' | 'LOW' | 'CRITICAL' | 'EMPTY'>('ALL');
+  const [search,  setSearch]  = useState('');
   const [games,   setGames]   = useState<GameStockInfo[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -189,7 +191,12 @@ export default function KeysAdminPage() {
       const res  = await fetch('/api/admin/games?limit=200');
       const data = await res.json();
       if (data.games?.length) {
-        setGames((data.games as DbGame[]).map(toStockInfo));
+        // DROPSHIP games never carry pre-stocked game_keys by design (the
+        // key is bought from the supplier at order time) — including them
+        // here just floods "Нет ключей" with games that were never
+        // supposed to have stock. This page is for AUTO/MANUAL inventory.
+        const stocked = (data.games as DbGame[]).filter(g => g.deliveryType !== 'DROPSHIP');
+        setGames(stocked.map(toStockInfo));
       }
     } finally { setLoading(false); }
   }, []);
@@ -204,7 +211,10 @@ export default function KeysAdminPage() {
   const criticalGames = games.filter(g => g.health === 'CRITICAL');
   const lowGames      = games.filter(g => g.health === 'LOW');
 
-  const filtered = filter === 'ALL' ? games : games.filter(g => g.health === filter);
+  const bySearch = search.trim()
+    ? games.filter(g => g.title.toLowerCase().includes(search.trim().toLowerCase()))
+    : games;
+  const filtered = filter === 'ALL' ? bySearch : bySearch.filter(g => g.health === filter);
 
   const topStats = [
     { title: 'Доступно',  value: totalAvailable, icon: KeyRound,      color: '#22C55E', desc: 'активных ключей'   },
@@ -287,6 +297,24 @@ export default function KeysAdminPage() {
         <AlertBanner games={emptyGames}    type="EMPTY"    />
         <AlertBanner games={criticalGames} type="CRITICAL" />
         <AlertBanner games={lowGames}      type="LOW"      />
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search style={{ width: '14px', height: '14px', color: '#374151', position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Найти игру по названию…"
+          className="w-full rounded-xl pl-9 pr-9 py-2.5 font-body text-white text-sm outline-none"
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+        />
+        {search && (
+          <button onClick={() => setSearch('')}
+                  style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#374151' }}>
+            <X style={{ width: '14px', height: '14px' }} />
+          </button>
+        )}
       </div>
 
       {/* Filter */}
