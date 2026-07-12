@@ -47,6 +47,11 @@ const BLOCK_WORDS = [
   'dlc', 'pre-order', 'preorder', 'bonus', 'season pass', 'expansion pass',
   'soundtrack', ' ost', 'artbook', 'art book', 'currency', 'points',
   'gift card', 'skin pack', 'beta', 'demo', 'trainer',
+  // real incident: "Valheim - Premium Items Pack Manual Delivery" ($5.49)
+  // starts with the search title and has none of the words above, so it
+  // out-priced (and got picked over) the real "Valheim PC Steam CD Key"
+  // ($12.40) — cosmetic add-on packs need their own block words.
+  'items pack', 'manual delivery',
 ];
 
 function isCleanBaseGame(name: string): boolean {

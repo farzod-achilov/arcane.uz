@@ -25,6 +25,19 @@ describe('pickBestBaseGameOffer', () => {
     expect(pickBestBaseGameOffer(results, 'Elden Ring')).toBeNull();
   });
 
+  // Регрессия на реальный инцидент: "Valheim - Premium Items Pack Manual
+  // Delivery" ($5.49) не содержит ни одного старого стоп-слова и совпадает
+  // по префиксу с "Valheim", поэтому обходило по цене настоящий
+  // "Valheim PC Steam CD Key" ($12.40) — товар ушёл в live-каталог под видом
+  // базовой игры, пока не поймали вручную.
+  it('never picks a cosmetic items pack over the real base game (the Valheim incident)', () => {
+    const results = [
+      offer({ kinguinId: 1, name: 'Valheim - Premium Items Pack Manual Delivery', costUsd: 5.49 }),
+      offer({ kinguinId: 2, name: 'Valheim PC Steam CD Key', costUsd: 12.4 }),
+    ];
+    expect(pickBestBaseGameOffer(results, 'Valheim')?.kinguinId).toBe(2);
+  });
+
   it('rejects DLC/bonus/soundtrack listings even when in-stock on Steam', () => {
     const results = [
       offer({ name: 'Baldur\'s Gate - Siege of Dragonspear DLC PC Steam CD Key', costUsd: 2.6 }),
