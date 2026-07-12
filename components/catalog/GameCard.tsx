@@ -20,6 +20,7 @@ interface Props { game: GameListItem; index?: number }
 export default function GameCard({ game, index = 0 }: Props) {
   const cc = useDict().catalog.card;
   const inStock = game.stockStore > 0 || game.deliveryType === 'MANUAL' || game.deliveryType === 'DROPSHIP';
+  const formatLabel = game.productType === 'ACCOUNT' ? cc.account : game.productType === 'GIFT' ? cc.gift : cc.key;
 
   return (
     <motion.div
@@ -115,7 +116,7 @@ export default function GameCard({ game, index = 0 }: Props) {
               )}
               <div className="flex items-center gap-1">
                 <Zap style={{ width: '10px', height: '10px', color: '#22C55E' }} />
-                <span className="font-body text-[#22C55E]" style={{ fontSize: '10px' }}>{cc.key}</span>
+                <span className="font-body text-[#22C55E]" style={{ fontSize: '10px' }}>{formatLabel}</span>
               </div>
             </div>
 

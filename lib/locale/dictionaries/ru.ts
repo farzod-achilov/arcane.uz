@@ -212,6 +212,8 @@ const ru = {
     },
     card: {
       key:        'Ключ',
+      account:    'Аккаунт',
+      gift:       'Подарок',
       noPrice:    'Цена не указана',
       instant:    'Мгновенно',
       outOfStock: 'Нет в наличии',

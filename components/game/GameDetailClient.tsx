@@ -17,6 +17,7 @@ import TrustIndicators from '@/components/product/TrustIndicators';
 import FullscreenGallery from '@/components/product/FullscreenGallery';
 import { useWishlist } from '@/hooks/useWishlist';
 import SocialProof from '@/components/game/SocialProof';
+import ActivationGuide from '@/components/game/ActivationGuide';
 import { useCart } from '@/lib/cartContext';
 import { useRecentlyViewed } from '@/hooks/useRecentlyViewed';
 import { useSession } from 'next-auth/react';
@@ -971,8 +972,13 @@ export default function GameDetailClient({
           </section>
         )}
 
-        {/* ── Trust indicators ── */}
+        {/* ── Activation guide ── */}
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-10">
+          <ActivationGuide productType={productType} isManual={isManual} />
+        </div>
+
+        {/* ── Trust indicators ── */}
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-10 mt-12">
           <TrustIndicators />
         </div>
 

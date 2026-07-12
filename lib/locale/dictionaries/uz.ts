@@ -212,6 +212,8 @@ const uz: Dictionary = {
     },
     card: {
       key:        'Kalit',
+      account:    'Akkaunt',
+      gift:       "Sovg'a",
       noPrice:    "Narx ko'rsatilmagan",
       instant:    'Bir zumda',
       outOfStock: 'Mavjud emas',

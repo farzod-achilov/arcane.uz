@@ -7,7 +7,7 @@ const LIST_SELECT = {
   id: true, title: true, slug: true, cover: true,
   genres: true, platforms: true, rating: true,
   priceUzs: true, priceUsd: true,
-  stockStore: true, stockDrop: true, deliveryType: true,
+  stockStore: true, stockDrop: true, deliveryType: true, productType: true,
   releaseDate: true, developer: true, description: true,
   // priceUzs above is kept in sync as the minimum active variant price
   // (see lib/db/gameVariants.ts's syncGameFromVariants) — this just tells
