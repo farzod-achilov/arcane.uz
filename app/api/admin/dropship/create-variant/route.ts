@@ -100,6 +100,7 @@ export async function POST(req: Request) {
         productType:        inferProductType(body.title ?? ''),
         priceUsd:           result.finalPriceUsd,
         priceUzs,
+        pricingStrategy:    strategy,
       },
     });
     await syncGameFromVariants(tx, gameId);

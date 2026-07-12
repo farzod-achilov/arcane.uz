@@ -162,6 +162,11 @@ model game_variants {
   dropshipExternalId String?
   priceUzs           Int
   priceUsd           Float?
+  // Which Smart Pricing strategy /refresh-price recomputes this variant's
+  // priceUzs with — variants don't share game_pricing (that's one row per
+  // GAME), so each needs its own, unlike the base game which reads
+  // game_pricing.pricingStrategy.
+  pricingStrategy    PricingStrategy @default(GLOBAL)
   sortOrder          Int          @default(0)
   isActive           Boolean      @default(true)
   createdAt          DateTime     @default(now())

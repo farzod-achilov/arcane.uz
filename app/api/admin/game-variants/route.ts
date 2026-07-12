@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   const variants = await prisma.game_variants.findMany({
     where:   { gameId },
     orderBy: { sortOrder: 'asc' },
-    select:  { id: true, label: true, priceUzs: true, isActive: true, dropshipSource: true, dropshipExternalId: true },
+    select:  { id: true, label: true, priceUzs: true, isActive: true, dropshipSource: true, dropshipExternalId: true, pricingStrategy: true },
   });
 
   return NextResponse.json({ ok: true, variants });

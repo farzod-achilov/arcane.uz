@@ -18,9 +18,11 @@ export const dynamic = 'force-dynamic';
    through Smart Pricing — the per-variant equivalent of
    /api/admin/pricing/dropship-reprice, which explicitly skips any game
    that has active variants (each needs its own supplier lookup, see that
-   route's "has purchase variants" branch). Reuses the game's own
-   game_pricing.pricingStrategy/steamPriceUsd as the shared basis, since
-   variants don't carry their own strategy — only price/dropship SKU.
+   route's "has purchase variants" branch). Uses the VARIANT's own
+   pricingStrategy (each variant can run a different strategy — e.g. "Ключ"
+   priced Aggressive, "Аккаунт" priced Global) and the game's shared
+   game_pricing.steamPriceUsd (Steam sells one canonical version regardless
+   of which Kinguin delivery format the customer buys from us).
 ───────────────────────────────────────────────────────── */
 
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
@@ -33,6 +35,16 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   }
   if (variant.dropshipSource !== 'kinguin' || !variant.dropshipExternalId) {
     return NextResponse.json({ ok: false, error: 'У варианта нет привязки к Kinguin' }, { status: 400 });
+  }
+  // resolveStrategy() has no MANUAL case — it silently falls through to
+  // GLOBAL's markup rule, which would recompute a "manual" price out from
+  // under the admin without any signal. Variants have no customFinalPrice
+  // field to hand-set through this endpoint, so refuse instead of guessing.
+  if (variant.pricingStrategy === 'MANUAL') {
+    return NextResponse.json(
+      { ok: false, error: 'Стратегия Manual — цена не пересчитывается автоматически, отредактируйте поле цены вручную' },
+      { status: 400 },
+    );
   }
 
   let costUsd: number;
@@ -55,7 +67,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     getCurrencySettings(),
     getGamePricing(variant.gameId),
   ]);
-  const strategy = (gamePricing?.pricingStrategy as PricingStrategy | undefined) ?? settings.defaultStrategy;
+  const strategy = (variant.pricingStrategy as PricingStrategy | undefined) ?? settings.defaultStrategy;
   const engine   = new PriceEngineService(settings, currency);
 
   const result = engine.calculateFinalGamePrice({

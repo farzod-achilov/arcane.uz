@@ -11,6 +11,8 @@ import {
 import { formatPrice } from '@/lib/utils';
 import AddGameModal from '@/components/admin/keys/AddGameModal';
 import SupplierSyncPanel from '@/components/admin/SupplierSyncPanel';
+import { STRATEGY_META } from '@/lib/smartPricing/strategies';
+import type { PricingStrategy } from '@/lib/smartPricing/types';
 
 /* ── Types ─────────────────────────────────────────────────────── */
 interface GameRow {
@@ -44,6 +46,7 @@ interface VariantRow {
   isActive:           boolean;
   dropshipSource:     string | null;
   dropshipExternalId: string | null;
+  pricingStrategy:    PricingStrategy;
 }
 
 interface KinguinPickResult {
@@ -65,6 +68,8 @@ function VariantsEditor({ gameId, gameTitle }: { gameId: string; gameTitle: stri
   // format the customer buys from us), so it lives once here, not per-row.
   const [steamPrice,       setSteamPrice]       = useState('');
   const [steamPriceSaving, setSteamPriceSaving] = useState(false);
+  const [steamSearching,   setSteamSearching]   = useState(false);
+  const [steamResults,     setSteamResults]     = useState<{ appId: number; name: string; priceUsd: number | null }[] | null>(null);
 
   // Inline "add a new activation type" mini-flow — trims AttachVariantFlow
   // down to just the Kinguin-search + label steps, since gameId is already
@@ -98,7 +103,7 @@ function VariantsEditor({ gameId, gameTitle }: { gameId: string; gameTitle: stri
     return <Loader2 className="w-4 h-4 animate-spin text-[#6B7280]" />;
   }
 
-  async function patchVariant(id: string, data: { isActive?: boolean; priceUzs?: number }) {
+  async function patchVariant(id: string, data: { isActive?: boolean; priceUzs?: number; pricingStrategy?: PricingStrategy }) {
     setSavingId(id);
     try {
       const res  = await fetch(`/api/admin/game-variants/${id}`, {
@@ -113,6 +118,14 @@ function VariantsEditor({ gameId, gameTitle }: { gameId: string; gameTitle: stri
     } finally {
       setSavingId(null);
     }
+  }
+
+  // Changing strategy alone wouldn't visibly do anything until the next
+  // manual "Обновить" click — recompute right away (except MANUAL, which
+  // refresh-price refuses since it has no hand-set price of its own here).
+  async function changeStrategy(id: string, strategy: PricingStrategy) {
+    await patchVariant(id, { pricingStrategy: strategy });
+    if (strategy !== 'MANUAL') await refreshVariantPrice(id);
   }
 
   async function refreshVariantPrice(id: string) {
@@ -130,17 +143,36 @@ function VariantsEditor({ gameId, gameTitle }: { gameId: string; gameTitle: stri
     }
   }
 
-  async function saveSteamPrice() {
+  async function saveSteamPrice(value?: string) {
     setSteamPriceSaving(true);
     try {
+      const price = (value ?? steamPrice).trim();
       await fetch(`/api/admin/game/${gameId}/steam-price`, {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ steamPriceUsd: steamPrice.trim() ? Number(steamPrice) : null }),
+        body:    JSON.stringify({ steamPriceUsd: price ? Number(price) : null }),
       });
     } finally {
       setSteamPriceSaving(false);
     }
+  }
+
+  async function searchSteamPrice() {
+    setSteamSearching(true); setSteamResults(null);
+    try {
+      const res  = await fetch(`/api/admin/dropship/search-steam?q=${encodeURIComponent(gameTitle)}`);
+      const json = await res.json();
+      if (json.ok) setSteamResults(json.results);
+    } finally {
+      setSteamSearching(false);
+    }
+  }
+
+  function applySteamPrice(price: number) {
+    const value = String(price);
+    setSteamPrice(value);
+    setSteamResults(null);
+    saveSteamPrice(value);
   }
 
   async function searchKinguin() {
@@ -189,61 +221,111 @@ function VariantsEditor({ gameId, gameTitle }: { gameId: string; gameTitle: stri
       </div>
 
       {/* Steam reference price */}
-      <div className="flex items-center gap-2 mb-2 rounded-xl px-3 py-2"
-           style={{ background: 'rgba(102,192,244,0.06)', border: '1px solid rgba(102,192,244,0.2)' }}>
-        <span className="font-body flex-shrink-0" style={{ fontSize: '11px', color: '#66C0F4' }}>Steam $</span>
-        <input
-          type="number" step="0.01" value={steamPrice}
-          onChange={e => setSteamPrice(e.target.value)}
-          onBlur={saveSteamPrice}
-          placeholder="0.00"
-          className="flex-1 rounded-lg px-2 py-1 font-body text-white text-xs outline-none"
-          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
-        />
-        {steamPriceSaving && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#66C0F4] flex-shrink-0" />}
+      <div className="mb-2 rounded-xl px-3 py-2" style={{ background: 'rgba(102,192,244,0.06)', border: '1px solid rgba(102,192,244,0.2)' }}>
+        <div className="flex items-center gap-2">
+          <span className="font-body flex-shrink-0" style={{ fontSize: '11px', color: '#66C0F4' }}>Steam $</span>
+          <input
+            type="number" step="0.01" value={steamPrice}
+            onChange={e => setSteamPrice(e.target.value)}
+            onBlur={() => saveSteamPrice()}
+            placeholder="0.00"
+            className="flex-1 rounded-lg px-2 py-1 font-body text-white text-xs outline-none"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+          />
+          {steamPriceSaving && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#66C0F4] flex-shrink-0" />}
+          <button
+            onClick={searchSteamPrice}
+            disabled={steamSearching}
+            className="p-1.5 rounded-lg flex-shrink-0"
+            style={{ background: 'rgba(102,192,244,0.1)', border: '1px solid rgba(102,192,244,0.25)' }}
+            title="Найти актуальную цену в Steam"
+          >
+            {steamSearching ? <Loader2 className="w-3.5 h-3.5 animate-spin text-[#66C0F4]" /> : <Search className="w-3.5 h-3.5 text-[#66C0F4]" />}
+          </button>
+        </div>
+        {steamResults && (
+          <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+            {steamResults.length === 0 ? (
+              <p className="font-body text-[#4B5563]" style={{ fontSize: '11px' }}>Не найдено в Steam</p>
+            ) : steamResults.map(r => (
+              <button key={r.appId} onClick={() => r.priceUsd != null && applySteamPrice(r.priceUsd)}
+                      disabled={r.priceUsd == null}
+                      className="w-full flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left disabled:opacity-40"
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <span className="font-body text-white truncate flex-1" style={{ fontSize: '11px' }}>{r.name}</span>
+                <span className="font-body flex-shrink-0" style={{ fontSize: '11px', color: '#66C0F4' }}>
+                  {r.priceUsd != null ? `$${r.priceUsd.toFixed(2)}` : 'нет цены'}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {variants.length > 0 && (
         <div className="space-y-2 mb-2">
-          {variants.map(v => (
-            <div key={v.id} className="flex items-center gap-2 rounded-xl px-3 py-2"
+          {variants.map(v => {
+            const isKinguin = v.dropshipSource === 'kinguin' && v.dropshipExternalId;
+            return (
+            <div key={v.id} className="rounded-xl px-3 py-2 space-y-1.5"
                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-              <span className="font-body text-white flex-1 truncate" style={{ fontSize: '12.5px', opacity: v.isActive ? 1 : 0.4 }}>
-                {v.label}
-              </span>
-              <input
-                type="number"
-                defaultValue={v.priceUzs}
-                onChange={e => setDrafts(prev => ({ ...prev, [v.id]: e.target.value }))}
-                onBlur={() => {
-                  const draft = drafts[v.id];
-                  if (draft && Number(draft) > 0 && Number(draft) !== v.priceUzs) patchVariant(v.id, { priceUzs: Number(draft) });
-                }}
-                className="w-24 rounded-lg px-2 py-1 font-body text-white text-xs outline-none"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
-              />
-              {v.dropshipSource === 'kinguin' && v.dropshipExternalId && (
+              <div className="flex items-center gap-2">
+                <span className="font-body text-white flex-1 truncate" style={{ fontSize: '12.5px', opacity: v.isActive ? 1 : 0.4 }}>
+                  {v.label}
+                </span>
+                <input
+                  type="number"
+                  defaultValue={v.priceUzs}
+                  onChange={e => setDrafts(prev => ({ ...prev, [v.id]: e.target.value }))}
+                  onBlur={() => {
+                    const draft = drafts[v.id];
+                    if (draft && Number(draft) > 0 && Number(draft) !== v.priceUzs) patchVariant(v.id, { priceUzs: Number(draft) });
+                  }}
+                  className="w-24 rounded-lg px-2 py-1 font-body text-white text-xs outline-none"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                />
+                {isKinguin && (
+                  <button
+                    onClick={() => refreshVariantPrice(v.id)}
+                    disabled={refreshingId === v.id || v.pricingStrategy === 'MANUAL'}
+                    className="p-1.5 rounded-lg flex-shrink-0 transition-colors"
+                    style={{ color: v.pricingStrategy === 'MANUAL' ? '#374151' : '#06B6D4' }}
+                    title={v.pricingStrategy === 'MANUAL' ? 'Стратегия Manual — обновите цену вручную' : 'Подтянуть текущую цену с Kinguin'}
+                  >
+                    {refreshingId === v.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  </button>
+                )}
                 <button
-                  onClick={() => refreshVariantPrice(v.id)}
-                  disabled={refreshingId === v.id}
+                  onClick={() => patchVariant(v.id, { isActive: !v.isActive })}
+                  disabled={savingId === v.id}
                   className="p-1.5 rounded-lg flex-shrink-0 transition-colors"
-                  style={{ color: '#06B6D4' }}
-                  title="Подтянуть текущую цену с Kinguin"
+                  style={{ color: v.isActive ? '#22C55E' : '#4B5563' }}
+                  title={v.isActive ? 'Скрыть вариант' : 'Показать вариант'}
                 >
-                  {refreshingId === v.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  {savingId === v.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : v.isActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                 </button>
+              </div>
+              {isKinguin && (
+                <select
+                  value={v.pricingStrategy}
+                  onChange={e => changeStrategy(v.id, e.target.value as PricingStrategy)}
+                  className="w-full rounded-lg px-2 py-1 font-body text-xs outline-none"
+                  style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    color: STRATEGY_META[v.pricingStrategy].color,
+                  }}
+                >
+                  {(Object.keys(STRATEGY_META) as PricingStrategy[]).map(s => (
+                    <option key={s} value={s} style={{ background: '#0D0D1A', color: '#fff' }}>
+                      Стратегия: {STRATEGY_META[s].label}
+                    </option>
+                  ))}
+                </select>
               )}
-              <button
-                onClick={() => patchVariant(v.id, { isActive: !v.isActive })}
-                disabled={savingId === v.id}
-                className="p-1.5 rounded-lg flex-shrink-0 transition-colors"
-                style={{ color: v.isActive ? '#22C55E' : '#4B5563' }}
-                title={v.isActive ? 'Скрыть вариант' : 'Показать вариант'}
-              >
-                {savingId === v.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : v.isActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-              </button>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
