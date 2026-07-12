@@ -123,6 +123,18 @@ async function importGames(
 // ── Public import functions ───────────────────────────────────────────────────
 
 export async function importFromIgdb(): Promise<ImportResult> {
+  // IGDB_CLIENT_ID/SECRET are unset in production — RAWG already covers game
+  // metadata sync on its own. Without this guard, igdbClient.getToken() hits
+  // Twitch's OAuth endpoint with empty credentials on every 12h sync run,
+  // guaranteed to 400, forever — a silent, permanent failure that never
+  // surfaced anywhere (runFullSync swallows it into an `errors` counter, so
+  // even the cron failure alerting added elsewhere never sees it).
+  if (!config.games.igdbClientId || !config.games.igdbClientSecret) {
+    logger.debug('[GameImport] Skipping igdb — IGDB_CLIENT_ID/SECRET not configured');
+    return {
+      source: 'igdb', total: 0, created: 0, updated: 0, skipped: 0, errors: 0, durationMs: 0,
+    };
+  }
   return importGames('igdb', () => igdbService.getTopRatedGames(100));
 }
 
