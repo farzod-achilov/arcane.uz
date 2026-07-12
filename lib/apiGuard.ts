@@ -19,3 +19,17 @@ export async function requireSession() {
   }
   return { guard: null, session };
 }
+
+/**
+ * Admin session OR the shared server-to-server secret (same SYNC_SECRET
+ * already used by /api/kinguin/sync and /api/admin/pricing/dropship-reprice)
+ * via the `x-sync-secret` header. Lets cron jobs and scripted catalog
+ * operations call admin-only endpoints without a browser session, without
+ * opening them up to the public.
+ */
+export async function requireAdminOrSyncSecret(req: Request): Promise<NextResponse | null> {
+  const provided = req.headers.get('x-sync-secret');
+  const expected = process.env.SYNC_SECRET;
+  if (expected && provided === expected) return null;
+  return requireAdmin();
+}

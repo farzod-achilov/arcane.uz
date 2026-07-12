@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/apiGuard';
+import { requireAdminOrSyncSecret } from '@/lib/apiGuard';
 import { isKinguinEnabled, searchProductsByName, cheapestInStockOffer, isBlockedInUzbekistan } from '@/lib/kinguin';
 
 /* ─────────────────────────────────────────────────────────
@@ -21,7 +21,7 @@ import { isKinguinEnabled, searchProductsByName, cheapestInStockOffer, isBlocked
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
-  const guard = await requireAdmin();
+  const guard = await requireAdminOrSyncSecret(req);
   if (guard) return guard;
 
   const q = new URL(req.url).searchParams.get('q')?.trim() ?? '';

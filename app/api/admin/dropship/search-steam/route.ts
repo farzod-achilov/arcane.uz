@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/apiGuard';
+import { requireAdminOrSyncSecret } from '@/lib/apiGuard';
 
 /* ─────────────────────────────────────────────────────────
    GET /api/admin/dropship/search-steam?q=...
@@ -21,7 +21,7 @@ interface StoreSearchItem {
 }
 
 export async function GET(req: Request) {
-  const guard = await requireAdmin();
+  const guard = await requireAdminOrSyncSecret(req);
   if (guard) return guard;
 
   const q = new URL(req.url).searchParams.get('q')?.trim() ?? '';

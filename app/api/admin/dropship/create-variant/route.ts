@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAdmin } from '@/lib/apiGuard';
+import { requireAdminOrSyncSecret } from '@/lib/apiGuard';
 import { PriceEngineService } from '@/lib/smartPricing/engine';
 import { getPriceSettings, getCurrencySettings } from '@/lib/smartPricing/repository';
 import { syncGameFromVariants } from '@/lib/db/gameVariants';
@@ -32,7 +32,7 @@ interface Body {
 }
 
 export async function POST(req: Request) {
-  const guard = await requireAdmin();
+  const guard = await requireAdminOrSyncSecret(req);
   if (guard) return guard;
 
   const body = await req.json() as Body;

@@ -3,11 +3,11 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
-  const { requireAdmin } = await import('@/lib/apiGuard');
-  const guard = await requireAdmin();
+  const { requireAdminOrSyncSecret } = await import('@/lib/apiGuard');
+  const guard = await requireAdminOrSyncSecret(request);
   if (guard) return guard;
 
   const key = process.env.RAWG_API_KEY;

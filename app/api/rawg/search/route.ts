@@ -18,8 +18,8 @@ function normPlatform(name: string) {
 }
 
 export async function GET(request: Request) {
-  const { requireAdmin } = await import('@/lib/apiGuard');
-  const guard = await requireAdmin();
+  const { requireAdminOrSyncSecret } = await import('@/lib/apiGuard');
+  const guard = await requireAdminOrSyncSecret(request);
   if (guard) return guard;
 
   const { searchParams } = new URL(request.url);
