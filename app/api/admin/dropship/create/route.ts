@@ -42,6 +42,22 @@ interface Body {
   steamAppId?:    number | null;
   steamPriceUsd?: number | null;
   strategy?:      PricingStrategy;
+  // Optional RAWG match — when present, display metadata (title/cover/
+  // screenshots/genres/description/rating/developer) comes from RAWG
+  // instead of Kinguin's own listing. Kinguin stays purely the dropship
+  // fulfillment source (dropshipSource/dropshipExternalId below) — same
+  // separation already used for Limbo/Ori/Hollow Knight/SUPERHOT.
+  rawgId?:          number | null;
+  rawgTitle?:       string | null;
+  rawgCover?:       string | null;
+  rawgScreenshots?: string[];
+  rawgGenres?:      string[];
+  rawgPlatforms?:   string[];
+  rawgRating?:      number | null;
+  rawgDeveloper?:   string | null;
+  rawgPublisher?:   string | null;
+  rawgReleaseDate?: string | null;
+  rawgDescription?: string | null;
 }
 
 export async function POST(req: Request) {
@@ -49,9 +65,24 @@ export async function POST(req: Request) {
   if (guard) return guard;
 
   const body = await req.json() as Body;
-  const title     = body.title?.trim();
   const kinguinId = body.kinguinId;
   const costUsd   = Number(body.costUsd);
+
+  // Prefer RAWG for everything shown to customers (title/cover/screenshots/
+  // genres/developer) — Kinguin's own listing name/image is a supplier SKU
+  // label ("Grand Theft Auto V PC Rockstar Digital Download CD Key"), not
+  // storefront copy. Falls back to the raw Kinguin fields only if no RAWG
+  // match was picked (admin explicitly skipped that step).
+  const hasRawg = body.rawgId != null;
+  const title   = (hasRawg ? body.rawgTitle : body.title)?.trim();
+  const cover   = hasRawg ? (body.rawgCover ?? null) : (body.cover ?? null);
+  const screenshots = hasRawg ? (body.rawgScreenshots ?? []) : [];
+  const genres  = hasRawg ? (body.rawgGenres ?? []) : (body.genres ?? []);
+  // Platforms always come from Kinguin's own listing (what the key actually
+  // delivers on — Steam/EA/Ubisoft/etc, mapped to 'PC' by the picker), never
+  // from RAWG's cross-platform metadata — RAWG doesn't know this specific
+  // SKU is PC-only even if the game shipped on consoles too.
+  const platforms = body.platforms?.length ? body.platforms : ['PC'];
 
   if (!title || !kinguinId || !costUsd || costUsd <= 0) {
     return NextResponse.json({ ok: false, error: 'title, kinguinId и costUsd обязательны' }, { status: 400 });
@@ -91,12 +122,19 @@ export async function POST(req: Request) {
   await prisma.games.create({
     data: {
       id,
-      source:             'manual',
+      source:             hasRawg ? 'rawg' : 'manual',
+      externalId:         hasRawg ? String(body.rawgId) : null,
       title,
       slug,
-      cover:              body.cover ?? null,
-      genres:             body.genres ?? [],
-      platforms:          body.platforms?.length ? body.platforms : ['PC'],
+      cover,
+      screenshots,
+      description:        hasRawg ? (body.rawgDescription ?? null) : null,
+      genres,
+      platforms,
+      developer:          hasRawg ? (body.rawgDeveloper ?? null) : null,
+      publisher:          hasRawg ? (body.rawgPublisher ?? null) : null,
+      rating:             hasRawg ? (body.rawgRating ?? null) : null,
+      releaseDate:        hasRawg && body.rawgReleaseDate ? new Date(body.rawgReleaseDate) : null,
       priceUsd:           result.finalPriceUsd,
       priceUzs,
       deliveryType:       'DROPSHIP',

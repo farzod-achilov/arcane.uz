@@ -28,6 +28,17 @@ interface SteamResult {
   priceUsd: number | null;
 }
 
+interface RawgResult {
+  rawgId:      number;
+  title:       string;
+  cover:       string | null;
+  screenshots: string[];
+  genres:      string[];
+  platforms:   string[];
+  rating:      number | null;
+  releaseDate: string | null;
+}
+
 const STRATEGIES = Object.keys(STRATEGY_META) as PricingStrategy[];
 
 export default function AddDropshipGamePage() {
@@ -37,6 +48,15 @@ export default function AddDropshipGamePage() {
   const [kResults, setKResults] = useState<KinguinResult[] | null>(null);
   const [kError,   setKError]   = useState('');
   const [picked,   setPicked]   = useState<KinguinResult | null>(null);
+
+  // ── RAWG search — drives display title/cover/screenshots/genres, NOT
+  // Kinguin's own listing (which is a supplier SKU label, e.g. "Grand
+  // Theft Auto V PC Rockstar Digital Download CD Key", not storefront copy) ──
+  const [rQuery,   setRQuery]   = useState('');
+  const [rLoading, setRLoading] = useState(false);
+  const [rResults, setRResults] = useState<RawgResult[] | null>(null);
+  const [rawg,     setRawg]     = useState<(RawgResult & { description: string | null }) | null>(null);
+  const [rawgSkipped, setRawgSkipped] = useState(false);
 
   // ── Steam search (optional) ──
   const [sQuery,   setSQuery]   = useState('');
@@ -68,6 +88,37 @@ export default function AddDropshipGamePage() {
   const pickKinguin = (r: KinguinResult) => {
     setPicked(r);
     if (!sQuery) setSQuery(r.name);
+    if (!rQuery) setRQuery(r.name);
+    setRawg(null); setRawgSkipped(false); setRResults(null);
+    // Kinguin's own listing name is a supplier SKU label, not a clean
+    // title — auto-search RAWG right away so the admin isn't left with
+    // "Grand Theft Auto V PC Rockstar Digital Download CD Key" by default.
+    searchRawgWith(r.name);
+  };
+
+  const searchRawgWith = useCallback(async (q: string) => {
+    if (q.trim().length < 3) return;
+    setRLoading(true); setRResults(null);
+    try {
+      const res  = await fetch(`/api/rawg/search?q=${encodeURIComponent(q.trim())}&limit=6`);
+      const json = await res.json();
+      if (json.success) setRResults(json.data);
+    } catch { /* RAWG — необязательный шаг, тихо пропускаем */ }
+    finally { setRLoading(false); }
+  }, []);
+
+  const searchRawg = useCallback(() => searchRawgWith(rQuery), [rQuery, searchRawgWith]);
+
+  const pickRawg = async (r: RawgResult) => {
+    setRawgSkipped(false);
+    setRawg({ ...r, description: null });
+    try {
+      const res  = await fetch(`/api/rawg/game/${r.rawgId}`);
+      const json = await res.json();
+      if (json.success) {
+        setRawg(prev => prev ? { ...prev, description: json.data.description || null, screenshots: json.data.screenshots?.length ? json.data.screenshots : prev.screenshots } : prev);
+      }
+    } catch { /* описание необязательно — обложка/жанры уже есть */ }
   };
 
   const searchSteam = useCallback(async () => {
@@ -83,6 +134,7 @@ export default function AddDropshipGamePage() {
 
   const create = async () => {
     if (!picked) return;
+    if (!rawg && !rawgSkipped) return; // require an explicit RAWG pick or explicit skip
     setCreating(true); setCreateErr(''); setCreated(null);
     try {
       const res = await fetch('/api/admin/dropship/create', {
@@ -98,6 +150,15 @@ export default function AddDropshipGamePage() {
           steamAppId:    steam?.appId ?? null,
           steamPriceUsd: steam?.priceUsd ?? null,
           strategy,
+          rawgId:          rawg?.rawgId ?? null,
+          rawgTitle:       rawg?.title ?? null,
+          rawgCover:       rawg?.cover ?? null,
+          rawgScreenshots: rawg?.screenshots ?? [],
+          rawgGenres:      rawg?.genres ?? [],
+          rawgPlatforms:   rawg?.platforms ?? [],
+          rawgRating:      rawg?.rating ?? null,
+          rawgReleaseDate: rawg?.releaseDate ?? null,
+          rawgDescription: rawg?.description ?? null,
         }),
       });
       const json = await res.json();
@@ -112,6 +173,7 @@ export default function AddDropshipGamePage() {
 
   const reset = () => {
     setKQuery(''); setKResults(null); setKError(''); setPicked(null);
+    setRQuery(''); setRResults(null); setRawg(null); setRawgSkipped(false);
     setSQuery(''); setSResults(null); setSteam(null);
     setCreated(null); setCreateErr('');
   };
@@ -221,12 +283,84 @@ export default function AddDropshipGamePage() {
             )}
           </div>
 
-          {/* ── Step 2 + 3 (only after picking) ── */}
+          {/* ── Step 2 + 3 + 4 (only after picking) ── */}
           {picked && (
             <>
+              {/* ── Step 2: RAWG — required (or explicit skip) — drives
+                  title/cover/screenshots/genres shown to customers.
+                  Kinguin's own listing name is a supplier SKU label, not
+                  storefront copy — same principle already used for the
+                  other 5 dropship games in the catalog. ── */}
+              <div className="rounded-2xl p-5 mb-4" style={{ background: '#0D0D16', border: `1px solid ${rawg ? 'rgba(34,197,94,0.3)' : rawgSkipped ? 'rgba(245,158,11,0.3)' : 'rgba(255,255,255,0.07)'}` }}>
+                <p className="font-body text-[#9CA3AF] mb-3" style={{ fontSize: '12px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  2 · Обложка и описание (RAWG)
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    value={rQuery}
+                    onChange={e => setRQuery(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && searchRawg()}
+                    placeholder="Название игры в RAWG"
+                    className="flex-1 rounded-xl px-4 py-2.5 font-body text-white text-sm outline-none"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                  />
+                  <button onClick={searchRawg} disabled={rLoading}
+                    className="flex items-center gap-2 rounded-xl px-4 py-2.5 font-body text-sm text-[#9CA3AF] disabled:opacity-50"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    {rLoading ? <Loader2 style={{ width: '13px', height: '13px' }} className="animate-spin" /> : <Search style={{ width: '13px', height: '13px' }} />}
+                  </button>
+                </div>
+
+                {rawg && (
+                  <div className="flex items-center gap-3 rounded-xl p-3 mt-3"
+                       style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.25)' }}>
+                    {rawg.cover ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={rawg.cover} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                    ) : null}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-body text-white truncate" style={{ fontSize: '13px' }}>{rawg.title}</p>
+                      <p className="font-body text-[#4B5563]" style={{ fontSize: '11px' }}>{rawg.genres.join(', ') || '—'}</p>
+                    </div>
+                    <button onClick={() => setRawg(null)} className="font-body text-[#4B5563] flex-shrink-0" style={{ fontSize: '11px' }}>убрать</button>
+                  </div>
+                )}
+
+                {rResults && !rawg && (
+                  <div className="mt-3 space-y-1.5 max-h-64 overflow-y-auto">
+                    {rResults.length === 0 ? (
+                      <p className="font-body text-[#4B5563] py-2" style={{ fontSize: '12px' }}>Не найдено в RAWG</p>
+                    ) : rResults.map(r => (
+                      <button
+                        key={r.rawgId}
+                        onClick={() => pickRawg(r)}
+                        className="w-full flex items-center gap-3 rounded-lg p-2 text-left"
+                        style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}
+                      >
+                        {r.cover ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={r.cover} alt="" className="w-8 h-8 rounded-md object-cover flex-shrink-0" />
+                        ) : <div className="w-8 h-8 rounded-md flex-shrink-0" style={{ background: 'rgba(124,58,237,0.1)' }} />}
+                        <span className="flex-1 font-body text-white truncate" style={{ fontSize: '12.5px' }}>{r.title}</span>
+                        <span className="font-body flex-shrink-0 text-[#4B5563]" style={{ fontSize: '11px' }}>{r.releaseDate?.slice(0, 4) ?? ''}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {!rawg && (
+                  <label className="flex items-center gap-2 mt-3">
+                    <input type="checkbox" checked={rawgSkipped} onChange={e => setRawgSkipped(e.target.checked)} />
+                    <span className="font-body" style={{ fontSize: '11.5px', color: rawgSkipped ? '#F59E0B' : '#4B5563' }}>
+                      Пропустить — использовать название/картинку с Kinguin как есть (не рекомендуется)
+                    </span>
+                  </label>
+                )}
+              </div>
+
               <div className="rounded-2xl p-5 mb-4" style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)' }}>
                 <p className="font-body text-[#9CA3AF] mb-3" style={{ fontSize: '12px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                  2 · Цена в Steam (необязательно, для сравнения «вы экономите»)
+                  3 · Цена в Steam (необязательно, для сравнения «вы экономите»)
                 </p>
                 <div className="flex gap-2 mb-3">
                   <input
@@ -280,7 +414,7 @@ export default function AddDropshipGamePage() {
 
               <div className="rounded-2xl p-5 mb-4" style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)' }}>
                 <p className="font-body text-[#9CA3AF] mb-3" style={{ fontSize: '12px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                  3 · Стратегия наценки
+                  4 · Стратегия наценки
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                   {STRATEGIES.map(s => {
@@ -310,11 +444,16 @@ export default function AddDropshipGamePage() {
                   </div>
                 </div>
 
+                {!rawg && !rawgSkipped && (
+                  <p className="font-body mt-3" style={{ fontSize: '11.5px', color: '#F59E0B' }}>
+                    Выберите игру в RAWG на шаге 2 (или отметьте «пропустить»), чтобы продолжить
+                  </p>
+                )}
                 {createErr && (
                   <p className="font-body mt-3" style={{ fontSize: '12px', color: '#FCA5A5' }}>{createErr}</p>
                 )}
 
-                <button onClick={create} disabled={creating}
+                <button onClick={create} disabled={creating || (!rawg && !rawgSkipped)}
                   className="w-full mt-4 flex items-center justify-center gap-2 rounded-xl py-3 font-heading font-bold text-white text-sm disabled:opacity-50"
                   style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', boxShadow: '0 0 24px rgba(124,58,237,0.25)' }}>
                   {creating ? <Loader2 style={{ width: '15px', height: '15px' }} className="animate-spin" /> : <Plus style={{ width: '15px', height: '15px' }} />}
