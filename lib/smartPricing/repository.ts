@@ -1,6 +1,12 @@
 import { prisma }                      from '@/lib/prisma';
 import { PriceSettings, CurrencySettings } from './types';
 import { DEFAULT_PRICE_SETTINGS, DEFAULT_CURRENCY_SETTINGS } from './engine';
+import { getUsdUzsRate } from '@/lib/shared/fxRate';
+
+// How often an autoUpdateRate=true read is allowed to persist a fresh
+// live rate to the DB — matches fxRate.ts's own in-memory cache TTL, so
+// this doesn't write on every single price calculation.
+const AUTO_RATE_REFRESH_MS = 60 * 60 * 1000;
 
 // ─── Price Settings ───────────────────────────────────────────────────────────
 
@@ -44,11 +50,38 @@ export async function getCurrencySettings(): Promise<CurrencySettings> {
   const row = await prisma.currency_settings.findFirst();
   if (!row) return DEFAULT_CURRENCY_SETTINGS;
 
+  if (!row.autoUpdateRate) {
+    return {
+      id:             row.id,
+      exchangeRate:   Number(row.exchangeRate),
+      autoUpdateRate: row.autoUpdateRate,
+      lastUpdated:    row.lastUpdated.toISOString(),
+    };
+  }
+
+  // Auto-update is on — always price off the live rate, but only write it
+  // (+ log an exchange_rates snapshot) at most once per refresh window so
+  // a busy catalog page doesn't hammer the DB on every read.
+  const liveRate = await getUsdUzsRate();
+  const isStale  = Date.now() - row.lastUpdated.getTime() > AUTO_RATE_REFRESH_MS;
+
+  if (isStale && Math.round(liveRate) !== Number(row.exchangeRate)) {
+    await prisma.$transaction([
+      prisma.currency_settings.update({
+        where: { id: row.id },
+        data:  { exchangeRate: liveRate, lastUpdated: new Date() },
+      }),
+      prisma.exchange_rates.create({
+        data: { currency: 'UZS', rate: liveRate, source: 'live' },
+      }),
+    ]);
+  }
+
   return {
     id:             row.id,
-    exchangeRate:   Number(row.exchangeRate),
+    exchangeRate:   liveRate,
     autoUpdateRate: row.autoUpdateRate,
-    lastUpdated:    row.lastUpdated.toISOString(),
+    lastUpdated:    isStale ? new Date().toISOString() : row.lastUpdated.toISOString(),
   };
 }
 
