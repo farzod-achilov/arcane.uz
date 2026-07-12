@@ -1,5 +1,5 @@
 import { Resend } from 'resend';
-import { formatPrice } from '@/lib/utils';
+import { formatPrice, isDeliveredValueLink } from '@/lib/utils';
 
 const FROM     = process.env.EMAIL_FROM ?? 'ARCANE.UZ <noreply@arcane.com.uz>';
 const SITE_URL = 'https://arcane.com.uz';
@@ -241,12 +241,17 @@ export async function sendKeyDeliveryEmail(params: {
   keyValue?: string;
 }): Promise<void> {
   const { to, username, orderId, gameTitle, keyValue } = params;
+  // Steam Gift deliveries come back as a claim link, not a code — confirmed
+  // live 2026-07-12 (Kinguin's downloadKeys() returns a
+  // store.steampowered.com/account/ackgift/... URL for Gift-type SKUs).
+  // "Введи ключ в Steam" would be actively wrong instructions for those.
+  const isLink = !!keyValue && isDeliveredValueLink(keyValue);
 
   const keyBlock = keyValue
     ? `<div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:14px;padding:20px;margin-bottom:20px;text-align:center;">
-        <p style="margin:0 0 8px;color:#374151;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;">Ключ активации</p>
-        <code style="color:#4ADE80;font-size:22px;font-weight:700;letter-spacing:0.08em;word-break:break-all;">${keyValue}</code>
-        <p style="margin:12px 0 0;color:#6B7280;font-size:12px;">Скопируй ключ и активируй в Steam / платформе</p>
+        <p style="margin:0 0 8px;color:#374151;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;">${isLink ? 'Ссылка на подарок' : 'Ключ активации'}</p>
+        <code style="color:#4ADE80;font-size:${isLink ? '13px' : '22px'};font-weight:700;letter-spacing:0.02em;word-break:break-all;">${keyValue}</code>
+        <p style="margin:12px 0 0;color:#6B7280;font-size:12px;">${isLink ? 'Открой ссылку, войдя в свой аккаунт Steam' : 'Скопируй ключ и активируй в Steam / платформе'}</p>
       </div>`
     : `<div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2);border-radius:14px;padding:16px;margin-bottom:20px;">
         <p style="margin:0;color:#A78BFA;font-size:13px;">
@@ -254,16 +259,23 @@ export async function sendKeyDeliveryEmail(params: {
         </p>
       </div>`;
 
-  const instruction = keyValue
+  const instruction = !keyValue ? '' : isLink
     ? `<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:16px;margin-bottom:24px;">
+        <p style="margin:0 0 8px;color:#9CA3AF;font-size:12px;font-weight:600;">Как принять подарок Steam:</p>
+        <ol style="margin:0;padding-left:20px;color:#6B7280;font-size:12px;line-height:1.8;">
+          <li>Войди в свой аккаунт Steam в браузере</li>
+          <li>Открой ссылку выше</li>
+          <li>Игра автоматически добавится в библиотеку</li>
+        </ol>
+      </div>`
+    : `<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:16px;margin-bottom:24px;">
         <p style="margin:0 0 8px;color:#9CA3AF;font-size:12px;font-weight:600;">Как активировать (Steam):</p>
         <ol style="margin:0;padding-left:20px;color:#6B7280;font-size:12px;line-height:1.8;">
           <li>Открой Steam → Игры → Активировать продукт в Steam</li>
           <li>Введи ключ: <code style="color:#4ADE80;">${keyValue}</code></li>
           <li>Игра появится в библиотеке</li>
         </ol>
-      </div>`
-    : '';
+      </div>`;
 
   const html = layout(`
     <div style="text-align:center;margin-bottom:28px;">

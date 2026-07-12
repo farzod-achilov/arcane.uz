@@ -10,6 +10,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { isDeliveredValueLink } from '@/lib/utils';
 
 /* ── Types ── */
 interface LibraryItem {
@@ -57,6 +58,7 @@ function PlatformIcon({ p }: { p: string }) {
 /* ── Key reveal cell ── */
 function KeyCell({ value }: { value: string }) {
   const [visible, setVisible] = useState(false);
+  const isLink = isDeliveredValueLink(value);
 
   const copy = () => {
     navigator.clipboard.writeText(value).then(() =>
@@ -65,26 +67,42 @@ function KeyCell({ value }: { value: string }) {
   };
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 rounded-lg px-3 py-2 font-mono relative overflow-hidden"
-           style={{ background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.08)',
-                    fontSize: '13px', color: '#E2E8F0', letterSpacing: '0.04em' }}>
-        {visible ? value : '•'.repeat(Math.min(value.length, 17))}
+    <div>
+      <div className="flex items-center gap-2">
+        <div className="flex-1 rounded-lg px-3 py-2 font-mono relative overflow-hidden truncate"
+             style={{ background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.08)',
+                      fontSize: '13px', color: '#E2E8F0', letterSpacing: '0.04em' }}>
+          {visible ? value : '•'.repeat(Math.min(value.length, 17))}
+        </div>
+        <button onClick={() => setVisible(v => !v)}
+                className="p-2 rounded-lg transition-all duration-150 flex-shrink-0"
+                style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)' }}
+                title={visible ? 'Скрыть' : 'Показать ключ'}>
+          {visible
+            ? <EyeOff className="w-3.5 h-3.5" style={{ color: '#9D60FA' }} />
+            : <Eye    className="w-3.5 h-3.5" style={{ color: '#9D60FA' }} />}
+        </button>
+        {visible && isLink ? (
+          <a href={value} target="_blank" rel="noopener noreferrer"
+             className="p-2 rounded-lg transition-all duration-150 flex-shrink-0"
+             style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)' }}
+             title="Открыть ссылку">
+            <ExternalLink className="w-3.5 h-3.5" style={{ color: '#22C55E' }} />
+          </a>
+        ) : (
+          <button onClick={copy}
+                  className="p-2 rounded-lg transition-all duration-150 flex-shrink-0"
+                  style={{ background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.2)' }}
+                  title="Копировать ключ">
+            <Copy className="w-3.5 h-3.5" style={{ color: '#06B6D4' }} />
+          </button>
+        )}
       </div>
-      <button onClick={() => setVisible(v => !v)}
-              className="p-2 rounded-lg transition-all duration-150 flex-shrink-0"
-              style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)' }}
-              title={visible ? 'Скрыть' : 'Показать ключ'}>
-        {visible
-          ? <EyeOff className="w-3.5 h-3.5" style={{ color: '#9D60FA' }} />
-          : <Eye    className="w-3.5 h-3.5" style={{ color: '#9D60FA' }} />}
-      </button>
-      <button onClick={copy}
-              className="p-2 rounded-lg transition-all duration-150 flex-shrink-0"
-              style={{ background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.2)' }}
-              title="Копировать ключ">
-        <Copy className="w-3.5 h-3.5" style={{ color: '#06B6D4' }} />
-      </button>
+      {isLink && (
+        <p className="font-body mt-1.5" style={{ fontSize: '11px', color: '#6B7280' }}>
+          Ссылка на подарок Steam — откройте её, войдя в свой аккаунт.
+        </p>
+      )}
     </div>
   );
 }

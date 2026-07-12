@@ -1,4 +1,4 @@
-import { formatPrice } from '@/lib/utils';
+import { formatPrice, isDeliveredValueLink } from '@/lib/utils';
 import { prisma } from '@/lib/prisma';
 import { sendKeyDeliveryEmail, sendPriceDropEmail } from '@/lib/email';
 import { createNotification } from '@/lib/notifications';
@@ -47,7 +47,11 @@ export async function notifyUserOrderComplete(params: {
     `✅ <b>Ваш заказ выполнен!</b>`,
     ``,
     `🕹 <b>${params.gameTitle}</b>`,
-    params.keyValue ? `🔑 Ключ: <code>${params.keyValue}</code>` : `🔑 Ключ доступен в личном кабинете`,
+    params.keyValue
+      ? (isDeliveredValueLink(params.keyValue)
+          ? `🎁 Ссылка на подарок Steam: ${params.keyValue}`
+          : `🔑 Ключ: <code>${params.keyValue}</code>`)
+      : `🔑 Ключ доступен в личном кабинете`,
     ``,
     `📦 Проверьте <a href="https://arcane.com.uz/library">Мою библиотеку</a>`,
   ].join('\n'));
