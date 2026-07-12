@@ -1,8 +1,10 @@
 import { isKinguinEnabled, KINGUIN_CONFIG } from './config';
 import { fetchAllProducts, fetchProductById, purchaseProduct, fetchBalance, buildTopUpUrl } from './client';
 import { mapProductsToArcane, cheapestInStockOffer, isBlockedInUzbekistan } from './productMapper';
+import { usdToUzs } from './pricingMapper';
 import { kinguinCache, CK } from './cache';
 import { products as mockProducts } from '@/lib/mockData';
+import { DEFAULT_PRICE_SETTINGS } from '@/lib/smartPricing/engine';
 import type { Product } from '@/lib/types';
 import type { SyncResult, KinguinPurchaseResult } from './types';
 
@@ -92,8 +94,15 @@ export function getLastSyncResult(): SyncResult | null {
 /**
  * Dropship purchase — called by lib/delivery/dropshipDeliver.ts at order
  * time. See lib/kinguin/client.ts's purchaseProduct() header comment.
+ *
+ * expectedSalePriceUzs is the price the customer already paid
+ * (order_items.price). Smart Pricing only repriced against Kinguin's cost
+ * as of the last reprice cycle (every 6h) — if the actual offer got more
+ * expensive since then, buying anyway would sell at a loss. Better to
+ * abort into WAITING_MANUAL (same as any other purchase failure) and let
+ * an admin decide, than silently eat the loss.
  */
-export async function purchaseKey(externalId: string): Promise<KinguinPurchaseResult> {
+export async function purchaseKey(externalId: string, expectedSalePriceUzs?: number): Promise<KinguinPurchaseResult> {
   if (!isKinguinEnabled()) {
     return { ok: false, error: 'Kinguin not configured' };
   }
@@ -128,6 +137,17 @@ export async function purchaseKey(externalId: string): Promise<KinguinPurchaseRe
   const cheapest = cheapestInStockOffer(product);
   if (!cheapest) {
     return { ok: false, error: `Kinguin product ${kinguinId} has no in-stock offers` };
+  }
+
+  if (expectedSalePriceUzs != null) {
+    const actualCostUzs = usdToUzs(cheapest.price);
+    const minProfitUzs = usdToUzs(DEFAULT_PRICE_SETTINGS.minimumProfitUsd);
+    if (actualCostUzs + minProfitUzs > expectedSalePriceUzs) {
+      return {
+        ok: false,
+        error: `Kinguin product ${kinguinId} price drifted since last reprice: cost is now ${actualCostUzs} UZS, leaving less than the ${DEFAULT_PRICE_SETTINGS.minimumProfitUsd}$ minimum profit against the ${expectedSalePriceUzs} UZS sale price`,
+      };
+    }
   }
 
   return purchaseProduct(kinguinId, cheapest.price, cheapest.offerId);

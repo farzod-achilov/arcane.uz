@@ -30,7 +30,10 @@ import type { DeliveryContext, DropshipDeliveryResult } from './types';
    order_items.keyValue.
 ───────────────────────────────────────────────────────── */
 
-type SupplierPurchase = (externalId: string) => Promise<{ ok: boolean; key?: string; error?: string }>;
+// expectedSalePriceUzs = the price the customer already paid (order_items.price).
+// Only Kinguin's purchaseKey() currently checks it (see lib/kinguin/kinguinService.ts's
+// price-drift guard); the other suppliers' purchaseKey() ignores the extra argument.
+type SupplierPurchase = (externalId: string, expectedSalePriceUzs: number) => Promise<{ ok: boolean; key?: string; error?: string }>;
 
 async function getSupplierPurchaseFn(source: string | null): Promise<SupplierPurchase | null> {
   switch (source) {
@@ -80,7 +83,7 @@ export async function dropshipDeliver(ctx: DeliveryContext): Promise<DropshipDel
     }
 
     try {
-      const result = await purchaseFn(item.externalId);
+      const result = await purchaseFn(item.externalId, item.price);
       if (!result.ok || !result.key) {
         dropshipWaiting++;
         await auditLog(ctx.orderId, 'DROPSHIP_PURCHASE_FAILED', 'system', undefined, {

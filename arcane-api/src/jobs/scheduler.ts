@@ -15,6 +15,12 @@ import {
 
 // ── Dropship supplier cache jobs ─────────────────────────────────────────────
 import { kinguinCatalogSyncJob, enebaCatalogSyncJob, dropshipRepriceJob, kinguinBalanceCheckJob } from './suppliers.cron';
+import { alertJobFailure } from './alertFailure';
+
+// A job failing once is often transient (a timeout, a flaky upstream) — only
+// alert once it's failed this many runs in a row, so a single blip doesn't
+// page anyone.
+const FAILURE_ALERT_THRESHOLD = 3;
 
 interface ScheduledJob {
   name: string;
@@ -23,6 +29,7 @@ interface ScheduledJob {
   task?: cron.ScheduledTask;
   lastRun?: Date;
   lastError?: string;
+  consecutiveFailures?: number;
 }
 
 class Scheduler {
@@ -62,11 +69,16 @@ class Scheduler {
         try {
           await job.handler();
           job.lastRun = new Date();
+          job.consecutiveFailures = 0;
           logger.debug(`[Scheduler] ${job.name} done in ${Date.now() - start}ms`);
         } catch (err) {
           const msg = err instanceof Error ? err.message : 'unknown error';
           job.lastError = msg;
-          logger.error(`[Scheduler] ${job.name} failed: ${msg}`);
+          job.consecutiveFailures = (job.consecutiveFailures ?? 0) + 1;
+          logger.error(`[Scheduler] ${job.name} failed (${job.consecutiveFailures} in a row): ${msg}`);
+          if (job.consecutiveFailures >= FAILURE_ALERT_THRESHOLD) {
+            void alertJobFailure(job.name, msg, job.consecutiveFailures);
+          }
         }
       });
 
@@ -88,9 +100,9 @@ class Scheduler {
     job.lastRun = new Date();
   }
 
-  status(): Array<{ name: string; schedule: string; lastRun?: Date; lastError?: string }> {
-    return this.jobs.map(({ name, schedule, lastRun, lastError }) => ({
-      name, schedule, lastRun, lastError,
+  status(): Array<{ name: string; schedule: string; lastRun?: Date; lastError?: string; consecutiveFailures?: number }> {
+    return this.jobs.map(({ name, schedule, lastRun, lastError, consecutiveFailures }) => ({
+      name, schedule, lastRun, lastError, consecutiveFailures,
     }));
   }
 }

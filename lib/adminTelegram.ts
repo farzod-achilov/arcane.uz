@@ -170,3 +170,20 @@ export async function notifyAdminLowSupplierBalance(params: {
   await sendMessage(ADMIN_CHAT, text);
 }
 
+/** Notify admin that a cron job has failed several times in a row */
+export async function notifyAdminJobFailure(params: {
+  jobName:             string;
+  error:               string;
+  consecutiveFailures: number;
+}): Promise<void> {
+  const text = [
+    `🔴 <b>CRON-ЗАДАЧА ПАДАЕТ: ${params.jobName}</b>`,
+    ``,
+    `Подряд неудач: <b>${params.consecutiveFailures}</b>`,
+    `Ошибка: <code>${params.error.slice(0, 300)}</code>`,
+    ``,
+    `Проверь логи: pm2 logs arcane-api`,
+  ].join('\n');
+  await sendMessage(ADMIN_CHAT, text);
+}
+
