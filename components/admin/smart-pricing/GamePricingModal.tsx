@@ -229,6 +229,7 @@ export default function GamePricingModal({ game, onClose, onSaved }: Props) {
   const [preview,  setPreview]  = useState<PriceCalculationResult | null>(null);
   const [loading,  setLoading]  = useState(false);
   const [saving,   setSaving]   = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [initLoad, setInitLoad] = useState(true);
   const debounce = useRef<ReturnType<typeof setTimeout>>();
 
@@ -344,6 +345,7 @@ export default function GamePricingModal({ game, onClose, onSaved }: Props) {
     if (isNaN(sp) || sp <= 0) return;
 
     setSaving(true);
+    setSaveError('');
     try {
       const body: Record<string, unknown> = {
         supplierPriceUsd:      sp,
@@ -370,7 +372,11 @@ export default function GamePricingModal({ game, onClose, onSaved }: Props) {
           finalPriceUzs: json.calculated?.finalPriceUzs ?? preview?.finalPriceUzs ?? 0,
         } as ExistingPricing & { finalPriceUsd: number; finalPriceUzs: number });
         onClose();
+      } else {
+        setSaveError(json.error ?? 'Не удалось сохранить');
       }
+    } catch {
+      setSaveError('Ошибка сети');
     } finally {
       setSaving(false);
     }
@@ -823,6 +829,22 @@ export default function GamePricingModal({ game, onClose, onSaved }: Props) {
                   {productType === 'KEY' ? 'Ключ активации' : productType === 'GIFT' ? 'Steam-подарок' : 'Аккаунт'}
                 </span>
               </div>
+
+              {/* Save error */}
+              {saveError && (
+                <div className="rounded-xl px-3 py-2.5 font-body"
+                     style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#FCA5A5', fontSize: '12px' }}>
+                  {saveError}
+                  {saveError.includes('варианты') && (
+                    <>
+                      {' '}
+                      <a href="/admin/products" className="font-semibold underline" style={{ color: '#F87171' }}>
+                        Открыть список товаров →
+                      </a>
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* Save button */}
               <motion.button
