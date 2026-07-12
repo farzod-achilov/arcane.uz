@@ -327,6 +327,9 @@ export default function GameDetailClient({
   const [selectedVariantId, setSelectedVariantId] = useState<string | undefined>(cheapestVariant?.id);
   const selectedVariant = game.variants.find(v => v.id === selectedVariantId);
   const displayPriceUzs = selectedVariant?.priceUzs ?? game.priceUzs;
+  const steamSavePercent = game.steamPriceUzs != null && displayPriceUzs != null && game.steamPriceUzs > displayPriceUzs
+    ? Math.round((1 - displayPriceUzs / game.steamPriceUzs) * 100)
+    : null;
 
   const inCart = has(game.id, selectedVariantId);
 
@@ -623,6 +626,19 @@ export default function GameDetailClient({
                         <p className="font-body mt-0.5" style={{ fontSize: '12px', color: '#4B5563' }}>
                           ≈ ${game.priceUsd.toFixed(2)}
                         </p>
+                      )}
+                      {steamSavePercent != null && (
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className="font-body line-through" style={{ fontSize: '12.5px', color: '#4B5563' }}>
+                            Steam: {formatPrice(game.steamPriceUzs!)}
+                          </span>
+                          <span className="font-heading font-bold rounded-md px-1.5 py-0.5" style={{
+                            fontSize: '10.5px', color: '#22C55E',
+                            background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)',
+                          }}>
+                            -{steamSavePercent}%
+                          </span>
+                        </div>
                       )}
                     </div>
                     <div className="flex items-center gap-1.5 rounded-xl px-3 py-1.5" style={{

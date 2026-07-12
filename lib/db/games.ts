@@ -1,5 +1,6 @@
 import { unstable_cache } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { usdToUzs } from '@/lib/shared/currency';
 import type { Prisma } from '@prisma/client';
 
 /* ── Shared select shape ── */
@@ -95,7 +96,7 @@ export async function getGames(f: GameFilters = {}) {
 
 /* ── Single game by slug ── */
 export async function getGameBySlug(slug: string) {
-  return prisma.games.findUnique({
+  const game = await prisma.games.findUnique({
     where:  { slug },
     select: {
       id: true, title: true, slug: true, cover: true,
@@ -104,6 +105,12 @@ export async function getGameBySlug(slug: string) {
       priceUzs: true, priceUsd: true,
       releaseDate: true, developer: true, publisher: true,
       isActive: true, stockStore: true, deliveryType: true, productType: true, externalId: true, source: true,
+      // Reference Steam price captured at dropship-creation time (admin's
+      // optional "Цена в Steam" step, see SingleAddFlow.tsx) — one row per
+      // game, not per-variant (game_pricing.gameId is unique), so it's a
+      // rough cross-shop reference rather than tied to whichever variant
+      // is currently selected.
+      game_pricing: { select: { steamPriceUsd: true } },
       variants: {
         where:   { isActive: true },
         orderBy: { sortOrder: 'asc' },
@@ -111,6 +118,15 @@ export async function getGameBySlug(slug: string) {
       },
     },
   });
+  if (!game) return null;
+
+  // USD→UZS needs the server-only USD_TO_UZS env var — converted here so
+  // the 'use client' detail page never has to read it (would silently
+  // fall back to the default rate in the browser bundle).
+  const steamPriceUsd = game.game_pricing?.steamPriceUsd;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { game_pricing: _pricing, ...rest } = game;
+  return { ...rest, steamPriceUzs: steamPriceUsd != null ? usdToUzs(Number(steamPriceUsd)) : null };
 }
 
 /* ── Distinct genres (cached 5 min) ── */
