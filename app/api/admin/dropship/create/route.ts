@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAdminOrSyncSecret } from '@/lib/apiGuard';
 import { PriceEngineService } from '@/lib/smartPricing/engine';
 import { getPriceSettings, getCurrencySettings, upsertGamePricing } from '@/lib/smartPricing/repository';
+import { inferProductType } from '@/lib/kinguin/basePicker';
 import type { PricingStrategy } from '@/lib/smartPricing/types';
 
 /* ─────────────────────────────────────────────────────────
@@ -140,7 +141,10 @@ export async function POST(req: Request) {
       deliveryType:       'DROPSHIP',
       dropshipSource:     'kinguin',
       dropshipExternalId: String(kinguinId),
-      productType:        'KEY',
+      // body.title is always Kinguin's raw SKU name (see hasRawg branch
+      // above) — needed here even when the display title comes from RAWG,
+      // since RAWG's title never carries the "Account"/"Gift" signal.
+      productType:        inferProductType(body.title ?? ''),
       isActive:           true,
       stockStore:         0,
       stockDrop:          0,

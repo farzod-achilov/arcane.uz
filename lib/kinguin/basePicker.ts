@@ -55,6 +55,20 @@ function isCleanBaseGame(name: string): boolean {
 }
 
 const ACCOUNT_RE = /\baccount\b/i;
+const GIFT_RE = /\bgift\b/i;
+
+/**
+ * games.productType/game_variants.productType from the raw Kinguin SKU
+ * name ("... Steam Account", "... Steam Gift", "... CD Key") — the same
+ * signal ACCOUNT_RE below uses to steer offer selection, reused so the
+ * customer-facing badge (lib/types.ts ProductType) actually matches what
+ * the supplier delivers instead of defaulting to KEY for everything.
+ */
+export function inferProductType(kinguinName: string): 'KEY' | 'GIFT' | 'ACCOUNT' {
+  if (ACCOUNT_RE.test(kinguinName)) return 'ACCOUNT';
+  if (GIFT_RE.test(kinguinName)) return 'GIFT';
+  return 'KEY';
+}
 
 /**
  * "Account"-офферы (готовый Steam-аккаунт с игрой) обычно дешевле CD Key/

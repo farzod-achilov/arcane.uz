@@ -4,6 +4,7 @@ import { requireAdminOrSyncSecret } from '@/lib/apiGuard';
 import { PriceEngineService } from '@/lib/smartPricing/engine';
 import { getPriceSettings, getCurrencySettings } from '@/lib/smartPricing/repository';
 import { syncGameFromVariants } from '@/lib/db/gameVariants';
+import { inferProductType } from '@/lib/kinguin/basePicker';
 import type { PricingStrategy } from '@/lib/smartPricing/types';
 
 /* ─────────────────────────────────────────────────────────
@@ -28,6 +29,10 @@ interface Body {
   label:      string;
   kinguinId:  number;
   costUsd:    number;
+  // Kinguin's raw SKU name (e.g. "... Steam Account") — used only to infer
+  // productType, same signal lib/kinguin/basePicker.ts's picker already
+  // reads to steer offer selection. Not shown to customers.
+  title?:     string;
   strategy?:  PricingStrategy;
 }
 
@@ -92,6 +97,7 @@ export async function POST(req: Request) {
         deliveryType:       'DROPSHIP',
         dropshipSource:     'kinguin',
         dropshipExternalId: String(kinguinId),
+        productType:        inferProductType(body.title ?? ''),
         priceUsd:           result.finalPriceUsd,
         priceUzs,
       },

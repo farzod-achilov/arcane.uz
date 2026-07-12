@@ -89,6 +89,7 @@ export default function AttachVariantFlow() {
           label:     label.trim(),
           kinguinId: picked.kinguinId,
           costUsd:   picked.costUsd,
+          title:     picked.name,
         }),
       });
       const json = await res.json();
