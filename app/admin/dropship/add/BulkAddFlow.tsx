@@ -78,7 +78,24 @@ interface BulkSearchRow {
   overrideOpen:  boolean;
 }
 
+interface FranchiseGame {
+  rawgId:      number;
+  title:       string;
+  cover:       string | null;
+  releaseDate: string | null;
+}
+
+const MAX_BULK_TITLES = 25;
+
 export default function BulkAddFlow() {
+  // ── Franchise finder — populates the title list below from RAWG's
+  // "other games in this series" data instead of typing each one by hand ──
+  const [fQuery,   setFQuery]   = useState('');
+  const [fLoading, setFLoading] = useState(false);
+  const [fResults, setFResults] = useState<FranchiseGame[] | null>(null);
+  const [fError,   setFError]   = useState('');
+  const [fApplied, setFApplied] = useState<{ anchor: string; count: number } | null>(null);
+
   // ── Search stage: множество тайтлов, каждый ищется и подбирается отдельно ──
   const [bulkText,    setBulkText]    = useState('');
   const [bulkLoading,  setBulkLoading]  = useState(false);
@@ -90,6 +107,41 @@ export default function BulkAddFlow() {
   const [rows,     setRows]     = useState<BulkRow[]>([]);
   const [strategy, setStrategy] = useState<PricingStrategy>('GLOBAL');
   const [running,  setRunning]  = useState(false);
+
+  const searchFranchise = useCallback(async () => {
+    if (fQuery.trim().length < 3) return;
+    setFLoading(true); setFError(''); setFResults(null); setFApplied(null);
+    try {
+      const res  = await fetch(`/api/rawg/search?q=${encodeURIComponent(fQuery.trim())}&limit=6`);
+      const json = await res.json();
+      if (!json.success || !json.data?.length) { setFError('Не найдено в RAWG'); return; }
+      setFResults(json.data.map((g: { rawgId: number; title: string; cover: string | null; releaseDate: string | null }) => g));
+    } catch {
+      setFError('Ошибка сети');
+    } finally {
+      setFLoading(false);
+    }
+  }, [fQuery]);
+
+  const applyFranchise = async (anchor: FranchiseGame) => {
+    setFLoading(true); setFError('');
+    try {
+      const res  = await fetch(`/api/rawg/game-series/${anchor.rawgId}`);
+      const json = await res.json();
+      if (!json.success) { setFError(json.error ?? 'Не удалось получить серию игр'); return; }
+
+      const seriesTitles: string[] = (json.data ?? []).map((g: FranchiseGame) => g.title);
+      const allTitles = Array.from(new Set([anchor.title, ...seriesTitles])).slice(0, MAX_BULK_TITLES);
+
+      setBulkText(allTitles.join('\n'));
+      setFApplied({ anchor: anchor.title, count: allTitles.length });
+      setFResults(null); setFQuery('');
+    } catch {
+      setFError('Ошибка сети');
+    } finally {
+      setFLoading(false);
+    }
+  };
 
   const searchBulk = useCallback(async () => {
     const titles = Array.from(new Set(
@@ -236,7 +288,58 @@ export default function BulkAddFlow() {
 
   if (stage === 'search') {
     return (
-      <div className="rounded-2xl p-5 mb-4" style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)' }}>
+      <>
+        {/* ── Franchise finder — seeds the title list below from RAWG's
+            "other games in this series" data ── */}
+        <div className="rounded-2xl p-5 mb-4" style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <p className="font-body text-[#9CA3AF] mb-1" style={{ fontSize: '12px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            Найти по франшизе
+          </p>
+          <p className="font-body text-[#4B5563] mb-3" style={{ fontSize: '11.5px' }}>
+            Введите одну игру из серии — подставим названия всех остальных частей в список ниже (можно будет отредактировать)
+          </p>
+          <div className="flex gap-2">
+            <input
+              value={fQuery}
+              onChange={e => setFQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && searchFranchise()}
+              placeholder="Например: Assassin's Creed"
+              className="flex-1 rounded-xl px-4 py-2.5 font-body text-white text-sm outline-none"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+            />
+            <button onClick={searchFranchise} disabled={fLoading}
+              className="flex items-center gap-2 rounded-xl px-4 py-2.5 font-body text-sm text-[#9CA3AF] disabled:opacity-50"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              {fLoading ? <Loader2 style={{ width: '13px', height: '13px' }} className="animate-spin" /> : <Search style={{ width: '13px', height: '13px' }} />}
+            </button>
+          </div>
+          {fError && (
+            <p className="font-body mt-2.5" style={{ fontSize: '12px', color: '#FCA5A5' }}>{fError}</p>
+          )}
+          {fApplied && (
+            <p className="font-body mt-2.5" style={{ fontSize: '12px', color: '#22C55E' }}>
+              Подставлено {fApplied.count} названий из серии «{fApplied.anchor}» — список ниже, можно поправить перед поиском
+            </p>
+          )}
+          {fResults && (
+            <div className="mt-3 space-y-1.5 max-h-56 overflow-y-auto">
+              {fResults.map(g => (
+                <button key={g.rawgId} onClick={() => applyFranchise(g)} disabled={fLoading}
+                  className="w-full flex items-center gap-3 rounded-lg p-2 text-left disabled:opacity-50"
+                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  {g.cover ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={g.cover} alt="" className="w-8 h-8 rounded-md object-cover flex-shrink-0" />
+                  ) : <div className="w-8 h-8 rounded-md flex-shrink-0" style={{ background: 'rgba(124,58,237,0.1)' }} />}
+                  <span className="flex-1 font-body text-white truncate" style={{ fontSize: '12.5px' }}>{g.title}</span>
+                  <span className="font-body flex-shrink-0 text-[#4B5563]" style={{ fontSize: '11px' }}>{g.releaseDate?.slice(0, 4) ?? ''}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-2xl p-5 mb-4" style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)' }}>
         <p className="font-body text-[#9CA3AF] mb-1" style={{ fontSize: '12px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
           Список игр — по одному названию на строку
         </p>
@@ -343,7 +446,8 @@ export default function BulkAddFlow() {
             Далее: подобрать обложки ({bulkIncludedCount})
           </button>
         )}
-      </div>
+        </div>
+      </>
     );
   }
 
