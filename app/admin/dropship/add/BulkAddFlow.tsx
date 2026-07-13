@@ -85,6 +85,10 @@ interface FranchiseGame {
   releaseDate: string | null;
 }
 
+interface TrendingGame extends FranchiseGame {
+  added: number;
+}
+
 const MAX_BULK_TITLES = 25;
 
 export default function BulkAddFlow() {
@@ -95,6 +99,16 @@ export default function BulkAddFlow() {
   const [fResults, setFResults] = useState<FranchiseGame[] | null>(null);
   const [fError,   setFError]   = useState('');
   const [fApplied, setFApplied] = useState<{ anchor: string; count: number } | null>(null);
+
+  // ── Trending finder — RAWG has no real sales data (neither does
+  // Kinguin's own API — checked), so "popular now" here means recent
+  // releases (last N days) ranked by RAWG's `added`-to-library count,
+  // the closest real signal available ──
+  const [tLoading,  setTLoading]  = useState(false);
+  const [tResults,  setTResults]  = useState<TrendingGame[] | null>(null);
+  const [tSelected, setTSelected] = useState<Set<number>>(new Set());
+  const [tError,    setTError]    = useState('');
+  const [tApplied,  setTApplied]  = useState<number | null>(null);
 
   // ── Search stage: множество тайтлов, каждый ищется и подбирается отдельно ──
   const [bulkText,    setBulkText]    = useState('');
@@ -141,6 +155,39 @@ export default function BulkAddFlow() {
     } finally {
       setFLoading(false);
     }
+  };
+
+  const searchTrending = useCallback(async () => {
+    setTLoading(true); setTError(''); setTResults(null); setTSelected(new Set()); setTApplied(null);
+    try {
+      const res  = await fetch('/api/rawg/trending?days=60&limit=20');
+      const json = await res.json();
+      if (!json.success) { setTError(json.error ?? 'Не удалось получить список популярных игр'); return; }
+      if (!json.data?.length) { setTError('Ничего не найдено'); return; }
+      setTResults(json.data);
+    } catch {
+      setTError('Ошибка сети');
+    } finally {
+      setTLoading(false);
+    }
+  }, []);
+
+  const toggleTrending = (rawgId: number) => {
+    setTSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(rawgId)) next.delete(rawgId); else next.add(rawgId);
+      return next;
+    });
+  };
+
+  const applyTrending = () => {
+    const picked = (tResults ?? []).filter(g => tSelected.has(g.rawgId)).map(g => g.title);
+    if (!picked.length) return;
+    const existing = bulkText.split('\n').map(t => t.trim()).filter(Boolean);
+    const merged = Array.from(new Set([...existing, ...picked])).slice(0, MAX_BULK_TITLES);
+    setBulkText(merged.join('\n'));
+    setTApplied(picked.length);
+    setTResults(null); setTSelected(new Set());
   };
 
   const searchBulk = useCallback(async () => {
@@ -336,6 +383,66 @@ export default function BulkAddFlow() {
                 </button>
               ))}
             </div>
+          )}
+        </div>
+
+        {/* ── Trending finder — Kinguin has no sales/bestseller data at
+            all (checked); this uses RAWG's `added`-to-library count on
+            recent releases as the closest real "popular now" signal ── */}
+        <div className="rounded-2xl p-5 mb-4" style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <p className="font-body text-[#9CA3AF] mb-1" style={{ fontSize: '12px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            Популярное сейчас
+          </p>
+          <p className="font-body text-[#4B5563] mb-3" style={{ fontSize: '11.5px' }}>
+            У Kinguin нет данных о продажах — берём недавние релизы (60 дней), отсортированные по популярности в RAWG. Выберите нужные и добавьте в список ниже
+          </p>
+          <button onClick={searchTrending} disabled={tLoading}
+            className="flex items-center gap-2 rounded-xl px-4 py-2.5 font-body text-sm text-[#9CA3AF] disabled:opacity-50"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            {tLoading ? <Loader2 style={{ width: '13px', height: '13px' }} className="animate-spin" /> : <TrendingUp style={{ width: '13px', height: '13px' }} />}
+            {tLoading ? 'Ищу…' : 'Найти популярные игры'}
+          </button>
+          {tError && (
+            <p className="font-body mt-2.5" style={{ fontSize: '12px', color: '#FCA5A5' }}>{tError}</p>
+          )}
+          {tApplied != null && (
+            <p className="font-body mt-2.5" style={{ fontSize: '12px', color: '#22C55E' }}>
+              Добавлено {tApplied} названий в список ниже — можно поправить перед поиском
+            </p>
+          )}
+          {tResults && (
+            <>
+              <div className="mt-3 space-y-1.5 max-h-72 overflow-y-auto">
+                {tResults.map(g => {
+                  const active = tSelected.has(g.rawgId);
+                  return (
+                    <button key={g.rawgId} onClick={() => toggleTrending(g.rawgId)}
+                      className="w-full flex items-center gap-3 rounded-lg p-2 text-left transition-all"
+                      style={{
+                        background: active ? 'rgba(124,58,237,0.12)' : 'rgba(255,255,255,0.02)',
+                        border: `1px solid ${active ? 'rgba(124,58,237,0.4)' : 'rgba(255,255,255,0.06)'}`,
+                      }}>
+                      <div className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0"
+                           style={{ background: active ? '#7C3AED' : 'rgba(255,255,255,0.06)', border: active ? 'none' : '1px solid rgba(255,255,255,0.15)' }}>
+                        {active && <CheckCircle2 style={{ width: '11px', height: '11px', color: 'white' }} />}
+                      </div>
+                      {g.cover ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={g.cover} alt="" className="w-8 h-8 rounded-md object-cover flex-shrink-0" />
+                      ) : <div className="w-8 h-8 rounded-md flex-shrink-0" style={{ background: 'rgba(124,58,237,0.1)' }} />}
+                      <span className="flex-1 font-body text-white truncate" style={{ fontSize: '12.5px' }}>{g.title}</span>
+                      <span className="font-body flex-shrink-0 text-[#4B5563]" style={{ fontSize: '11px' }}>{g.releaseDate?.slice(0, 4) ?? ''}</span>
+                      <span className="font-body flex-shrink-0" style={{ fontSize: '10.5px', color: '#7C3AED' }}>+{g.added}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <button onClick={applyTrending} disabled={tSelected.size === 0}
+                className="w-full mt-3 flex items-center justify-center gap-2 rounded-xl py-2.5 font-heading font-semibold text-sm text-white disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)' }}>
+                Добавить в список ({tSelected.size})
+              </button>
+            </>
           )}
         </div>
 
