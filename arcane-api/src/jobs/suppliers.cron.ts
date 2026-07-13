@@ -87,6 +87,40 @@ export async function dropshipRepriceJob(): Promise<void> {
 }
 
 /**
+ * То же самое, но для game_variants — dropship-reprice выше явно
+ * пропускает игры с вариантами (у каждого варианта своя закупка/SKU),
+ * так что без этого джоба цена варианта обновляется только вручную
+ * кнопкой в админке и застывает между кликами.
+ */
+export async function dropshipVariantRepriceJob(): Promise<void> {
+  if (!config.suppliers.syncSecret) {
+    logger.warn('[DropshipVariantReprice] Skipping — SYNC_SECRET not configured');
+    return;
+  }
+
+  const res = await fetch(`${config.suppliers.mainAppUrl}/api/admin/pricing/dropship-variant-reprice`, {
+    method: 'POST',
+    headers: { 'x-sync-secret': config.suppliers.syncSecret },
+    signal: AbortSignal.timeout(60_000),
+  });
+
+  const data = await res.json().catch(() => ({})) as {
+    ok?: boolean; error?: string; total?: number; updated?: number;
+  };
+
+  if (!res.ok || !data.ok) {
+    if (data.error && /not configured/i.test(data.error)) {
+      logger.debug(`[DropshipVariantReprice] ${data.error}`);
+      return;
+    }
+    logger.warn(`[DropshipVariantReprice] failed: ${data.error ?? res.status}`);
+    return;
+  }
+
+  logger.info(`[DropshipVariantReprice] ${data.updated ?? 0}/${data.total ?? 0} variants repriced`);
+}
+
+/**
  * Проверка баланса Kinguin: шлёт Telegram-алерт админу, если баланс
  * упал ниже порога. Цель — узнать об этом до того, как реальный заказ
  * клиента упадёт с InsufficientBalance и тихо уйдёт в ручную доставку.

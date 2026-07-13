@@ -14,7 +14,7 @@ import {
 } from './keys.cron';
 
 // ── Dropship supplier cache jobs ─────────────────────────────────────────────
-import { kinguinCatalogSyncJob, enebaCatalogSyncJob, dropshipRepriceJob, kinguinBalanceCheckJob, dropshipAutoRetryJob } from './suppliers.cron';
+import { kinguinCatalogSyncJob, enebaCatalogSyncJob, dropshipRepriceJob, dropshipVariantRepriceJob, kinguinBalanceCheckJob, dropshipAutoRetryJob } from './suppliers.cron';
 import { alertJobFailure } from './alertFailure';
 
 // A job failing once is often transient (a timeout, a flaky upstream) — only
@@ -53,6 +53,8 @@ class Scheduler {
     { name: 'eneba-catalog-sync',   schedule: '*/15 * * * *', handler: enebaCatalogSyncJob },
     // маржа dropship-игр: закупка Kinguin → Smart Pricing → цена витрины
     { name: 'dropship-reprice',     schedule: '20 */6 * * *', handler: dropshipRepriceJob },
+    // то же самое для вариантов покупки (Ключ/Аккаунт/Подарок) — dropship-reprice их пропускает
+    { name: 'dropship-variant-reprice', schedule: '35 */6 * * *', handler: dropshipVariantRepriceJob },
     // алерт в Telegram при низком балансе Kinguin
     { name: 'kinguin-balance-check', schedule: '10 */2 * * *', handler: kinguinBalanceCheckJob },
     // авто-повтор доставки застрявших dropship-заказов
