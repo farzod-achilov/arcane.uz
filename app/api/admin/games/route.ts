@@ -14,6 +14,7 @@ export async function GET(req: Request) {
   const status       = searchParams.get('status')       ?? 'ALL';   // ALL | ACTIVE | HIDDEN
   const delivery     = searchParams.get('delivery')     ?? 'ALL';   // ALL | AUTO | MANUAL | DROPSHIP
   const stock        = searchParams.get('stock')        ?? 'ALL';   // ALL | IN | OUT
+  const steam        = searchParams.get('steam')        ?? 'ALL';   // ALL | SET | MISSING — game_pricing.steamPriceUsd
   const sortBy       = searchParams.get('sortBy')       ?? 'createdAt';
   const sortDir      = searchParams.get('sortDir')      === 'asc' ? 'asc' : 'desc';
   const page         = Math.max(1, parseInt(searchParams.get('page') ?? '1'));
@@ -24,13 +25,22 @@ export async function GET(req: Request) {
   const limit        = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') ?? '20')));
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const where: any = {};
+  const AND: any[] = [];
   if (q) {
-    where.OR = [
-      { title:     { contains: q, mode: 'insensitive' } },
-      { developer: { contains: q, mode: 'insensitive' } },
-    ];
+    AND.push({
+      OR: [
+        { title:     { contains: q, mode: 'insensitive' } },
+        { developer: { contains: q, mode: 'insensitive' } },
+      ],
+    });
   }
+  // "MISSING" covers both no game_pricing row at all and a row with a null
+  // steamPriceUsd — both mean the storefront has nothing to compare against.
+  if (steam === 'SET')     AND.push({ game_pricing: { steamPriceUsd: { not: null } } });
+  if (steam === 'MISSING') AND.push({ OR: [{ game_pricing: null }, { game_pricing: { steamPriceUsd: null } }] });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const where: any = AND.length ? { AND } : {};
   if (status   === 'ACTIVE') where.isActive     = true;
   if (status   === 'HIDDEN') where.isActive     = false;
   if (delivery === 'AUTO')     where.deliveryType = 'AUTO';
@@ -52,6 +62,7 @@ export async function GET(req: Request) {
         priceUzs: true, priceUsd: true,
         isActive: true, stockStore: true, stockDrop: true, deliveryType: true,
         createdAt: true,
+        game_pricing: { select: { steamPriceUsd: true } },
         _count: { select: { order_items: true, game_keys: true } },
       },
       orderBy,

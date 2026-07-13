@@ -6,7 +6,7 @@ import Image from 'next/image';
 import {
   Search, Plus, Eye, EyeOff, Edit2, RefreshCw,
   CheckCircle2, AlertCircle, Clock, Zap, Hand, Truck, Package, X, Save, Loader2, Trash2,
-  ArrowUpDown, SlidersHorizontal, ToggleRight,
+  ArrowUpDown, SlidersHorizontal, ToggleRight, Tag,
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import AddGameModal from '@/components/admin/keys/AddGameModal';
@@ -28,6 +28,7 @@ interface GameRow {
   stockStore:   number;
   deliveryType: 'AUTO' | 'MANUAL' | 'DROPSHIP';
   createdAt:    string;
+  game_pricing: { steamPriceUsd: number | null } | null;
   _count:       { order_items: number; game_keys: number };
 }
 
@@ -595,6 +596,7 @@ function NukeModal({ total, onClose, onDone }: { total: number; onClose: () => v
 type StatusFilter   = 'ALL' | 'ACTIVE' | 'HIDDEN';
 type DeliveryFilter = 'ALL' | 'AUTO' | 'MANUAL' | 'DROPSHIP';
 type StockFilter    = 'ALL' | 'IN' | 'OUT';
+type SteamFilter    = 'ALL' | 'SET' | 'MISSING';
 type SortOption     = 'date_desc' | 'date_asc' | 'price_desc' | 'price_asc' | 'stock_desc' | 'stock_asc';
 
 const STATUS_TABS:   { id: StatusFilter;   label: string }[] = [
@@ -612,6 +614,11 @@ const STOCK_TABS:    { id: StockFilter;    label: string }[] = [
   { id: 'ALL', label: 'Все'          },
   { id: 'IN',  label: 'Есть ключи'  },
   { id: 'OUT', label: 'Нет ключей'  },
+];
+const STEAM_TABS:    { id: SteamFilter;    label: string }[] = [
+  { id: 'ALL',     label: 'Все'              },
+  { id: 'SET',     label: 'Цена Steam есть'  },
+  { id: 'MISSING', label: 'Цены Steam нет'   },
 ];
 const SORT_OPTIONS:  { id: SortOption; label: string }[] = [
   { id: 'date_desc',  label: 'Дата ↓'   },
@@ -640,6 +647,7 @@ export default function AdminProductsPage() {
   const [statusFilter,   setStatusFilter]   = useState<StatusFilter>('ALL');
   const [deliveryFilter, setDeliveryFilter] = useState<DeliveryFilter>('ALL');
   const [stockFilter,    setStockFilter]    = useState<StockFilter>('ALL');
+  const [steamFilter,    setSteamFilter]    = useState<SteamFilter>('ALL');
   const [sort,           setSort]           = useState<SortOption>('date_desc');
 
   const load = useCallback(async () => {
@@ -654,6 +662,7 @@ export default function AdminProductsPage() {
         status:   statusFilter,
         delivery: deliveryFilter,
         stock:    stockFilter,
+        steam:    steamFilter,
         ...(search ? { q: search } : {}),
       });
       const data = await fetch(`/api/admin/games?${params}`).then(r => r.json());
@@ -661,7 +670,7 @@ export default function AdminProductsPage() {
       setTotal(data.total ?? 0);
       setPages(data.pages ?? 1);
     } finally { setLoading(false); }
-  }, [page, search, statusFilter, deliveryFilter, stockFilter, sort]);
+  }, [page, search, statusFilter, deliveryFilter, stockFilter, steamFilter, sort]);
 
   useEffect(() => { load(); }, [load]); // eslint-disable-line
 
@@ -825,6 +834,26 @@ export default function AdminProductsPage() {
 
         <div className="h-3.5 w-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
 
+        {/* Steam price */}
+        <div className="flex items-center gap-1.5">
+          <Tag style={{ width: '11px', height: '11px', color: '#374151' }} />
+          <span className="font-body text-[#374151]" style={{ fontSize: '11px' }}>Steam:</span>
+          {STEAM_TABS.map(t => (
+            <button key={t.id} onClick={() => { setSteamFilter(t.id); setPage(1); }}
+              className="rounded-lg px-2.5 py-1 font-body transition-all duration-150"
+              style={{
+                fontSize: '11px',
+                background: steamFilter === t.id ? 'rgba(102,192,244,0.1)'  : 'rgba(255,255,255,0.03)',
+                border:    `1px solid ${steamFilter === t.id ? 'rgba(102,192,244,0.3)' : 'rgba(255,255,255,0.06)'}`,
+                color:      steamFilter === t.id ? '#66C0F4' : '#4B5563',
+              }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="h-3.5 w-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
+
         {/* Sort */}
         <div className="flex items-center gap-1.5">
           <ArrowUpDown style={{ width: '11px', height: '11px', color: '#374151' }} />
@@ -843,9 +872,9 @@ export default function AdminProductsPage() {
         </div>
 
         {/* Reset */}
-        {(statusFilter !== 'ALL' || deliveryFilter !== 'ALL' || stockFilter !== 'ALL' || sort !== 'date_desc') && (
+        {(statusFilter !== 'ALL' || deliveryFilter !== 'ALL' || stockFilter !== 'ALL' || steamFilter !== 'ALL' || sort !== 'date_desc') && (
           <button
-            onClick={() => { setStatusFilter('ALL'); setDeliveryFilter('ALL'); setStockFilter('ALL'); setSort('date_desc'); setPage(1); }}
+            onClick={() => { setStatusFilter('ALL'); setDeliveryFilter('ALL'); setStockFilter('ALL'); setSteamFilter('ALL'); setSort('date_desc'); setPage(1); }}
             className="ml-auto flex items-center gap-1.5 rounded-lg px-2.5 py-1 font-body transition-all hover:opacity-80"
             style={{ fontSize: '11px', color: '#EF4444', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.15)' }}
           >
@@ -908,9 +937,17 @@ export default function AdminProductsPage() {
                 </div>
 
                 {/* Price */}
-                <p className="font-heading font-semibold text-white" style={{ fontSize: '12.5px' }}>
-                  {game.priceUzs != null ? formatPrice(game.priceUzs) : '—'}
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="font-heading font-semibold text-white" style={{ fontSize: '12.5px' }}>
+                    {game.priceUzs != null ? formatPrice(game.priceUzs) : '—'}
+                  </p>
+                  <span title={game.game_pricing?.steamPriceUsd != null ? 'Есть цена Steam для сравнения' : 'Цена Steam не добавлена'}>
+                    <Tag
+                      className="w-3 h-3 flex-shrink-0"
+                      style={{ color: game.game_pricing?.steamPriceUsd != null ? '#66C0F4' : '#1F2937' }}
+                    />
+                  </span>
+                </div>
 
                 {/* Stock */}
                 <div className="flex items-center gap-1.5">
