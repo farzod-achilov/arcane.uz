@@ -10,7 +10,6 @@ import {
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import AddGameModal from '@/components/admin/keys/AddGameModal';
-import SupplierSyncPanel from '@/components/admin/SupplierSyncPanel';
 import { STRATEGY_META } from '@/lib/smartPricing/strategies';
 import type { PricingStrategy } from '@/lib/smartPricing/types';
 
@@ -751,14 +750,6 @@ export default function AdminProductsPage() {
           </button>
         </div>
       </div>
-
-      <SupplierSyncPanel
-        name="Digiseller"
-        statusEndpoint="/api/digiseller/sync"
-        syncEndpoint="/api/digiseller/sync"
-        disabledHint="добавьте DIGISELLER_SELLER_ID"
-        color="#7C3AED"
-      />
 
       {/* Search */}
       <div className="relative">
