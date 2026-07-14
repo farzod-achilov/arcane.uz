@@ -40,10 +40,11 @@ interface BulkRow {
   rawg:        RawgMatch | null;
   rawgSkipped: boolean;
   editing:     boolean;
-  status:      'idle' | 'creating' | 'done' | 'error';
+  status:      'idle' | 'creating' | 'done' | 'duplicate' | 'error';
   error?:      string;
   createdSlug?: string;
   createdPriceUzs?: number;
+  existingSlug?: string;
 }
 
 const STRATEGIES = Object.keys(STRATEGY_META) as PricingStrategy[];
@@ -89,7 +90,7 @@ interface TrendingGame extends FranchiseGame {
   added: number;
 }
 
-const MAX_BULK_TITLES = 25;
+const MAX_BULK_TITLES = 60;
 
 export default function BulkAddFlow() {
   // ── Franchise finder — populates the title list below from RAWG's
@@ -121,6 +122,13 @@ export default function BulkAddFlow() {
   const [rows,     setRows]     = useState<BulkRow[]>([]);
   const [strategy, setStrategy] = useState<PricingStrategy>('GLOBAL');
   const [running,  setRunning]  = useState(false);
+
+  // ── Quick add — skips per-row confirmation: unmatched RAWG rows are
+  // auto-skipped (Kinguin's own name used as-is) instead of asking the
+  // admin to tick each one, and creation starts automatically once
+  // matching settles ──
+  const [quickBusy, setQuickBusy] = useState(false);
+  const [quickError, setQuickError] = useState('');
 
   const searchFranchise = useCallback(async () => {
     if (fQuery.trim().length < 3) return;
@@ -195,7 +203,7 @@ export default function BulkAddFlow() {
       bulkText.split('\n').map(t => t.trim()).filter(t => t.length >= 3),
     ));
     if (!titles.length) { setBulkError('Введите хотя бы одно название (от 3 символов), по одному на строку'); return; }
-    if (titles.length > 25) { setBulkError('Максимум 25 тайтлов за раз'); return; }
+    if (titles.length > MAX_BULK_TITLES) { setBulkError(`Максимум ${MAX_BULK_TITLES} тайтлов за раз`); return; }
 
     setBulkLoading(true); setBulkError(''); setBulkRows(null);
     try {
@@ -280,10 +288,14 @@ export default function BulkAddFlow() {
   const readyToRun = rows.length > 0 && rows.every(r => r.rawg || r.rawgSkipped) && !running;
   const pendingCount = rows.filter(r => r.status !== 'done').length;
 
-  const runBulk = async (onlyFailed = false) => {
+  const runBulk = async (onlyFailed = false, sourceRows?: BulkRow[]) => {
+    const list = sourceRows ?? rows;
     setRunning(true);
-    for (const row of rows) {
-      if (row.status === 'done') continue;
+    let created = 0, duplicates = 0, failed = 0;
+    const createdTitles: string[] = [];
+
+    for (const row of list) {
+      if (row.status === 'done' || row.status === 'duplicate') continue;
       if (onlyFailed && row.status !== 'error') continue;
       if (!row.rawg && !row.rawgSkipped) continue;
 
@@ -312,30 +324,103 @@ export default function BulkAddFlow() {
           }),
         });
         const json = await res.json();
+        if (res.status === 409 && json.existing) {
+          updateRow(row.kinguin.kinguinId, { status: 'duplicate', existingSlug: json.existing.slug });
+          duplicates++;
+          continue;
+        }
         if (!res.ok || !json.ok) {
           updateRow(row.kinguin.kinguinId, { status: 'error', error: json.error ?? 'Ошибка создания' });
+          failed++;
           continue;
         }
         updateRow(row.kinguin.kinguinId, { status: 'done', createdSlug: json.game.slug, createdPriceUzs: json.game.priceUzs });
+        created++;
+        createdTitles.push(row.rawg?.title ?? row.kinguin.name);
       } catch {
         updateRow(row.kinguin.kinguinId, { status: 'error', error: 'Ошибка сети' });
+        failed++;
       }
     }
     setRunning(false);
+
+    if (created + duplicates + failed > 0) {
+      fetch('/api/admin/dropship/notify-batch', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ created, duplicates, failed, titles: createdTitles }),
+      }).catch(() => { /* уведомление необязательно */ });
+    }
+  };
+
+  // ── Quick add — one call instead of search → tick checkboxes → wait
+  // for RAWG → pick strategy → click create. Rows not found in RAWG are
+  // auto-skipped (created with Kinguin's own name) rather than blocking
+  // on a manual per-row decision. Reuses the same review-stage UI so
+  // progress/errors are still visible per row, just without the manual
+  // steps in between ──
+  const quickAddAll = async (titles: string[]) => {
+    const uniqueTitles = Array.from(new Set(
+      titles.map(t => t.trim()).filter(t => t.length >= 3),
+    )).slice(0, MAX_BULK_TITLES);
+    if (!uniqueTitles.length) return;
+
+    setQuickBusy(true); setQuickError('');
+    try {
+      const res  = await fetch('/api/admin/dropship/bulk-search-kinguin', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ titles: uniqueTitles }),
+      });
+      const json = await res.json();
+      if (!json.ok) { setQuickError(json.error ?? 'Ошибка поиска'); return; }
+
+      const picked: KinguinResult[] = json.results
+        .filter((r: { picked: KinguinResult | null }) => r.picked)
+        .map((r: { picked: KinguinResult | null }) => r.picked as KinguinResult);
+      if (!picked.length) { setQuickError('Ничего не подобралось на Kinguin для быстрого добавления'); return; }
+
+      const initialRows: BulkRow[] = picked.map(k => ({
+        kinguin: k, rQuery: k.name, rLoading: true, rResults: null,
+        rawg: null, rawgSkipped: false, editing: false, status: 'idle',
+      }));
+      setRows(initialRows);
+      setStage('review');
+
+      const resolvedRows = await Promise.all(initialRows.map(async row => {
+        const { results, top } = await fetchRawgMatch(row.kinguin.name);
+        const updated: BulkRow = { ...row, rLoading: false, rResults: results, rawg: top, rawgSkipped: !top };
+        setRows(prev => prev.map(r => r.kinguin.kinguinId === row.kinguin.kinguinId ? updated : r));
+        return updated;
+      }));
+
+      await runBulk(false, resolvedRows);
+    } catch {
+      setQuickError('Ошибка сети');
+    } finally {
+      setQuickBusy(false);
+    }
   };
 
   const reset = () => {
-    setBulkText(''); setBulkRows(null); setBulkError('');
+    setBulkText(''); setBulkRows(null); setBulkError(''); setQuickError('');
     setRows([]); setStage('search');
   };
 
   const doneCount  = rows.filter(r => r.status === 'done').length;
+  const dupCount   = rows.filter(r => r.status === 'duplicate').length;
   const errorCount = rows.filter(r => r.status === 'error').length;
-  const allSettled = rows.length > 0 && rows.every(r => r.status === 'done' || r.status === 'error');
+  const allSettled = rows.length > 0 && rows.every(r => r.status === 'done' || r.status === 'duplicate' || r.status === 'error');
 
   if (stage === 'search') {
     return (
       <>
+        {quickError && (
+          <div className="rounded-xl px-4 py-3 mb-4 font-body" style={{ fontSize: '12px', color: '#FCA5A5', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
+            {quickError}
+          </div>
+        )}
+
         {/* ── Franchise finder — seeds the title list below from RAWG's
             "other games in this series" data ── */}
         <div className="rounded-2xl p-5 mb-4" style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)' }}>
@@ -364,9 +449,16 @@ export default function BulkAddFlow() {
             <p className="font-body mt-2.5" style={{ fontSize: '12px', color: '#FCA5A5' }}>{fError}</p>
           )}
           {fApplied && (
-            <p className="font-body mt-2.5" style={{ fontSize: '12px', color: '#22C55E' }}>
-              Подставлено {fApplied.count} названий из серии «{fApplied.anchor}» — список ниже, можно поправить перед поиском
-            </p>
+            <div className="mt-2.5 flex items-center gap-2">
+              <p className="font-body flex-1" style={{ fontSize: '12px', color: '#22C55E' }}>
+                Подставлено {fApplied.count} названий из серии «{fApplied.anchor}» — список ниже, можно поправить перед поиском
+              </p>
+              <button onClick={() => quickAddAll(bulkText.split('\n'))} disabled={quickBusy || bulkLoading}
+                className="flex-shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-body text-white disabled:opacity-50"
+                style={{ fontSize: '11.5px', background: 'linear-gradient(135deg, #7C3AED, #5B21B6)' }}>
+                ⚡ Быстро добавить ({fApplied.count})
+              </button>
+            </div>
           )}
           {fResults && (
             <div className="mt-3 space-y-1.5 max-h-56 overflow-y-auto">
@@ -412,7 +504,17 @@ export default function BulkAddFlow() {
           )}
           {tResults && (
             <>
-              <div className="mt-3 space-y-1.5 max-h-72 overflow-y-auto">
+              <div className="flex items-center gap-3 mt-3 mb-1.5">
+                <button onClick={() => setTSelected(new Set(tResults.map(g => g.rawgId)))}
+                  className="font-body" style={{ fontSize: '11px', color: '#9CA3AF' }}>
+                  Выбрать все
+                </button>
+                <button onClick={() => setTSelected(new Set())}
+                  className="font-body" style={{ fontSize: '11px', color: '#9CA3AF' }}>
+                  Снять все
+                </button>
+              </div>
+              <div className="space-y-1.5 max-h-72 overflow-y-auto">
                 {tResults.map(g => {
                   const active = tSelected.has(g.rawgId);
                   return (
@@ -437,11 +539,19 @@ export default function BulkAddFlow() {
                   );
                 })}
               </div>
-              <button onClick={applyTrending} disabled={tSelected.size === 0}
-                className="w-full mt-3 flex items-center justify-center gap-2 rounded-xl py-2.5 font-heading font-semibold text-sm text-white disabled:opacity-50"
-                style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)' }}>
-                Добавить в список ({tSelected.size})
-              </button>
+              <div className="flex gap-2 mt-3">
+                <button onClick={applyTrending} disabled={tSelected.size === 0}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 font-heading font-semibold text-sm text-white disabled:opacity-50"
+                  style={{ background: 'rgba(255,255,255,0.06)' }}>
+                  Добавить в список ({tSelected.size})
+                </button>
+                <button onClick={() => quickAddAll((tResults ?? []).filter(g => tSelected.has(g.rawgId)).map(g => g.title))}
+                  disabled={tSelected.size === 0 || quickBusy}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 font-heading font-semibold text-sm text-white disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)' }}>
+                  ⚡ Быстро добавить ({tSelected.size})
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -461,12 +571,23 @@ export default function BulkAddFlow() {
           className="w-full rounded-xl px-4 py-3 font-body text-white text-sm outline-none resize-y"
           style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
         />
-        <button onClick={searchBulk} disabled={bulkLoading}
-          className="w-full mt-2.5 flex items-center justify-center gap-2 rounded-xl py-2.5 font-heading font-semibold text-sm text-white disabled:opacity-50"
-          style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)' }}>
-          {bulkLoading ? <Loader2 style={{ width: '14px', height: '14px' }} className="animate-spin" /> : <Search style={{ width: '14px', height: '14px' }} />}
-          {bulkLoading ? 'Ищу на Kinguin…' : 'Искать'}
-        </button>
+        <div className="flex gap-2 mt-2.5">
+          <button onClick={searchBulk} disabled={bulkLoading}
+            className="flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 font-heading font-semibold text-sm text-white disabled:opacity-50"
+            style={{ background: 'rgba(255,255,255,0.06)' }}>
+            {bulkLoading ? <Loader2 style={{ width: '14px', height: '14px' }} className="animate-spin" /> : <Search style={{ width: '14px', height: '14px' }} />}
+            {bulkLoading ? 'Ищу на Kinguin…' : 'Искать (с проверкой каждой)'}
+          </button>
+          <button onClick={() => quickAddAll(bulkText.split('\n'))} disabled={quickBusy || bulkLoading}
+            className="flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 font-heading font-semibold text-sm text-white disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)' }}>
+            {quickBusy ? <Loader2 style={{ width: '14px', height: '14px' }} className="animate-spin" /> : null}
+            ⚡ Быстрое добавление
+          </button>
+        </div>
+        <p className="font-body mt-2" style={{ fontSize: '10.5px', color: '#4B5563' }}>
+          Быстрое добавление само подбирает Kinguin и RAWG и сразу создаёт игры без проверки — то, что не нашлось в RAWG, добавится под названием Kinguin как есть
+        </p>
         {bulkError && (
           <p className="font-body mt-2.5" style={{ fontSize: '12px', color: '#FCA5A5' }}>{bulkError}</p>
         )}
@@ -562,7 +683,7 @@ export default function BulkAddFlow() {
   return (
     <>
       <div className="flex items-center justify-between mb-3">
-        <button onClick={() => setStage('search')} disabled={running}
+        <button onClick={() => setStage('search')} disabled={running || quickBusy}
           className="font-body text-[#6B7280] disabled:opacity-50" style={{ fontSize: '12px' }}>
           ← Назад к поиску
         </button>
@@ -576,6 +697,7 @@ export default function BulkAddFlow() {
                  background: '#0D0D16',
                  border: `1px solid ${
                    row.status === 'done' ? 'rgba(34,197,94,0.3)'
+                   : row.status === 'duplicate' ? 'rgba(245,158,11,0.3)'
                    : row.status === 'error' ? 'rgba(239,68,68,0.3)'
                    : row.rawg ? 'rgba(255,255,255,0.07)'
                    : row.rawgSkipped ? 'rgba(245,158,11,0.3)'
@@ -600,6 +722,7 @@ export default function BulkAddFlow() {
 
               {row.status === 'creating' && <Loader2 style={{ width: '16px', height: '16px', color: '#7C3AED' }} className="animate-spin flex-shrink-0" />}
               {row.status === 'done' && <CheckCircle2 style={{ width: '18px', height: '18px', color: '#22C55E' }} className="flex-shrink-0" />}
+              {row.status === 'duplicate' && <AlertTriangle style={{ width: '17px', height: '17px', color: '#F59E0B' }} className="flex-shrink-0" />}
               {row.status === 'error' && <XCircle style={{ width: '18px', height: '18px', color: '#EF4444' }} className="flex-shrink-0" />}
 
               {row.status === 'idle' && (
@@ -637,6 +760,17 @@ export default function BulkAddFlow() {
                 className="inline-flex items-center gap-1 mt-2 font-body" style={{ fontSize: '11.5px', color: '#06B6D4' }}>
                 Смотреть {row.createdPriceUzs != null && `· ${formatPrice(row.createdPriceUzs)}`} <ExternalLink style={{ width: '11px', height: '11px' }} />
               </Link>
+            )}
+            {row.status === 'duplicate' && (
+              <div className="mt-2 flex items-center gap-2">
+                <p className="font-body" style={{ fontSize: '11.5px', color: '#F59E0B' }}>Уже есть в каталоге</p>
+                {row.existingSlug && (
+                  <Link href={`/games/${row.existingSlug}`} target="_blank"
+                    className="inline-flex items-center gap-1 font-body" style={{ fontSize: '11.5px', color: '#06B6D4' }}>
+                    Открыть <ExternalLink style={{ width: '11px', height: '11px' }} />
+                  </Link>
+                )}
+              </div>
             )}
 
             {row.editing && row.status === 'idle' && (
@@ -722,6 +856,7 @@ export default function BulkAddFlow() {
             <div className="mt-4 flex items-center gap-2">
               <p className="font-body flex-1" style={{ fontSize: '13px', color: '#9CA3AF' }}>
                 Готово: <span style={{ color: '#22C55E' }}>{doneCount} добавлено</span>
+                {dupCount > 0 && <span style={{ color: '#F59E0B' }}> · {dupCount} уже были</span>}
                 {errorCount > 0 && <span style={{ color: '#F87171' }}> · {errorCount} с ошибкой</span>}
               </p>
               {errorCount > 0 && (

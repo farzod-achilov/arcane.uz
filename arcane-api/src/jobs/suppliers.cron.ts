@@ -190,3 +190,48 @@ export async function dropshipAutoRetryJob(): Promise<void> {
     logger.debug('[AutoRetryDropship] no stuck dropship orders');
   }
 }
+
+/**
+ * Автономное пополнение каталога: раз в день сам берёт трендовые
+ * игры (RAWG), подбирает чистый Steam-оффер на Kinguin и создаёт
+ * dropship-игру — без участия админа. Дневной лимит (10 игр) и
+ * "пропустить, если нет RAWG-матча" считаются НА СТОРОНЕ main app
+ * (/api/admin/dropship/auto-import) — здесь только расписание.
+ * Важно: лимит завязан на то, что этот джоб запускается максимум
+ * раз в день (см. schedule в scheduler.ts) — если когда-нибудь
+ * понадобится запускать чаще, дневной лимит нужно будет пересчитать
+ * иначе (сейчас он просто считает все kinguin-dropship игры,
+ * созданные сегодня, включая ручные через админку).
+ */
+export async function dropshipAutoImportJob(): Promise<void> {
+  if (!config.suppliers.syncSecret) {
+    logger.warn('[DropshipAutoImport] Skipping — SYNC_SECRET not configured');
+    return;
+  }
+
+  const res = await fetch(`${config.suppliers.mainAppUrl}/api/admin/dropship/auto-import`, {
+    method:  'POST',
+    headers: { 'x-sync-secret': config.suppliers.syncSecret },
+    signal:  AbortSignal.timeout(180_000),
+  });
+
+  const data = await res.json().catch(() => ({})) as {
+    ok?: boolean; error?: string; created?: number; duplicates?: number; skippedNoRawg?: number; failed?: number; reason?: string;
+  };
+
+  if (!res.ok || !data.ok) {
+    if (data.error && /не настроен/i.test(data.error)) {
+      logger.debug(`[DropshipAutoImport] ${data.error}`);
+      return;
+    }
+    logger.warn(`[DropshipAutoImport] failed: ${data.error ?? res.status}`);
+    return;
+  }
+
+  if (data.reason) {
+    logger.debug(`[DropshipAutoImport] ${data.reason}`);
+    return;
+  }
+
+  logger.info(`[DropshipAutoImport] +${data.created ?? 0} added, ${data.duplicates ?? 0} duplicates, ${data.skippedNoRawg ?? 0} skipped (no RAWG match), ${data.failed ?? 0} failed`);
+}

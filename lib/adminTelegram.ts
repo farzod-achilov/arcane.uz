@@ -182,6 +182,34 @@ export async function notifyAdminLowSupplierBalance(params: {
   await sendMessage(ADMIN_CHAT, text);
 }
 
+/** Notify admin about the result of a bulk dropship-add batch */
+export async function notifyAdminBulkAddSummary(params: {
+  created:    number;
+  duplicates: number;
+  failed:     number;
+  titles:     string[];
+}): Promise<void> {
+  const { created, duplicates, failed, titles } = params;
+  if (created + duplicates + failed === 0) return;
+
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  const lines = [
+    `📦 <b>МАССОВОЕ ДОБАВЛЕНИЕ ИГР</b>`,
+    ``,
+    `✅ Добавлено: <b>${created}</b>`,
+    duplicates > 0 ? `♻️ Уже были в каталоге: ${duplicates}` : '',
+    failed > 0 ? `❌ Ошибок: ${failed}` : '',
+  ];
+  if (titles.length) {
+    lines.push('', ...titles.slice(0, 20).map(t => `• ${esc(t)}`));
+    if (titles.length > 20) lines.push(`… и ещё ${titles.length - 20}`);
+  }
+  lines.push('', `🔗 Admin → /admin/dropship/add`);
+
+  await sendMessage(ADMIN_CHAT, lines.filter(Boolean).join('\n'));
+}
+
 /** Notify admin that a cron job has failed several times in a row */
 export async function notifyAdminJobFailure(params: {
   jobName:             string;

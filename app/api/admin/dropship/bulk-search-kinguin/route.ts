@@ -47,8 +47,8 @@ export async function POST(req: Request) {
   if (titles.length === 0) {
     return NextResponse.json({ ok: false, error: 'Нужен хотя бы один тайтл (от 3 символов)' }, { status: 400 });
   }
-  if (titles.length > 25) {
-    return NextResponse.json({ ok: false, error: 'Максимум 25 тайтлов за раз' }, { status: 400 });
+  if (titles.length > 60) {
+    return NextResponse.json({ ok: false, error: 'Максимум 60 тайтлов за раз' }, { status: 400 });
   }
 
   const results: TitleResult[] = [];
