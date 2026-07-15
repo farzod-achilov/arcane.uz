@@ -15,9 +15,15 @@ import { notifyAdminDepositNeedsReview } from '@/lib/adminTelegram';
    this is checked before anything else touches the DB.
 
    status values: success | fail | in_hold | hold_approved |
-   hold_returned. Only success/hold_approved credit the balance —
-   anything else (including unrecognized future statuses) is
-   logged and left for manual review rather than guessed at.
+   hold_returned. Only success/hold_approved credit the balance.
+
+   in_hold is Steam's own Trade Protection hold (up to 8 days when the
+   depositor's account doesn't meet Steam's "trusted" criteria — e.g. no
+   Mobile Authenticator for 7+ days — instant otherwise) — routine now
+   that this is common, not an admin-actionable problem, so it's just
+   recorded on the deposit row and left PENDING for the later
+   hold_approved/hold_returned webhook to resolve. hold_returned (trade
+   reverted) and any unrecognized status ARE left for manual review.
 ───────────────────────────────────────────────────────── */
 
 export const dynamic = 'force-dynamic';
@@ -60,8 +66,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  if (status === 'in_hold') {
+    // Routine Steam Trade Protection hold, not an admin problem — record
+    // it for visibility (support may need it if the customer asks "where's
+    // my balance") and wait for hold_approved/hold_returned. No expiresAt
+    // is ever set on skinsback deposits (see route.ts), so this can sit
+    // PENDING for the full hold window without getting auto-expired.
+    await prisma.deposit_requests.updateMany({
+      where: { id: orderId, status: 'PENDING' },
+      data:  { comment: `SkinsBack: в холде Steam Trade Protection (до 8 дней), ждём hold_approved`, updatedAt: new Date() },
+    });
+    return NextResponse.json({ ok: true, matched: false, hold: true });
+  }
+
   if (status !== 'success' && status !== 'hold_approved') {
-    // in_hold / hold_returned / unknown — не трогаем баланс, ждём финального статуса или разбираем руками
+    // hold_returned (trade reverted by Steam) / unknown — не трогаем баланс, разбираем руками
     notifyAdminDepositNeedsReview('SkinsBack', `Заявка ${orderId}: статус "${status}" — не зачислено автоматически`)
       .catch(() => {});
     return NextResponse.json({ ok: true, matched: false });
