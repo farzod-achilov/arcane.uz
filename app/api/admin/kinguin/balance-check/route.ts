@@ -38,6 +38,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: 'Kinguin is not configured' });
   }
 
+  // Temporary kill switch — balance is known to be low already, admin doesn't
+  // want repeat Telegram pings about it right now. Does NOT touch the actual
+  // fallback-to-manual-delivery safety net (lib/kinguin/kinguinService.ts) —
+  // orders still correctly divert to WAITING_MANUAL on insufficient balance,
+  // this only silences the proactive heads-up alert.
+  if (process.env.KINGUIN_LOW_BALANCE_ALERT_DISABLED === 'true') {
+    return NextResponse.json({ ok: true, alerted: false, note: 'alerts disabled via KINGUIN_LOW_BALANCE_ALERT_DISABLED' });
+  }
+
   const threshold = Number(process.env.KINGUIN_LOW_BALANCE_USD ?? DEFAULT_THRESHOLD_USD);
   const balance = await getBalance();
 
