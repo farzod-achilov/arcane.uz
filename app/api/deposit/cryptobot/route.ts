@@ -6,7 +6,7 @@ import { nanoid } from 'nanoid';
 import { rateLimit } from '@/lib/rateLimit';
 import { isCryptobotEnabled } from '@/lib/cryptobot/config';
 import { createInvoice } from '@/lib/cryptobot/client';
-import { getUsdToUzsRate } from '@/lib/shared/currency';
+import { getCurrencySettings } from '@/lib/smartPricing/repository';
 
 /* ─────────────────────────────────────────────────────────
    POST /api/deposit/cryptobot — start a balance top-up paid in
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   if (amount > 10_000_000)
     return NextResponse.json({ error: 'Максимальная сумма 10 000 000 сум' }, { status: 400 });
 
-  const rate      = getUsdToUzsRate();
+  const rate      = (await getCurrencySettings()).exchangeRate;
   const amountUsdt = Math.round((amount / rate) * 100) / 100;
   if (amountUsdt < 1) {
     return NextResponse.json({ error: 'Слишком маленькая сумма для оплаты в USDT' }, { status: 400 });

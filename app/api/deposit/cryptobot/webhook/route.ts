@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyWebhookSignature } from '@/lib/cryptobot/signature';
 import { approveDeposit } from '@/lib/deposits/p2p';
-import { getUsdToUzsRate } from '@/lib/shared/currency';
+import { getCurrencySettings } from '@/lib/smartPricing/repository';
 import { notifyAdminDepositNeedsReview } from '@/lib/adminTelegram';
 
 /* ─────────────────────────────────────────────────────────
@@ -68,7 +68,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, matched: false, reason: 'unexpected asset' });
   }
 
-  const creditedUzs = Math.round(paidAmount * getUsdToUzsRate() / 1000) * 1000;
+  const rate = (await getCurrencySettings()).exchangeRate;
+  const creditedUzs = Math.round(paidAmount * rate / 1000) * 1000;
 
   await prisma.deposit_requests.updateMany({
     where: { id: orderId, status: 'PENDING' },

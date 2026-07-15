@@ -6,7 +6,7 @@ import { nanoid } from 'nanoid';
 import { rateLimit } from '@/lib/rateLimit';
 import { isSkinsbackEnabled } from '@/lib/skinsback/config';
 import { createOrder } from '@/lib/skinsback/client';
-import { getUsdToUzsRate } from '@/lib/shared/currency';
+import { getCurrencySettings } from '@/lib/smartPricing/repository';
 
 /* ─────────────────────────────────────────────────────────
    POST /api/deposit/skinsback — start a balance top-up paid
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Максимальная сумма 10 000 000 сум' }, { status: 400 });
   }
 
-  const rate      = getUsdToUzsRate();
+  const rate      = (await getCurrencySettings()).exchangeRate;
   const amountUsd = amount != null ? Math.round((amount / rate) * 100) / 100 : undefined;
   if (amountUsd != null && amountUsd < 1) {
     return NextResponse.json({ error: 'Слишком маленькая сумма для оплаты скинами' }, { status: 400 });

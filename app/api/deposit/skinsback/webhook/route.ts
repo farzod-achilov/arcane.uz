@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifySignature } from '@/lib/skinsback/signature';
 import { approveDeposit } from '@/lib/deposits/p2p';
-import { getUsdToUzsRate } from '@/lib/shared/currency';
+import { getCurrencySettings } from '@/lib/smartPricing/repository';
 import { notifyAdminDepositNeedsReview } from '@/lib/adminTelegram';
 
 /* ─────────────────────────────────────────────────────────
@@ -92,7 +92,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
   }
 
-  const creditedUzs = Math.round(amountUsd * getUsdToUzsRate() / 1000) * 1000;
+  const rate = (await getCurrencySettings()).exchangeRate;
+  const creditedUzs = Math.round(amountUsd * rate / 1000) * 1000;
 
   // фиксируем сумму, пока заявка ещё PENDING — approveDeposit() ниже
   // идемпотентно защищает от повторной обработки того же вебхука
