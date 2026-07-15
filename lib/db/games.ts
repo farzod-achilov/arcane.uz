@@ -1,6 +1,7 @@
 import { unstable_cache } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { usdToUzs } from '@/lib/shared/currency';
+import { getCurrencySettings } from '@/lib/smartPricing/repository';
 import type { Prisma } from '@prisma/client';
 
 /* ── Shared select shape ── */
@@ -120,13 +121,18 @@ export async function getGameBySlug(slug: string) {
   });
   if (!game) return null;
 
-  // USD→UZS needs the server-only USD_TO_UZS env var — converted here so
-  // the 'use client' detail page never has to read it (would silently
-  // fall back to the default rate in the browser bundle).
+  // Converted server-side so the 'use client' detail page never touches the
+  // rate directly. Must use the same currency_settings rate Smart Pricing
+  // used for displayPriceUzs/variant prices — the "N% дешевле чем в Steam"
+  // badge (GameDetailClient.tsx) compares the two, so a mismatched rate
+  // here would silently misstate the discount shown to the customer.
   const steamPriceUsd = game.game_pricing?.steamPriceUsd;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { game_pricing: _pricing, ...rest } = game;
-  return { ...rest, steamPriceUzs: steamPriceUsd != null ? usdToUzs(Number(steamPriceUsd)) : null };
+  const steamPriceUzs = steamPriceUsd != null
+    ? usdToUzs(Number(steamPriceUsd), (await getCurrencySettings()).exchangeRate)
+    : null;
+  return { ...rest, steamPriceUzs };
 }
 
 /* ── Distinct genres (cached 5 min) ── */
