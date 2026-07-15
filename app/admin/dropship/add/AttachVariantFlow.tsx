@@ -263,8 +263,8 @@ export default function AttachVariantFlow() {
               <p className="font-body text-[#9CA3AF] mb-3" style={{ fontSize: '12px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                 3 · Название варианта
               </p>
-              <div className="flex gap-2 mb-3">
-                {['Ключ', 'Аккаунт'].map(preset => (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {['Ключ', 'Аккаунт', '1 месяц', '3 месяца', '12 месяцев'].map(preset => (
                   <button key={preset} onClick={() => setLabel(preset)}
                     className="rounded-xl px-3 py-1.5 font-body text-sm"
                     style={{

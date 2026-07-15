@@ -17,41 +17,65 @@ interface Props {
   platforms:   string[];
 }
 
-type PlatformKey = 'steam' | 'epic' | 'gog' | 'ubisoft';
+type PlatformKey = 'steam' | 'epic' | 'gog' | 'ubisoft' | 'xbox' | 'playstation' | 'other';
 
+// Falls back to Steam only for the generic 'PC'/empty default (see the
+// header comment above) — anything else unrecognized (subscription services
+// like Discord Nitro, Telegram Premium etc. with no PC launcher at all)
+// goes to 'other' instead of silently claiming it's Steam.
 function resolvePlatform(platforms: string[]): PlatformKey {
   const raw = (platforms[0] ?? '').toLowerCase();
-  if (raw.includes('epic'))    return 'epic';
-  if (raw.includes('gog'))     return 'gog';
-  if (raw.includes('ubisoft')) return 'ubisoft';
-  return 'steam';
+  if (raw.includes('epic'))                        return 'epic';
+  if (raw.includes('gog'))                          return 'gog';
+  if (raw.includes('ubisoft'))                      return 'ubisoft';
+  if (raw.includes('xbox'))                         return 'xbox';
+  if (raw.includes('playstation') || raw.includes('ps4') || raw.includes('ps5')) return 'playstation';
+  if (raw === '' || raw === 'pc' || raw.includes('steam')) return 'steam';
+  return 'other';
 }
 
-const PLATFORM_LABEL: Record<PlatformKey, string> = {
-  steam:   'Steam',
-  epic:    'Epic Games',
-  gog:     'GOG',
-  ubisoft: 'Ubisoft Connect',
+const PLATFORM_LABEL: Record<Exclude<PlatformKey, 'other'>, string> = {
+  steam:       'Steam',
+  epic:        'Epic Games',
+  gog:         'GOG',
+  ubisoft:     'Ubisoft Connect',
+  xbox:        'Xbox',
+  playstation: 'PlayStation',
 };
 
-const REDEEM_STEP: Record<PlatformKey, string> = {
-  steam:   'Откройте Steam → Игры → Активировать продукт в Steam',
-  epic:    'Откройте Epic Games Launcher или store.epicgames.com/redeem-code и введите код',
-  gog:     'Войдите на gog.com или в GOG Galaxy → Аккаунт → Активировать продукт',
-  ubisoft: 'Откройте Ubisoft Connect → Игры → Активировать продукт',
+// resolveLabel(), not a static table — 'other' uses the raw platform string
+// itself as an undeclined brand name (same as "Steam"/"GOG" above), since we
+// don't know in advance every subscription service this might be (Discord,
+// Telegram Premium, Spotify, ...) and a generic Russian noun would need to
+// decline differently in each sentence slot below.
+function resolveLabel(platform: PlatformKey, platforms: string[]): string {
+  if (platform === 'other') return platforms[0]?.trim() || 'сервис';
+  return PLATFORM_LABEL[platform];
+}
+
+const REDEEM_STEP: Record<Exclude<PlatformKey, 'other'>, string> = {
+  steam:       'Откройте Steam → Игры → Активировать продукт в Steam',
+  epic:        'Откройте Epic Games Launcher или store.epicgames.com/redeem-code и введите код',
+  gog:         'Войдите на gog.com или в GOG Galaxy → Аккаунт → Активировать продукт',
+  ubisoft:     'Откройте Ubisoft Connect → Игры → Активировать продукт',
+  xbox:        'Откройте Microsoft Store или xbox.com/redeem и введите код',
+  playstation: 'Откройте PlayStation Store на консоли или store.playstation.com → «Восстановить код»',
 };
+
+function resolveRedeemStep(platform: PlatformKey, label: string): string {
+  if (platform === 'other') return `Активируйте код на сайте или в приложении ${label} — если шаги нестандартные, уточните у поддержки`;
+  return REDEEM_STEP[platform];
+}
 
 const ICON: Record<ProductType, ElementType> = { KEY: Key, ACCOUNT: User, GIFT: GiftIcon };
 const COLOR: Record<ProductType, string> = { KEY: '#22C55E', ACCOUNT: '#06B6D4', GIFT: '#F59E0B' };
 
-function buildSteps(productType: ProductType, platform: PlatformKey): string[] {
-  const label = PLATFORM_LABEL[platform];
-
+function buildSteps(productType: ProductType, platform: PlatformKey, label: string): string[] {
   if (productType === 'KEY') {
     return [
       'Оплатите заказ',
       'Ключ придёт на email и появится в личном кабинете',
-      REDEEM_STEP[platform],
+      resolveRedeemStep(platform, label),
       'Введите полученный код и следуйте инструкциям на экране',
       'Игра появится в вашей библиотеке — можно скачивать',
     ];
@@ -81,10 +105,10 @@ function buildSteps(productType: ProductType, platform: PlatformKey): string[] {
 
 export default function ActivationGuide({ productType, isManual, platforms }: Props) {
   const platform = resolvePlatform(platforms);
-  const label    = PLATFORM_LABEL[platform];
+  const label    = resolveLabel(platform, platforms);
   const color    = COLOR[productType];
   const Icon     = ICON[productType];
-  const steps    = buildSteps(productType, platform);
+  const steps    = buildSteps(productType, platform, label);
 
   const title = productType === 'KEY'
     ? `Ключ активации ${label}`
