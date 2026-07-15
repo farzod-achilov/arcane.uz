@@ -10,9 +10,18 @@ import { buildSignature } from './signature';
    track separately).
 ───────────────────────────────────────────────────────── */
 
+// Skin prices are discrete/whatever the customer's inventory has — forcing
+// an exact target amount means most people can't hit it. Below this, we
+// let SkinsBack's own min/max define a wide range instead of pinning an
+// exact figure; whatever total actually gets paid comes back via the
+// webhook's `amount` field and is credited as-is (see the webhook route).
+const OPEN_MIN_USD = 0.5;
+const OPEN_MAX_USD = 5000;
+
 export interface CreateOrderParams {
   orderId:     string;
-  amountUsd:   number;
+  /** Omit for an open amount — customer picks any skins, any total */
+  amountUsd?:  number;
   successUrl:  string;
   failUrl:     string;
   resultUrl:   string;
@@ -34,11 +43,11 @@ export async function createOrder(params: CreateOrderParams): Promise<CreateOrde
     method:     'create',
     order_id:   params.orderId,
     currency:   'USD',
-    // min_amount = max_amount pins the deposit to an exact value —
-    // same "transfer exactly this much" pattern as the P2P card flow,
-    // just enforced by SkinsBack's own checkout instead of a unique sum.
-    min_amount: params.amountUsd.toFixed(2),
-    max_amount: params.amountUsd.toFixed(2),
+    // amountUsd given: pin min=max to that exact value (same "transfer
+    // exactly this much" pattern as the P2P card flow, enforced by
+    // SkinsBack's checkout). Omitted: open range, see OPEN_MIN/MAX_USD above.
+    min_amount: params.amountUsd != null ? params.amountUsd.toFixed(2) : OPEN_MIN_USD.toFixed(2),
+    max_amount: params.amountUsd != null ? params.amountUsd.toFixed(2) : OPEN_MAX_USD.toFixed(2),
     success_url: params.successUrl,
     fail_url:    params.failUrl,
     result_url:  params.resultUrl,

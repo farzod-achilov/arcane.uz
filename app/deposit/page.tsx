@@ -164,10 +164,13 @@ function DepositPageInner() {
     setLoading(true);
     setError('');
     try {
+      // Always open-amount — skin prices are discrete/whatever the
+      // customer's inventory has, so an exact UZS target picked on our own
+      // page beforehand would just be friction. See lib/skinsback/client.ts.
       const res = await fetch('/api/deposit/skinsback', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ amount: finalAmount }),
+        body:    JSON.stringify({}),
       });
       const d = await res.json();
       if (!res.ok) {
@@ -205,7 +208,8 @@ function DepositPageInner() {
   };
 
   const createDeposit = () => {
-    if (!finalAmount || finalAmount < 10_000) {
+    // Skins have no fixed target amount — see createSkinsbackDeposit()
+    if (method !== 'skinsback' && (!finalAmount || finalAmount < 10_000)) {
       setError('Минимальная сумма — 10 000 сум');
       return;
     }
@@ -477,8 +481,9 @@ function DepositPageInner() {
             </button>
             {SKINSBACK_ENABLED && (
               <button
-                onClick={() => { setMethod('skinsback'); setError(''); }}
-                className="flex items-center justify-center gap-2 rounded-xl py-3 font-heading font-semibold text-sm transition-all"
+                onClick={() => { setMethod('skinsback'); setError(''); createSkinsbackDeposit(); }}
+                disabled={loading}
+                className="flex items-center justify-center gap-2 rounded-xl py-3 font-heading font-semibold text-sm transition-all disabled:opacity-50"
                 style={{
                   background: method === 'skinsback' ? 'rgba(124,58,237,0.15)' : 'transparent',
                   border:     `1px solid ${method === 'skinsback' ? 'rgba(124,58,237,0.4)' : 'transparent'}`,
@@ -504,7 +509,8 @@ function DepositPageInner() {
           </div>
         )}
 
-        {/* Amount selection */}
+        {/* Amount selection — skins have no fixed target, see createSkinsbackDeposit() */}
+        {method !== 'skinsback' && (
         <div className="rounded-2xl p-5 mb-4" style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)' }}>
           <p className="font-body text-[#9CA3AF] mb-3" style={{ fontSize: '12px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
             Сумма
@@ -538,6 +544,7 @@ function DepositPageInner() {
             }}
           />
         </div>
+        )}
 
         {/* How it works */}
         <div className="flex items-start gap-2.5 rounded-xl p-4 mb-4"
@@ -549,8 +556,9 @@ function DepositPageInner() {
                 Переведите её с любого приложения — система распознает платёж по сумме
                 и пополнит баланс автоматически, обычно за 1–2 минуты.</>}
             {method === 'skinsback' &&
-              <>Вы попадёте на SkinsBack, где обмениваете предметы из инвентаря CS2 или Dota 2
-                на нужную сумму. После завершения сделки баланс пополнится автоматически.</>}
+              <>Вы попадёте на SkinsBack, где меняете любые предметы из инвентаря CS2 или Dota 2 —
+                сумма зависит от того, что вы выберете. Баланс пополнится ровно на неё автоматически
+                после завершения сделки.</>}
             {method === 'cryptobot' &&
               <>Вы попадёте в @CryptoBot в Telegram и оплатите точную сумму в USDT.
                 После подтверждения платежа в блокчейне баланс пополнится автоматически.</>}
@@ -568,7 +576,7 @@ function DepositPageInner() {
         {/* Submit */}
         <button
           onClick={createDeposit}
-          disabled={loading || !finalAmount}
+          disabled={loading || (method !== 'skinsback' && !finalAmount)}
           className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 font-heading font-bold text-white text-base transition-all hover:opacity-90 disabled:opacity-40"
           style={{ background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', boxShadow: '0 0 30px rgba(124,58,237,0.3)' }}
         >

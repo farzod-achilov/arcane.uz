@@ -13,9 +13,15 @@ import { getUsdToUzsRate } from '@/lib/shared/currency';
    with CS2/Dota2/Rust skins via SkinsBack.
 
    Same deposit_requests table as the P2P card flow — just a
-   different `method` and no card/uniqueAmount. Amount is pinned
-   exact (min_amount = max_amount) on SkinsBack's side, so whatever
-   the webhook reports back is trusted as the credited amount.
+   different `method` and no card/uniqueAmount.
+
+   `amount` is OPTIONAL: skin prices are discrete/whatever the customer's
+   inventory has, so forcing them to first pick an exact UZS target on our
+   own page (then match it with skins) is unnecessary friction — clicking
+   "Скины" can jump straight to SkinsBack with an open amount range (see
+   lib/skinsback/client.ts's OPEN_MIN/MAX_USD) and let the customer trade
+   whatever they want. Either way, whatever the webhook reports back is
+   trusted as the credited amount, not what was requested here.
 ───────────────────────────────────────────────────────── */
 
 export const dynamic = 'force-dynamic';
@@ -32,16 +38,18 @@ export async function POST(req: NextRequest) {
   }
 
   const body   = await req.json() as { amount?: number };
-  const amount = Math.round(body.amount ?? 0);
+  const amount = body.amount != null ? Math.round(body.amount) : null;
 
-  if (!amount || amount < 10_000)
-    return NextResponse.json({ error: 'Минимальная сумма 10 000 сум' }, { status: 400 });
-  if (amount > 10_000_000)
-    return NextResponse.json({ error: 'Максимальная сумма 10 000 000 сум' }, { status: 400 });
+  if (amount != null) {
+    if (amount < 10_000)
+      return NextResponse.json({ error: 'Минимальная сумма 10 000 сум' }, { status: 400 });
+    if (amount > 10_000_000)
+      return NextResponse.json({ error: 'Максимальная сумма 10 000 000 сум' }, { status: 400 });
+  }
 
-  const rate     = getUsdToUzsRate();
-  const amountUsd = Math.round((amount / rate) * 100) / 100;
-  if (amountUsd < 0.5) {
+  const rate      = getUsdToUzsRate();
+  const amountUsd = amount != null ? Math.round((amount / rate) * 100) / 100 : undefined;
+  if (amountUsd != null && amountUsd < 0.5) {
     return NextResponse.json({ error: 'Слишком маленькая сумма для оплаты скинами' }, { status: 400 });
   }
 
@@ -52,7 +60,7 @@ export async function POST(req: NextRequest) {
     data: {
       id,
       userId:    session.user.id,
-      amount,
+      amount:    amount ?? 0, // 0 = open amount, actual sum lands in uniqueAmount via the webhook
       method:    'skinsback',
       status:    'PENDING',
       updatedAt: new Date(),
