@@ -1,11 +1,12 @@
 import { isKinguinEnabled, KINGUIN_CONFIG } from './config';
 import { fetchAllProducts, fetchProductById, purchaseProduct, fetchBalance, buildTopUpUrl } from './client';
 import { mapProductsToArcane, cheapestInStockOffer, isBlockedInUzbekistan } from './productMapper';
-import { usdToUzs } from './pricingMapper';
 import { kinguinCache, CK } from './cache';
 import { products as mockProducts } from '@/lib/mockData';
 import { DEFAULT_PRICE_SETTINGS } from '@/lib/smartPricing/engine';
+import { getCurrencySettings } from '@/lib/smartPricing/repository';
 import { getEurUsdRate } from '@/lib/shared/fxRate';
+import { usdToUzs } from '@/lib/shared/currency';
 import type { Product } from '@/lib/types';
 import type { SyncResult, KinguinPurchaseResult } from './types';
 
@@ -145,9 +146,13 @@ export async function purchaseKey(externalId: string, expectedSalePriceUzs?: num
     // comparing against minimumProfitUsd, or this check understates the
     // real cost by ~the EUR/USD spread and can wave through a purchase
     // that's actually below the minimum profit (or a loss).
-    const eurUsdRate = await getEurUsdRate();
-    const actualCostUzs = usdToUzs(cheapest.price * eurUsdRate);
-    const minProfitUzs = usdToUzs(DEFAULT_PRICE_SETTINGS.minimumProfitUsd);
+    // Both conversions must use the same USD→UZS rate that Smart Pricing used
+    // to set expectedSalePriceUzs (currency_settings, live if auto-update is
+    // on) — mixing in the static USD_TO_UZS env fallback here would compare
+    // costs and sale price at two different rates and misfire this check.
+    const [eurUsdRate, currency] = await Promise.all([getEurUsdRate(), getCurrencySettings()]);
+    const actualCostUzs = usdToUzs(cheapest.price * eurUsdRate, currency.exchangeRate);
+    const minProfitUzs = usdToUzs(DEFAULT_PRICE_SETTINGS.minimumProfitUsd, currency.exchangeRate);
     if (actualCostUzs + minProfitUzs > expectedSalePriceUzs) {
       return {
         ok: false,
