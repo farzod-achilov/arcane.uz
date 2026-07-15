@@ -15,7 +15,9 @@ import { buildSignature } from './signature';
 // let SkinsBack's own min/max define a wide range instead of pinning an
 // exact figure; whatever total actually gets paid comes back via the
 // webhook's `amount` field and is credited as-is (see the webhook route).
-const OPEN_MIN_USD = 0.5;
+// $1 matches SkinsBack's own CS2/Dota2 minimum deal amount — sending anything
+// lower gets silently raised to it on their side anyway (see their /createorder docs).
+const OPEN_MIN_USD = 1;
 const OPEN_MAX_USD = 5000;
 
 export interface CreateOrderParams {

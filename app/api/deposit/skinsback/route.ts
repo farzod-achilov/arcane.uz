@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
 
   const rate      = getUsdToUzsRate();
   const amountUsd = amount != null ? Math.round((amount / rate) * 100) / 100 : undefined;
-  if (amountUsd != null && amountUsd < 0.5) {
+  if (amountUsd != null && amountUsd < 1) {
     return NextResponse.json({ error: 'Слишком маленькая сумма для оплаты скинами' }, { status: 400 });
   }
 
