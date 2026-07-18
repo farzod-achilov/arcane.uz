@@ -36,11 +36,11 @@ export default function GameCard({ game, index = 0 }: Props) {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.4, delay: index * 0.055, ease: 'easeOut' }}
-      className="group relative"
+      className="group relative h-full"
     >
-      <Link href={`/games/${game.slug}`}>
+      <Link href={`/games/${game.slug}`} className="block h-full">
         <div
-          className="relative overflow-hidden rounded-xl flex flex-col transition-all duration-300"
+          className="relative overflow-hidden rounded-xl flex flex-col h-full transition-all duration-300"
           style={{ background: '#0D0D16', border: '1px solid rgba(255,255,255,0.07)' }}
           onMouseEnter={(e) => {
             const el = e.currentTarget as HTMLElement;
@@ -106,7 +106,7 @@ export default function GameCard({ game, index = 0 }: Props) {
           </div>
 
           {/* Info */}
-          <div className="p-3 flex flex-col gap-2">
+          <div className="p-3 flex flex-col gap-2 flex-1">
             <h3 className="font-heading font-bold text-white line-clamp-2 leading-snug"
                 style={{ fontSize: '13.5px' }}>
               {game.title}
