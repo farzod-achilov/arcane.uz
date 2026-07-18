@@ -6,6 +6,8 @@ import { nanoid } from 'nanoid';
 import { prisma } from '@/lib/prisma';
 import { issueVerificationEmail } from '@/lib/emailVerification';
 import { createNotification } from '@/lib/notifications';
+import { verifyTurnstileToken } from '@/lib/turnstile/verify';
+import { issuePostRegisterBypass } from '@/lib/turnstile/postRegisterBypass';
 
 async function notifyReferrer(referrerId: string, newUsername: string) {
   const tgRow = await prisma.telegram_users.findUnique({
@@ -44,9 +46,14 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json() as {
-      name?: string; email?: string; password?: string; referralCode?: string;
+      name?: string; email?: string; password?: string; referralCode?: string; turnstileToken?: string;
     };
-    const { name, email, password, referralCode } = body;
+    const { name, email, password, referralCode, turnstileToken } = body;
+
+    const captchaOk = await verifyTurnstileToken(turnstileToken, req.headers.get('x-forwarded-for') ?? undefined);
+    if (!captchaOk) {
+      return NextResponse.json({ error: 'Подтвердите, что вы не робот' }, { status: 400 });
+    }
 
     if (!name?.trim() || name.trim().length < 2) {
       return NextResponse.json({ error: 'Имя должно содержать минимум 2 символа' }, { status: 400 });
@@ -160,7 +167,12 @@ export async function POST(req: NextRequest) {
       notifyReferrer(referrer.id, normalUsername).catch(() => {});
     }
 
-    return NextResponse.json({ success: true, user }, { status: 201 });
+    // Lets the client's immediate post-register auto-login skip re-solving
+    // Turnstile (tokens are single-use — already spent verifying THIS
+    // request) — see lib/turnstile/postRegisterBypass.ts.
+    const postRegisterBypassToken = issuePostRegisterBypass(user.email);
+
+    return NextResponse.json({ success: true, user, postRegisterBypassToken }, { status: 201 });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[auth/register]', msg);

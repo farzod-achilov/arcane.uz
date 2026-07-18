@@ -8,8 +8,10 @@ import { Mail, Lock, Eye, EyeOff, Send, Gamepad2, Zap, Shield } from 'lucide-rea
 import { toast } from 'sonner';
 import { useUser } from '@/lib/userContext';
 import CheckoutInput from '@/components/checkout/CheckoutInput';
+import TurnstileWidget from '@/components/ui/TurnstileWidget';
 
 const TG_BOT_ID = process.env.NEXT_PUBLIC_TELEGRAM_BOT_ID ?? '8889652013';
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? '';
 
 /* ── Floating particle ─────────────────────────────────── */
 function Particle({ delay, x, y, size, color }: {
@@ -46,6 +48,7 @@ export default function LoginPage() {
   const [error,    setError]    = useState('');
   const [remember, setRemember] = useState(false);
   const [mounted,  setMounted]  = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
 
   useEffect(() => setMounted(true), []);
 
@@ -84,6 +87,7 @@ export default function LoginPage() {
     if (!email.trim())               return 'Введите email';
     if (!/\S+@\S+\.\S+/.test(email)) return 'Некорректный email';
     if (password.length < 6)         return 'Пароль минимум 6 символов';
+    if (TURNSTILE_SITE_KEY && !turnstileToken) return 'Подтвердите, что вы не робот';
     return null;
   };
 
@@ -95,7 +99,7 @@ export default function LoginPage() {
     setLoading(true);
 
     const toastId = toast.loading('Выполняем вход…');
-    const ok = await login(email.trim(), password);
+    const ok = await login(email.trim(), password, turnstileToken || undefined);
     setLoading(false);
 
     if (ok) {
@@ -220,6 +224,16 @@ export default function LoginPage() {
                   Забыли пароль?
                 </Link>
               </div>
+
+              {TURNSTILE_SITE_KEY && (
+                <div className="flex justify-center">
+                  <TurnstileWidget
+                    siteKey={TURNSTILE_SITE_KEY}
+                    onVerify={(token) => { setTurnstileToken(token); setError(''); }}
+                    onExpire={() => setTurnstileToken('')}
+                  />
+                </div>
+              )}
 
               {/* Inline error */}
               <AnimatePresence>

@@ -34,9 +34,9 @@ interface UserContextType {
   notifications: Notification[];
   wishlist: string[];
   unreadCount: number;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string, turnstileToken?: string) => Promise<boolean>;
   logout: () => void;
-  register: (name: string, email: string, password: string, referralCode?: string) => Promise<{ ok: boolean; error?: string }>;
+  register: (name: string, email: string, password: string, referralCode?: string, turnstileToken?: string) => Promise<{ ok: boolean; error?: string }>;
   addToWishlist: (id: string) => void;
   removeFromWishlist: (id: string) => void;
   isInWishlist: (id: string) => boolean;
@@ -147,16 +147,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   /* ── Auth ── */
-  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
-    const result = await signIn('credentials', { redirect: false, email, password });
+  const login = useCallback(async (email: string, password: string, turnstileToken?: string): Promise<boolean> => {
+    const result = await signIn('credentials', { redirect: false, email, password, turnstileToken });
     return result?.ok ?? false;
   }, []);
 
-  const register = useCallback(async (name: string, email: string, password: string, referralCode?: string): Promise<{ ok: boolean; error?: string }> => {
+  const register = useCallback(async (name: string, email: string, password: string, referralCode?: string, turnstileToken?: string): Promise<{ ok: boolean; error?: string }> => {
     const res = await fetch('/api/auth/register', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ name, email, password, referralCode }),
+      body:    JSON.stringify({ name, email, password, referralCode, turnstileToken }),
     });
 
     if (!res.ok) {
@@ -164,7 +164,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
       return { ok: false, error: (data as { error?: string }).error ?? 'Ошибка регистрации' };
     }
 
-    const ok = await signIn('credentials', { redirect: false, email, password });
+    const data = await res.json() as { postRegisterBypassToken?: string };
+    // Reuses the bypass token /api/auth/register just issued instead of a
+    // fresh Turnstile token — see lib/turnstile/postRegisterBypass.ts.
+    const ok = await signIn('credentials', {
+      redirect: false, email, password,
+      postRegisterBypassToken: data.postRegisterBypassToken,
+    });
     if (!ok?.ok) return { ok: false, error: 'Не удалось войти после регистрации' };
 
     return { ok: true };
@@ -237,8 +243,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setUser((u) => u ? { ...u, coins: u.coins + amount } : u), []);
 
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-  const legacyLogin = useCallback(async (email: string, password: string): Promise<boolean> => {
-    return login(email, password);
+  const legacyLogin = useCallback(async (email: string, password: string, turnstileToken?: string): Promise<boolean> => {
+    return login(email, password, turnstileToken);
   }, [login]);
 
   return (

@@ -6,6 +6,9 @@ import { nanoid } from 'nanoid';
 import { prisma } from '@/lib/prisma';
 import { verifyTelegramRaw, decodeTgAuthResult, isTelegramAuthFresh } from '@/lib/telegram-auth';
 import { consumeSteamToken } from '@/lib/steamAuthTokens';
+import { isTurnstileEnabled } from '@/lib/turnstile/config';
+import { verifyTurnstileToken } from '@/lib/turnstile/verify';
+import { consumePostRegisterBypass } from '@/lib/turnstile/postRegisterBypass';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -172,14 +175,33 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: 'credentials',
       credentials: {
-        email:    { label: 'Email',    type: 'email' },
-        password: { label: 'Password', type: 'password' },
+        email:                   { label: 'Email',    type: 'email' },
+        password:                { label: 'Password', type: 'password' },
+        // Both optional/hidden — only meaningful once Turnstile is
+        // configured (isTurnstileEnabled()). postRegisterBypassToken lets
+        // register()'s immediate auto-login skip re-solving Turnstile
+        // right after /api/auth/register already verified a fresh token —
+        // see lib/turnstile/postRegisterBypass.ts.
+        turnstileToken:          { label: 'Turnstile', type: 'text' },
+        postRegisterBypassToken: { label: 'Bypass',    type: 'text' },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
+        const normalEmail = credentials.email.toLowerCase().trim();
+
+        if (isTurnstileEnabled()) {
+          const bypassOk = credentials.postRegisterBypassToken
+            ? consumePostRegisterBypass(credentials.postRegisterBypassToken, normalEmail)
+            : false;
+          if (!bypassOk) {
+            const captchaOk = await verifyTurnstileToken(credentials.turnstileToken);
+            if (!captchaOk) return null;
+          }
+        }
+
         const user = await prisma.users.findUnique({
-          where:  { email: credentials.email.toLowerCase().trim() },
+          where:  { email: normalEmail },
           select: {
             id: true, email: true, username: true, password: true,
             avatar: true, isAdmin: true, isBanned: true,

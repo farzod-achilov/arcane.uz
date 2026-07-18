@@ -3,17 +3,23 @@ import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { sendPasswordResetEmail } from '@/lib/email';
 import { rateLimit } from '@/lib/rateLimit';
+import { verifyTurnstileToken } from '@/lib/turnstile/verify';
 
 export async function POST(req: NextRequest) {
   const limited = rateLimit(req, { limit: 3, windowSec: 900 });
   if (limited) return limited;
 
   try {
-    const { email } = await req.json() as { email?: string };
+    const { email, turnstileToken } = await req.json() as { email?: string; turnstileToken?: string };
     const normalEmail = email?.toLowerCase().trim() ?? '';
 
     if (!normalEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalEmail)) {
       return NextResponse.json({ error: 'Введите корректный email' }, { status: 400 });
+    }
+
+    const captchaOk = await verifyTurnstileToken(turnstileToken, req.headers.get('x-forwarded-for') ?? undefined);
+    if (!captchaOk) {
+      return NextResponse.json({ error: 'Подтвердите, что вы не робот' }, { status: 400 });
     }
 
     const user = await prisma.users.findUnique({

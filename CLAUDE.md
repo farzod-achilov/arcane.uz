@@ -146,6 +146,10 @@ ENEBA_AUTH_SECRET=
 # Telegram notifications
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
+
+# Cloudflare Turnstile ("я не робот" — register/login/forgot-password, optional)
+TURNSTILE_SECRET_KEY=
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=
 ```
 
 ### Adding a new product

@@ -4,23 +4,28 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, ArrowLeft, Send, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
+import TurnstileWidget from '@/components/ui/TurnstileWidget';
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? '';
 
 export default function ForgotPasswordPage() {
   const [email,     setEmail]     = useState('');
   const [loading,   setLoading]   = useState(false);
   const [sent,      setSent]      = useState(false);
   const [error,     setError]     = useState('');
+  const [turnstileToken, setTurnstileToken] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
+    if (TURNSTILE_SITE_KEY && !turnstileToken) { setError('Подтвердите, что вы не робот'); return; }
     setLoading(true);
     setError('');
     try {
       const res  = await fetch('/api/auth/forgot-password', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ email }),
+        body:    JSON.stringify({ email, turnstileToken }),
       });
       const data = await res.json() as { success?: boolean; error?: string };
       if (!res.ok && data.error) { setError(data.error); return; }
@@ -134,6 +139,16 @@ export default function ForgotPasswordPage() {
                       />
                     </div>
                   </div>
+
+                  {TURNSTILE_SITE_KEY && (
+                    <div className="flex justify-center">
+                      <TurnstileWidget
+                        siteKey={TURNSTILE_SITE_KEY}
+                        onVerify={(token) => { setTurnstileToken(token); setError(''); }}
+                        onExpire={() => setTurnstileToken('')}
+                      />
+                    </div>
+                  )}
 
                   {/* Error */}
                   <AnimatePresence>

@@ -8,6 +8,9 @@ import { Mail, Lock, User as UserIcon, Eye, EyeOff, Zap, Star, Gift, Share2 } fr
 import { toast } from 'sonner';
 import { useUser } from '@/lib/userContext';
 import CheckoutInput from '@/components/checkout/CheckoutInput';
+import TurnstileWidget from '@/components/ui/TurnstileWidget';
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? '';
 
 /* ── Floating star ─────────────────────────────────────── */
 function FloatingStar({ x, y, delay, size }: { x: number; y: number; delay: number; size: number }) {
@@ -79,6 +82,7 @@ function RegisterForm() {
   const [loading,  setLoading] = useState(false);
   const [error,    setError]   = useState('');
   const [mounted,  setMounted] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
 
   useEffect(() => setMounted(true), []);
 
@@ -87,6 +91,7 @@ function RegisterForm() {
     if (!email.includes('@'))                    return 'Введите корректный email';
     if (password.length < 8)                     return 'Пароль минимум 8 символов';
     if (!agreed)                                 return 'Примите условия использования';
+    if (TURNSTILE_SITE_KEY && !turnstileToken)   return 'Подтвердите, что вы не робот';
     return null;
   };
 
@@ -98,7 +103,7 @@ function RegisterForm() {
     setLoading(true);
 
     const toastId = toast.loading('Создаём аккаунт…');
-    const result = await register(name.trim(), email.trim(), password, refCode || undefined);
+    const result = await register(name.trim(), email.trim(), password, refCode || undefined, turnstileToken || undefined);
     setLoading(false);
 
     if (result.ok) {
@@ -282,6 +287,16 @@ function RegisterForm() {
                   <Link href="/privacy" className="text-[#7C3AED] hover:text-[#9D60FA] transition-colors">политику конфиденциальности</Link>
                 </span>
               </label>
+
+              {TURNSTILE_SITE_KEY && (
+                <div className="flex justify-center">
+                  <TurnstileWidget
+                    siteKey={TURNSTILE_SITE_KEY}
+                    onVerify={(token) => { setTurnstileToken(token); setError(''); }}
+                    onExpire={() => setTurnstileToken('')}
+                  />
+                </div>
+              )}
 
               {/* Inline error */}
               <AnimatePresence>
