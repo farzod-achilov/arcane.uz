@@ -38,14 +38,22 @@ export default function TurnstileWidget({ siteKey, onVerify, onExpire }: Props) 
     let cancelled = false;
     let pollId: ReturnType<typeof setInterval> | null = null;
 
+    // On expiry/error Cloudflare shows its own "Сбой проверки" state and
+    // stops there without a page reload — reset() re-issues a fresh
+    // challenge in place instead of leaving the user stuck.
+    function retry() {
+      onExpire?.();
+      if (widgetIdRef.current && window.turnstile) window.turnstile.reset(widgetIdRef.current);
+    }
+
     function renderWidget() {
       if (cancelled || !containerRef.current || !window.turnstile || widgetIdRef.current) return;
       widgetIdRef.current = window.turnstile.render(containerRef.current, {
         sitekey:  siteKey,
         theme:    'dark',
         callback: (token: string) => onVerify(token),
-        'expired-callback': () => onExpire?.(),
-        'error-callback':   () => onExpire?.(),
+        'expired-callback': retry,
+        'error-callback':   retry,
       });
     }
 
